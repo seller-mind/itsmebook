@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --primary: 24 100% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 60% 55%;
+    --secondary-foreground: 0 0% 100%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-white text-gray-900 antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* 按钮样式 */
+  .btn-primary {
+    @apply bg-primary-orange text-white font-semibold py-3 px-8 rounded-full 
+           hover:bg-primary-dark transition-all duration-300 
+           shadow-lg hover:shadow-xl transform hover:-translate-y-0.5;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary-blue text-white font-semibold py-3 px-8 rounded-full 
+           hover:bg-secondary-dark transition-all duration-300 
+           shadow-lg hover:shadow-xl transform hover:-translate-y-0.5;
+  }
+
+  .btn-outline {
+    @apply border-2 border-primary-orange text-primary-orange font-semibold py-3 px-8 rounded-full 
+           hover:bg-primary-orange hover:text-white transition-all duration-300;
+  }
+
+  /* 卡片样式 */
+  .card {
+    @apply bg-white rounded-2xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl;
+  }
+
+  .card-hover {
+    @apply hover:transform hover:-translate-y-1;
+  }
+
+  /* 渐变背景 */
+  .gradient-primary {
+    @apply bg-gradient-to-br from-primary-orange to-primary-dark;
+  }
+
+  .gradient-hero {
+    @apply bg-gradient-to-br from-primary-light via-white to-secondary-light;
+  }
+
+  /* 文字渐变 */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-orange to-secondary-blue;
+  }
+
+  /* 输入框样式 */
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border-2 border-gray-200 
+           focus:border-primary-orange focus:outline-none 
+           transition-all duration-200;
+  }
+
+  .input-field::placeholder {
+    @apply text-gray-400;
+  }
+
+  /* 标签样式 */
+  .tag {
+    @apply inline-block px-4 py-1 rounded-full text-sm font-medium
+           bg-gray-100 text-gray-600 hover:bg-primary-light hover:text-primary-dark
+           transition-colors cursor-pointer;
+  }
+
+  .tag-active {
+    @apply bg-primary-orange text-white;
+  }
+}
+
+@layer utilities {
+  /* 动画延迟 */
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+
+  /* 滚动条美化 */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* 翻书动画 */
+.book-page {
+  transform-style: preserve-3d;
+  transition: transform 0.6s ease-in-out;
+}
+
+/* 星星闪烁动画 */
+@keyframes twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.twinkle {
+  animation: twinkle 2s ease-in-out infinite;
+}
+
+/* 云朵漂浮动画 */
+@keyframes cloud-float {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(20px); }
+}
+
+.cloud-float {
+  animation: cloud-float 8s ease-in-out infinite;
+}
+
+/* 进度条动画 */
+.progress-bar {
+  background: linear-gradient(
+    90deg,
+    #FF8C42 0%,
+    #FFD93D 50%,
+    #FF8C42 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shine 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-shine {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
