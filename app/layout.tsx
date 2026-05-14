@@ -13,6 +13,7 @@ const notoSans = Noto_Sans_SC({
 const notoSerif = Noto_Serif_SC({
   subsets: ["latin"],
   variable: "--font-noto-serif",
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
