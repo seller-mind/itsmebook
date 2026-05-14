@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useUser } from "@/lib/clerk";
 import { useDropzone } from "react-dropzone";
 import { v4 as uuidv4 } from "uuid";
 import ChildConsentModal from "@/components/ChildConsentModal";

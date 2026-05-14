@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useUser, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { useUser, SignInButton, SignUpButton, UserButton } from "@/lib/clerk";
 import { useState, useEffect } from "react";
 
 export default function Navbar() {

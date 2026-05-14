@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useUser } from "@/lib/clerk";
 import BookViewer, { BookPageData } from "@/components/BookViewer";
 import { AIDisclaimer } from "@/components/AIBadge";
 
