@@ -328,7 +328,7 @@ export default function CreatePage() {
               input: {
                 messages: [{ role: "user", content: requestContent }]
               },
-              parameters: { size: "768*768", n: 1 }
+              parameters: { size: "1024*1024", n: 1 }
             }),
           },
           45000 // 45秒超时
