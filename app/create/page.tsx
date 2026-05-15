@@ -289,7 +289,7 @@ export default function CreatePage() {
     });
   };
 
-  // 生成单张图片（带重试，支持参考图）
+  // 生成单张图片（带重试2次，支持参考图）
   const generateSingleImage = async (imagePrompt: string, pageIndex: number, photoBase64?: string): Promise<string> => {
     const dashscopeKey = process.env.NEXT_PUBLIC_DASHSCOPE_API_KEY;
     if (!dashscopeKey) {
@@ -297,8 +297,9 @@ export default function CreatePage() {
     }
 
     let lastError: Error | null = null;
-    // 尝试2次
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const maxRetries = 2; // 最多重试2次
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         // 构建content：如果有参考图，添加参考图+提示词；否则只用文本
         const promptPrefix = photoBase64
@@ -322,7 +323,7 @@ export default function CreatePage() {
               'Authorization': `Bearer ${dashscopeKey}`,
             },
             body: JSON.stringify({
-              model: "wan2.7-image-pro",
+              model: "wan2.7-image",
               input: {
                 messages: [{ role: "user", content: requestContent }]
               },
@@ -341,7 +342,14 @@ export default function CreatePage() {
         }
         // 如果响应不ok或者没有图片，尝试解析错误
         const errorText = await wanRes.text().catch(() => '');
-        lastError = new Error(`图片生成失败 (${wanRes.status}): ${errorText.slice(0, 100)}`);
+        // 区分账户欠费和其他错误
+        if (wanRes.status === 403 || errorText.includes('balance') || errorText.includes('quota') || errorText.includes('额度') || errorText.includes('余额')) {
+          lastError = new Error('账户余额不足或额度用尽，请联系管理员充值');
+        } else if (wanRes.status === 429) {
+          lastError = new Error('请求过于频繁，请稍后重试');
+        } else {
+          lastError = new Error(`图片生成失败 (${wanRes.status}): ${errorText.slice(0, 100)}`);
+        }
       } catch (e: unknown) {
         if (e instanceof Error) {
           lastError = e;
