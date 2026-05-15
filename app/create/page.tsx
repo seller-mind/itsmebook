@@ -190,14 +190,18 @@ export default function CreatePage() {
       }
 
       // 读取SSE流式响应
-      const reader = storyRes.body!.getReader();
+      if (!storyRes.body) {
+        throw new Error('服务器未返回流式响应');
+      }
+      const reader = storyRes.body.getReader();
       const decoder = new TextDecoder();
       let storyData: any = null;
       let streamBuffer = '';
       let fakeProgress = 0;
 
       // 启动故事生成进度动画
-      const storyProgressTimer2 = setInterval(() => {
+      let storyProgressTimer2: NodeJS.Timeout | null = null;
+      storyProgressTimer2 = setInterval(() => {
         fakeProgress = Math.min(fakeProgress + Math.random() * 2, 14);
         setGenerationProgress(Math.floor(fakeProgress));
       }, 800);
@@ -211,9 +215,10 @@ export default function CreatePage() {
         streamBuffer = messages.pop() || '';
 
         for (const msg of messages) {
-          if (!msg.startsWith('data: ')) continue;
+          const trimmed = msg.trim();
+          if (!trimmed.startsWith('data: ')) continue;
           try {
-            const event = JSON.parse(msg.slice(6));
+            const event = JSON.parse(trimmed.slice(6));
             if (event.type === 'delta') {
               // 收到增量文本，更新状态
               setGenerationStatus("正在构思故事...");
@@ -223,12 +228,16 @@ export default function CreatePage() {
               throw new Error(event.error);
             }
           } catch (e: any) {
-            if (e.message && !e.message.includes('JSON')) throw e;
+            // 只有error类型事件要throw，其他JSON解析失败静默忽略
+            if (e.message && !e.message.includes('JSON.parse') && e.message !== '故事生成失败') {
+              throw e;
+            }
+            // 非JSON行（如空行、注释等）直接跳过
           }
         }
       }
 
-      clearInterval(storyProgressTimer2);
+      if (storyProgressTimer2) clearInterval(storyProgressTimer2);
 
       if (!storyData) {
         throw new Error('故事生成失败：未收到完整数据');
@@ -327,6 +336,7 @@ export default function CreatePage() {
     } catch (error: any) {
       console.error('Generation error:', error);
       clearInterval(storyProgressTimer);
+      if (storyProgressTimer2) clearInterval(storyProgressTimer2);
       setIsGenerating(false);
       setGenerationProgress(0);
       alert(`绘本生成失败：${error.message || '请稍后重试'}`);
