@@ -21,14 +21,14 @@ const THEMES = [
   { id: "nature", name: "自然", emoji: "🌳", description: "探索大自然奥秘" },
 ];
 
-// 绘本风格
+// 绘本风格 - 按新顺序排列
 const STYLES = [
   { id: "watercolor", name: "水彩风格", emoji: "🎨", color: "from-pink-200 to-purple-200" },
   { id: "oil", name: "油画风格", emoji: "🖼️", color: "from-amber-200 to-orange-200" },
-  { id: "anime", name: "日系动漫", emoji: "✨", color: "from-blue-200 to-cyan-200" },
   { id: "chinese", name: "国风水墨", emoji: "🖌️", color: "from-green-200 to-teal-200" },
-  { id: "pastoral", name: "温暖田园", emoji: "🌻", color: "from-yellow-200 to-green-200" },
   { id: "fantasy", name: "梦幻童话", emoji: "🌈", color: "from-purple-200 to-pink-200" },
+  { id: "pastoral", name: "温暖田园", emoji: "🌻", color: "from-yellow-200 to-green-200" },
+  { id: "anime", name: "日系动漫", emoji: "✨", color: "from-blue-200 to-cyan-200" },
   { id: "minimalist", name: "简约现代", emoji: "⬜", color: "from-gray-200 to-slate-200" },
   { id: "nordic", name: "北欧极简", emoji: "❄️", color: "from-sky-200 to-indigo-200" },
 ];
@@ -221,10 +221,11 @@ export default function CreatePage() {
     return fullContent;
   };
 
-  // 并发生成图片（每批5张）
+  // 并发生成图片（每批5张，支持参考图）
   const generateImagesConcurrent = async (
     pages: Array<{ pageNumber: number; text: string; imagePrompt: string }>,
-    onProgress: (completed: number, total: number, status: string) => void
+    onProgress: (completed: number, total: number, status: string) => void,
+    photoBase64?: string
   ): Promise<Array<{ pageNumber: number; text: string; imageUrl: string }>> => {
     const results: Array<{ pageNumber: number; text: string; imageUrl: string }> = new Array(pages.length);
     const total = pages.length;
@@ -240,7 +241,7 @@ export default function CreatePage() {
       const batchPromises = batchPages.map(async (page, idx) => {
         const globalIndex = batchStart + idx;
         try {
-          const imageUrl = await generateSingleImage(page.imagePrompt, globalIndex);
+          const imageUrl = await generateSingleImage(page.imagePrompt, globalIndex, photoBase64);
           results[globalIndex] = { pageNumber: page.pageNumber, text: page.text, imageUrl };
         } catch (e: unknown) {
           console.error(`第${globalIndex + 1}页图片生成失败:`, e);
@@ -278,8 +279,18 @@ export default function CreatePage() {
     }
   };
 
-  // 生成单张图片（带重试）
-  const generateSingleImage = async (imagePrompt: string, pageIndex: number): Promise<string> => {
+  // File转base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // 生成单张图片（带重试，支持参考图）
+  const generateSingleImage = async (imagePrompt: string, pageIndex: number, photoBase64?: string): Promise<string> => {
     const dashscopeKey = process.env.NEXT_PUBLIC_DASHSCOPE_API_KEY;
     if (!dashscopeKey) {
       throw new Error('未配置图片生成API Key');
@@ -289,6 +300,19 @@ export default function CreatePage() {
     // 尝试2次
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
+        // 构建content：如果有参考图，添加参考图+提示词；否则只用文本
+        const promptPrefix = photoBase64
+          ? "请严格参考照片中孩子的面部特征（脸型、眼睛、发型、肤色），生成儿童绘本插画。"
+          : "";
+        const fullPrompt = promptPrefix + imagePrompt;
+
+        const requestContent = photoBase64
+          ? [
+              { image: photoBase64 } as const,
+              { text: fullPrompt } as const,
+            ]
+          : [{ text: fullPrompt }];
+
         const wanRes = await fetchWithTimeout(
           'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
           {
@@ -300,7 +324,7 @@ export default function CreatePage() {
             body: JSON.stringify({
               model: "wan2.7-image-pro",
               input: {
-                messages: [{ role: "user", content: [{ text: imagePrompt }] }]
+                messages: [{ role: "user", content: requestContent }]
               },
               parameters: { size: "1024*1024", n: 1 }
             }),
@@ -407,10 +431,17 @@ export default function CreatePage() {
 
       const { title, pages } = storyResult;
 
+      // 第3步：转换参考图为base64（如果有上传照片）
+      let photoBase64 = '';
+      if (photos.length > 0) {
+        setGenerationStatus("正在处理参考照片...");
+        photoBase64 = await fileToBase64(photos[0]);
+      }
+
       setGenerationProgress(20);
       setGenerationStatus("故事创作完成！开始绘制插图...");
 
-      // 第3步：并发生成插图
+      // 第4步：并发生成插图
       const pagesWithImages = await generateImagesConcurrent(
         pages,
         (completed, total, status) => {
@@ -418,7 +449,8 @@ export default function CreatePage() {
           const imgProgress = 20 + Math.floor((completed / total) * 70);
           setGenerationProgress(Math.min(imgProgress, 89));
           setGenerationStatus(status);
-        }
+        },
+        photoBase64
       );
 
       setGenerationProgress(90);

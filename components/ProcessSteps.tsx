@@ -68,14 +68,14 @@ export default function ProcessSteps() {
   }, [isVisible]);
 
   return (
-    <section id="features" className="py-20 bg-gradient-to-b from-gray-50 to-white">
+    <section id="features" className="py-12 bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* 标题区 */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8">
           <span className="text-secondary-blue font-medium mb-4 block">
             🚀 简单4步
           </span>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
             轻松创作专属绘本
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">

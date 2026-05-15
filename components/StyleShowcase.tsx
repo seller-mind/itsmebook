@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-// 绘本风格数据
+// 绘本风格数据 - 按新顺序排列
 const BOOK_STYLES = [
   {
     id: "watercolor",
@@ -21,20 +21,20 @@ const BOOK_STYLES = [
     image: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop",
   },
   {
-    id: "anime",
-    name: "日系动漫",
-    description: "明亮的色彩，可爱的角色",
-    emoji: "✨",
-    color: "from-blue-200 to-cyan-200",
-    image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&h=300&fit=crop",
-  },
-  {
     id: "chinese",
     name: "国风水墨",
     description: "淡雅的色彩，古典的韵味",
     emoji: "🖌️",
     color: "from-green-200 to-teal-200",
     image: "https://images.unsplash.com/photo-1580136579312-94651dfd596d?w=400&h=300&fit=crop",
+  },
+  {
+    id: "fantasy",
+    name: "梦幻童话",
+    description: "绚丽的色彩，魔法般的场景",
+    emoji: "🌈",
+    color: "from-purple-200 to-pink-200",
+    image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&h=300&fit=crop",
   },
   {
     id: "pastoral",
@@ -45,12 +45,12 @@ const BOOK_STYLES = [
     image: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400&h=300&fit=crop",
   },
   {
-    id: "fantasy",
-    name: "梦幻童话",
-    description: "绚丽的色彩，魔法般的场景",
-    emoji: "🌈",
-    color: "from-purple-200 to-pink-200",
-    image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&h=300&fit=crop",
+    id: "anime",
+    name: "日系动漫",
+    description: "明亮的色彩，可爱的角色",
+    emoji: "✨",
+    color: "from-blue-200 to-cyan-200",
+    image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&h=300&fit=crop",
   },
   {
     id: "minimalist",
@@ -85,7 +85,7 @@ export default function StyleShowcase() {
             找到属于你的绘本风格
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            从水彩到油画，从日系到国风，8种精心设计的绘本风格
+            从童话到国风，8种精心设计的绘本风格
             <br />
             让每一本绘本都独一无二
           </p>
