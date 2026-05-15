@@ -142,10 +142,10 @@ export default function PrivacyPage() {
             </p>
             <div className="mt-4 p-4 bg-gray-50 rounded-xl">
               <p className="text-gray-600">
-                <strong>邮箱：</strong> privacy@itsmebook.com
+                <strong>邮箱：</strong> haimozhouqiu@outlook.com
               </p>
               <p className="text-gray-600">
-                <strong>微信公众号：</strong> itsmebook
+                <strong>微信号：</strong> txd027
               </p>
             </div>
           </section>

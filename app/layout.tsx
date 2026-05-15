@@ -140,11 +140,11 @@ export default function RootLayout({
                   <ul className="space-y-2 text-gray-600">
                     <li className="flex items-center gap-2">
                       <span>📧</span>
-                      <span>contact@itsmebook.com</span>
+                      <a href="mailto:haimozhouqiu@outlook.com" className="hover:text-primary-orange transition-colors">haimozhouqiu@outlook.com</a>
                     </li>
                     <li className="flex items-center gap-2">
                       <span>💬</span>
-                      <span>微信公众号：itsmebook</span>
+                      <span>微信号：txd027</span>
                     </li>
                   </ul>
                 </div>
