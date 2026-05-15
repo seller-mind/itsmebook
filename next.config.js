@@ -30,6 +30,18 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'dashscope-7c2c.oss-accelerate.aliyuncs.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.oss-accelerate.aliyuncs.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.oss-cn-beijing.aliyuncs.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'dashscope.aliyuncs.com',
       },
     ],

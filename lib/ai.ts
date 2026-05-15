@@ -116,54 +116,66 @@ export async function generateImage(
   const apiKey = process.env.DASHSCOPE_API_KEY;
   const styleConfig = STYLE_CONFIGS[style] || STYLE_CONFIGS.watercolor;
 
-  // 构建万相API请求（wan2.7同步调用需要messages格式）
+  // 构建万相API请求（wan2.7 multimodal-generation端点，messages格式）
   const requestBody = {
     model: "wan2.7-image-pro",
     input: {
-      prompt: imagePrompt,
+      messages: [
+        {
+          role: "user",
+          content: [{ text: imagePrompt }]
+        }
+      ]
     },
     parameters: {
-      size: "1344x960",
-      extra: {
-        return_url: true,
-      },
-    },
+      size: "1024*1024",
+      n: 1
+    }
   };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 55000);
 
   let response: Response;
   try {
-    response = await fetch('https://dashscope.aliyuncs.com/api/v1/images/generations', {
+    response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify(requestBody),
+      signal: controller.signal,
     });
   } catch (apiError: any) {
+    clearTimeout(timeoutId);
+    if (apiError.name === 'AbortError') throw new Error('万相API请求超时');
     throw new Error(`万相API网络错误: ${apiError.message?.substring(0, 100)}`);
   }
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     const errorText = await response.text();
     if (response.status === 401) throw new Error('万相API密钥无效');
     if (response.status === 400) throw new Error(`万相API参数错误: ${errorText.substring(0, 100)}`);
-    throw new Error(`万相API错误: ${response.status}`);
+    throw new Error(`万相API错误: ${response.status} - ${errorText.substring(0, 100)}`);
   }
 
   const result = await response.json();
   
-  // 轮询任务状态获取结果
-  if (result.task_id) {
-    return pollWanxiangTask(result.task_id, apiKey);
+  // 万相2.7同步返回格式：output.choices[].message.content[].image
+  const imageUrl = result.output?.choices?.[0]?.message?.content?.[0]?.image;
+  if (imageUrl) {
+    return imageUrl;
   }
-  
-  // 同步返回
-  if (result.data?.image_url) {
-    return result.data.image_url;
+
+  // 如果是异步任务，需要轮询
+  const taskId = result.output?.task_id || (result.output?.task_status ? result.request_id : null);
+  if (taskId && (result.output?.task_status === 'PENDING' || result.output?.task_id)) {
+    return pollWanxiangTask(taskId, apiKey);
   }
-  
-  throw new Error('万相API返回格式异常');
+
+  throw new Error(`万相API返回格式异常: ${JSON.stringify(result).substring(0, 200)}`);
 }
 
 /**
