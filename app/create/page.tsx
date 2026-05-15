@@ -173,77 +173,13 @@ export default function CreatePage() {
           const err = await storyRes.json();
           errMsg = err.error || errMsg;
         } catch {
-          try {
-            const text = await storyRes.text();
-            if (text.includes('timeout') || text.includes('Timeout') || text.includes('504')) {
-              errMsg = '故事生成超时，请稍后重试';
-            } else if (text.includes('500')) {
-              errMsg = '服务器内部错误，请稍后重试';
-            } else {
-              errMsg = '服务器响应异常，请稍后重试';
-            }
-          } catch {
-            errMsg = '网络请求失败，请检查网络后重试';
-          }
+          errMsg = '服务器响应异常，请稍后重试';
         }
         throw new Error(errMsg);
       }
 
-      // 读取SSE流式响应
-      if (!storyRes.body) {
-        throw new Error('服务器未返回流式响应');
-      }
-      const reader = storyRes.body.getReader();
-      const decoder = new TextDecoder();
-      let storyData: any = null;
-      let streamBuffer = '';
-      let fakeProgress = 0;
-
-      // 启动故事生成进度动画
-      let storyProgressTimer2: NodeJS.Timeout | null = null;
-      storyProgressTimer2 = setInterval(() => {
-        fakeProgress = Math.min(fakeProgress + Math.random() * 2, 14);
-        setGenerationProgress(Math.floor(fakeProgress));
-      }, 800);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        streamBuffer += decoder.decode(value, { stream: true });
-        const messages = streamBuffer.split('\n\n');
-        streamBuffer = messages.pop() || '';
-
-        for (const msg of messages) {
-          const trimmed = msg.trim();
-          if (!trimmed.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(trimmed.slice(6));
-            if (event.type === 'delta') {
-              // 收到增量文本，更新状态
-              setGenerationStatus("正在构思故事...");
-            } else if (event.type === 'complete') {
-              storyData = event.data;
-            } else if (event.type === 'error') {
-              throw new Error(event.error);
-            }
-          } catch (e: any) {
-            // 只有error类型事件要throw，其他JSON解析失败静默忽略
-            if (e.message && !e.message.includes('JSON.parse') && e.message !== '故事生成失败') {
-              throw e;
-            }
-            // 非JSON行（如空行、注释等）直接跳过
-          }
-        }
-      }
-
-      if (storyProgressTimer2) clearInterval(storyProgressTimer2);
-
-      if (!storyData) {
-        throw new Error('故事生成失败：未收到完整数据');
-      }
-
-      const { title, pages, appearanceChinese } = storyData;
+      const storyResult = await storyRes.json();
+      const { title, pages, appearanceChinese } = storyResult.data;
 
       setGenerationProgress(15);
       setGenerationStatus("故事创作完成！开始绘制插图...");

@@ -65,7 +65,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 调用Doubao API（流式）
+    // 调用Doubao API（流式读取，但最终返回完整JSON给前端）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
     const doubaoRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
       method: 'POST',
       headers: {
@@ -83,9 +86,15 @@ export async function POST(request: NextRequest) {
         thinking: { type: "disabled" },
         stream: true,
       }),
+      signal: controller.signal,
+    }).catch(err => {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') throw new Error('Doubao API请求超时');
+      throw new Error(`Doubao API网络错误: ${err.message?.substring(0, 100)}`);
     });
 
     if (!doubaoRes.ok) {
+      clearTimeout(timeoutId);
       const errorText = await doubaoRes.text();
       let errMsg = `Doubao API错误 (${doubaoRes.status})`;
       if (doubaoRes.status === 401) errMsg = 'Doubao API密钥无效';
@@ -98,77 +107,56 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 创建流式响应：转发Doubao的SSE给前端
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = doubaoRes.body!.getReader();
-        const decoder = new TextDecoder();
-        const encoder = new TextEncoder();
-        let fullContent = '';
-        let buffer = '';
+    // 读取SSE流，拼接完整内容
+    const reader = doubaoRes.body!.getReader();
+    const decoder = new TextDecoder();
+    let fullContent = '';
+    let buffer = '';
 
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        if (!trimmed.startsWith('data: ')) continue;
         try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          const json = JSON.parse(trimmed.slice(6));
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) fullContent += delta;
+        } catch {}
+      }
+    }
+    clearTimeout(timeoutId);
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+    // 解析完整JSON
+    let jsonStr = fullContent.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return new Response(JSON.stringify({ error: '故事生成失败：无法解析内容' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || trimmed === 'data: [DONE]') continue;
-              if (!trimmed.startsWith('data: ')) continue;
+    const result = JSON.parse(jsonMatch[0]);
+    if (!result.appearanceChinese) result.appearanceChinese = appearanceChinese;
+    if (result.pages) {
+      result.pages = result.pages.map((page: any) => ({
+        ...page,
+        imagePrompt: page.imagePrompt?.replace(/\{wanchineseStyle\}/g, styleConfig.chinesePrompt) || page.imagePrompt
+      }));
+    }
 
-              try {
-                const json = JSON.parse(trimmed.slice(6));
-                const delta = json.choices?.[0]?.delta?.content;
-                if (delta) {
-                  fullContent += delta;
-                  // 转发delta给前端（前端可用作实时预览）
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'delta', content: delta })}\n\n`));
-                }
-              } catch {}
-            }
-          }
-
-          // 流结束，解析完整JSON
-          let jsonStr = fullContent.trim();
-          if (jsonStr.startsWith("```")) {
-            jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-          }
-          const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: '故事生成失败：无法解析内容' })}\n\n`));
-          } else {
-            const result = JSON.parse(jsonMatch[0]);
-            // 补充默认值
-            if (!result.appearanceChinese) result.appearanceChinese = appearanceChinese;
-            // 替换pages中的wanchineseStyle占位符
-            if (result.pages) {
-              result.pages = result.pages.map((page: any) => ({
-                ...page,
-                imagePrompt: page.imagePrompt?.replace(/\{wanchineseStyle\}/g, styleConfig.chinesePrompt) || page.imagePrompt
-              }));
-            }
-            // 发送最终结果
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'complete', data: result })}\n\n`));
-          }
-        } catch (error: any) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: error.message || '流式读取失败' })}\n\n`));
-        }
-
-        controller.close();
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+    // 返回普通JSON（非SSE）
+    return new Response(JSON.stringify({ success: true, data: result }), {
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message || "生成故事失败" }), {
