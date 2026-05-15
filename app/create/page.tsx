@@ -138,17 +138,140 @@ export default function CreatePage() {
     setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
   };
 
+  // 流式调用Doubao API生成故事
+  const streamDoubaoStory = async (
+    prompt: string,
+    apiKey: string,
+    endpointId: string,
+    onProgress: (content: string, progress: number) => void
+  ): Promise<string> => {
+    const controller = new AbortController();
+    // 120秒无数据则断开
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+    const response = await fetch(
+      'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: endpointId,
+          messages: [
+            { role: "system", content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。请直接输出最终结果，不要进行思考推理过程。" },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.85,
+          max_tokens: 8000,
+          thinking: { type: "disabled" },
+          stream: true, // 关键：开启流式
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`故事生成失败 (${response.status}): ${errorText.slice(0, 100)}`);
+    }
+
+    if (!response.body) {
+      throw new Error('故事生成失败：响应体为空');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullContent = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(trimmed.slice(6));
+            const content = data.choices?.[0]?.delta?.content || '';
+            if (content) {
+              fullContent += content;
+              // 根据已接收内容估算进度（故事一般1500-4000字）
+              const receivedLen = fullContent.length;
+              const estimatedTotal = 2500;
+              const progress = Math.min(15, Math.floor((receivedLen / estimatedTotal) * 15));
+              onProgress(fullContent, progress);
+            }
+          } catch {
+            // 忽略解析错误，继续处理下一行
+          }
+        }
+      }
+    }
+
+    return fullContent;
+  };
+
+  // 并发生成图片（每批5张）
+  const generateImagesConcurrent = async (
+    pages: Array<{ pageNumber: number; text: string; imagePrompt: string }>,
+    onProgress: (completed: number, total: number, status: string) => void
+  ): Promise<Array<{ pageNumber: number; text: string; imageUrl: string }>> => {
+    const results: Array<{ pageNumber: number; text: string; imageUrl: string }> = new Array(pages.length);
+    const total = pages.length;
+    const batchSize = 5;
+    let completed = 0;
+
+    for (let batchStart = 0; batchStart < total; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize, total);
+      const batchPages = pages.slice(batchStart, batchEnd);
+
+      onProgress(completed, total, `正在绘制第 ${batchStart + 1}-${batchEnd}/${total} 页插图...`);
+
+      const batchPromises = batchPages.map(async (page, idx) => {
+        const globalIndex = batchStart + idx;
+        try {
+          const imageUrl = await generateSingleImage(page.imagePrompt, globalIndex);
+          results[globalIndex] = { pageNumber: page.pageNumber, text: page.text, imageUrl };
+        } catch (e: unknown) {
+          console.error(`第${globalIndex + 1}页图片生成失败:`, e);
+          // 图片失败用占位图，不阻塞流程
+          results[globalIndex] = {
+            pageNumber: page.pageNumber,
+            text: page.text,
+            imageUrl: `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect fill="%23f3f4f6" width="400" height="400"/><text x="200" y="190" text-anchor="middle" fill="%239ca3af" font-size="16">图片生成失败</text><text x="200" y="220" text-anchor="middle" fill="%239ca3af" font-size="14">${page.text.slice(0, 20)}...</text></svg>`,
+          };
+        }
+        completed++;
+        onProgress(completed, total, `正在绘制第 ${batchStart + 1}-${batchEnd}/${total} 页插图...`);
+      });
+
+      await Promise.all(batchPromises);
+    }
+
+    return results;
+  };
+
   // 带超时的fetch
-  const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: number) => {
+  const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: number): Promise<Response> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(timeoutId);
       return res;
-    } catch (error: any) {
+    } catch (error: unknown) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(`请求超时（${timeoutMs / 1000}秒）`);
       }
       throw error;
@@ -182,7 +305,7 @@ export default function CreatePage() {
               parameters: { size: "1024*1024", n: 1 }
             }),
           },
-          60000 // 60秒超时
+          45000 // 45秒超时
         );
 
         if (wanRes.ok) {
@@ -195,12 +318,16 @@ export default function CreatePage() {
         // 如果响应不ok或者没有图片，尝试解析错误
         const errorText = await wanRes.text().catch(() => '');
         lastError = new Error(`图片生成失败 (${wanRes.status}): ${errorText.slice(0, 100)}`);
-      } catch (e: any) {
-        lastError = e;
+      } catch (e: unknown) {
+        if (e instanceof Error) {
+          lastError = e;
+        } else {
+          lastError = new Error(String(e));
+        }
       }
       
       // 如果不是超时错误，不重试
-      if (!lastError.message.includes('超时')) {
+      if (!lastError || !lastError.message.includes('超时')) {
         break;
       }
     }
@@ -208,18 +335,15 @@ export default function CreatePage() {
     throw lastError || new Error(`第${pageIndex + 1}页图片生成失败`);
   };
 
-  // 开始生成 - 前端直接调用API（绕过Vercel 10秒限制）
+  // 开始生成 - 流式API + 并发图片
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerationProgress(0);
     setGenerationStatus("正在构思故事...");
     setGenerationError("");
-    
-    // 清理可能存在的旧定时器
-    let storyProgressTimer: NodeJS.Timeout | null = null;
 
     try {
-      // 第1步：直接调用Doubao API生成故事（绕过Vercel 10秒限制）
+      // 第1步：准备参数
       const apiKey = process.env.NEXT_PUBLIC_VOLCENGINE_API_KEY;
       const endpointId = process.env.NEXT_PUBLIC_VOLCENGINE_ENDPOINT_ID || 'ep-20260515174520-v8rzv';
 
@@ -243,48 +367,20 @@ export default function CreatePage() {
         .replace("{styleChinese}", styleConfig.chinese)
         .replace("{wanchineseStyle}", styleConfig.chinesePrompt);
 
-      // 模拟故事生成阶段的进度（0→15%）
-      let fakeProgress = 0;
-      storyProgressTimer = setInterval(() => {
-        fakeProgress = Math.min(fakeProgress + Math.random() * 2, 14);
-        setGenerationProgress(Math.floor(fakeProgress));
-      }, 800);
-
-      // 更新状态提示
-      setGenerationStatus("正在等待AI构思故事（可能需要1-2分钟）...");
-
-      // 发起Doubao请求，带180秒超时
-      const doubaoRes = await fetchWithTimeout(
-        'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: endpointId,
-            messages: [
-              { role: "system", content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。请直接输出最终结果，不要进行思考推理过程。" },
-              { role: "user", content: prompt },
-            ],
-            temperature: 0.85,
-            max_tokens: 8000, // 增加token上限以支持20页故事
-            thinking: { type: "disabled" },
-          }),
-        },
-        180000 // 180秒超时
+      // 第2步：流式生成故事
+      setGenerationStatus("正在构思故事...");
+      
+      const content = await streamDoubaoStory(
+        prompt,
+        apiKey,
+        endpointId,
+        (partialContent, progress) => {
+          setGenerationProgress(progress);
+          const receivedChars = partialContent.length;
+          setGenerationStatus(`正在构思故事... 已收到${receivedChars}字`);
+        }
       );
 
-      if (storyProgressTimer) clearInterval(storyProgressTimer);
-
-      if (!doubaoRes.ok) {
-        const errorText = await doubaoRes.text();
-        throw new Error(`故事生成失败 (${doubaoRes.status}): ${errorText.slice(0, 100)}`);
-      }
-
-      const doubaoData = await doubaoRes.json();
-      let content = doubaoData.choices?.[0]?.message?.content;
       if (!content) {
         throw new Error('故事生成失败：返回内容为空');
       }
@@ -303,7 +399,7 @@ export default function CreatePage() {
       if (!storyResult.appearanceChinese) storyResult.appearanceChinese = appearanceChinese;
       // 替换pages中的wanchineseStyle占位符
       if (storyResult.pages) {
-        storyResult.pages = storyResult.pages.map((page: any) => ({
+        storyResult.pages = storyResult.pages.map((page: { pageNumber: number; text: string; imagePrompt?: string }) => ({
           ...page,
           imagePrompt: page.imagePrompt?.replace(/\{wanchineseStyle\}/g, styleConfig.chinesePrompt) || page.imagePrompt
         }));
@@ -311,63 +407,24 @@ export default function CreatePage() {
 
       const { title, pages } = storyResult;
 
-      setGenerationProgress(15);
+      setGenerationProgress(20);
       setGenerationStatus("故事创作完成！开始绘制插图...");
 
-      // 第2步：并发生成插图（每组4张）
-      const pagesWithImages: Array<{ pageNumber: number; text: string; imageUrl: string }> = [];
-      const totalPages = pages.length;
-      const batchSize = 4; // 每批4张并发
-      
-      for (let batchStart = 0; batchStart < totalPages; batchStart += batchSize) {
-        const batchEnd = Math.min(batchStart + batchSize, totalPages);
-        const currentBatch = batchEnd - batchStart;
-        const batchPages = pages.slice(batchStart, batchEnd);
-        
-        // 更新批次状态
-        setGenerationStatus(`正在绘制第 ${batchStart + 1}-${batchEnd}/${totalPages} 页插图（并发生成中）...`);
-        
-        // 模拟批次进度
-        let batchProgress = batchStart;
-        const batchProgressTimer = setInterval(() => {
-          batchProgress = Math.min(batchProgress + 0.5, batchEnd - 0.5);
-          const overallProgress = 15 + Math.floor((batchProgress / totalPages) * 77);
-          setGenerationProgress(Math.min(overallProgress, 91));
-        }, 500);
+      // 第3步：并发生成插图
+      const pagesWithImages = await generateImagesConcurrent(
+        pages,
+        (completed, total, status) => {
+          // 图片进度：20-90%
+          const imgProgress = 20 + Math.floor((completed / total) * 70);
+          setGenerationProgress(Math.min(imgProgress, 89));
+          setGenerationStatus(status);
+        }
+      );
 
-        // 并发生成当前批次图片
-        const batchPromises = batchPages.map(async (page: any, idx: number) => {
-          const pageIndex = batchStart + idx;
-          try {
-            const imageUrl = await generateSingleImage(page.imagePrompt, pageIndex);
-            return { success: true, pageIndex, pageNumber: page.pageNumber, text: page.text, imageUrl };
-          } catch (e: any) {
-            console.error(`第${pageIndex + 1}页图片生成失败:`, e);
-            return { success: false, pageIndex, pageNumber: page.pageNumber, text: page.text, imageUrl: '', error: e.message };
-          }
-        });
-
-        const batchResults = await Promise.all(batchPromises);
-        if (batchProgressTimer) clearInterval(batchProgressTimer);
-        
-        // 收集结果
-        batchResults.forEach(result => {
-          pagesWithImages.push({
-            pageNumber: result.pageNumber,
-            text: result.text,
-            imageUrl: result.imageUrl,
-          });
-        });
-
-        // 更新进度
-        const progress = 15 + Math.floor((batchEnd / totalPages) * 77);
-        setGenerationProgress(progress);
-      }
-
-      setGenerationProgress(92);
+      setGenerationProgress(90);
       setGenerationStatus("正在组装绘本...");
 
-      // 第3步：保存到localStorage
+      // 第4步：保存到localStorage
       const bookId = uuidv4();
       const bookData = {
         id: bookId,
@@ -383,21 +440,21 @@ export default function CreatePage() {
       };
       localStorage.setItem(`book_${bookId}`, JSON.stringify(bookData));
 
-      // 组装阶段模拟进度
-      for (let p = 92; p <= 100; p += 2) {
-        await new Promise(r => setTimeout(r, 100));
+      // 组装阶段
+      for (let p = 90; p <= 100; p += 5) {
+        await new Promise(r => setTimeout(r, 80));
         setGenerationProgress(p);
       }
       setGenerationStatus("绘本制作完成！正在跳转预览...");
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
       router.push(`/book/${bookId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Generation error:', error);
-      if (storyProgressTimer) clearInterval(storyProgressTimer);
+      const errorMessage = error instanceof Error ? error.message : '生成失败，请稍后重试';
       setIsGenerating(false);
       setGenerationProgress(0);
-      setGenerationError(error.message || '生成失败，请稍后重试');
+      setGenerationError(errorMessage);
     }
   };
 
@@ -837,7 +894,7 @@ export default function CreatePage() {
       {/* 儿童信息使用同意弹窗 */}
       <ChildConsentModal
         isOpen={showConsent}
-        onClose={() => setShowConsent(false)}
+        onCancel={() => setShowConsent(false)}
         onConfirm={handleConsentConfirm}
       />
     </div>
