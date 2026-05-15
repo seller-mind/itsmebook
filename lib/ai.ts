@@ -253,7 +253,7 @@ export async function generateStory(
     messages: [
       {
         role: "system",
-        content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。你的作品应该能直接出版，被图书馆收藏，被国际奖项提名。",
+        content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。你的作品应该能直接出版，被图书馆收藏，被国际奖项提名。请直接输出最终结果，不要进行思考推理过程。",
       },
       {
         role: "user",
@@ -261,7 +261,7 @@ export async function generateStory(
       },
     ],
     temperature: 0.85,
-    max_tokens: 4000,
+    max_tokens: 8000,
   }, {
     timeout: 50000, // 50秒超时
   });
@@ -277,7 +277,13 @@ export async function generateStory(
     jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   }
 
-  const result = JSON.parse(jsonStr);
+  // 尝试提取JSON对象（Doubao可能在JSON前后输出额外文字）
+  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error(`Doubao返回的内容无法解析为JSON，原始内容前200字: ${jsonStr.substring(0, 200)}`);
+  }
+
+  const result = JSON.parse(jsonMatch[0]);
   
   // 确保appearanceChinese被正确返回
   if (!result.appearanceChinese) {
