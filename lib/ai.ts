@@ -91,12 +91,12 @@ export const THEME_CONFIGS: Record<string, {
 // 国际大奖级故事生成Prompt（适配Doubao）
 export const STORY_PROMPT_TEMPLATE = `你是顶级儿童绘本作家。请根据以下参数创作绘本，只输出JSON，不要输出其他任何内容。
 
-参数：主题-{themeAngle}，主角-{characterName}（{age}岁{gender}，{appearance}），风格-{styleChinese}，8页。
+参数：主题-{themeAngle}，主角-{characterName}（{age}岁{gender}，{appearance}），风格-{styleChinese}，20页。
 
-要求：1)不说教，道理藏在故事里 2)1-2页建立困境，3-6页冒险冲突，7页转折，8页温暖收尾 3)每页10-30字，优美凝练适合朗读 4)主角外貌所有页面一致 5)构图多样：远景/中景/特写/俯视/仰视交替。
+要求：1)不说教，道理藏在故事里 2)1-2页建立日常与困境，3-12页冒险冲突（多段递进），13-17页深入危机与高潮，18-19页转折，20页温暖收尾 3)每页10-50字，优美凝练适合朗读 4)主角外貌所有页面一致 5)构图多样：远景/中景/特写/俯视/仰视交替。
 
 输出JSON：
-{"title":"标题5字内","appearanceChinese":"外貌描述(发型脸型眼睛肤色穿着)","pages":[{"pageNumber":1,"text":"中文10-30字","imagePrompt":"[外貌描述，与appearanceChinese一致], [动作表情], [场景前景中景背景], [氛围情绪], [光影], [构图], {wanchineseStyle}, 专业儿童绘本插画，手绘质感，温暖自然光，无多余手指，比例正确，角色一致"}]}`;
+{"title":"标题5字内","appearanceChinese":"外貌描述(发型脸型眼睛肤色穿着)","pages":[{"pageNumber":1,"text":"中文10-50字","imagePrompt":"[外貌描述，与appearanceChinese一致], [动作表情], [场景前景中景背景], [氛围情绪], [光影], [构图], {wanchineseStyle}, 专业儿童绘本插画，手绘质感，温暖自然光，无多余手指，比例正确，角色一致"}]}`;
 
 /**
  * 生成插图（使用万相2.7-image-pro）

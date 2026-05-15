@@ -19,42 +19,102 @@ const MOCK_BOOK_DATA = {
   pages: [
     {
       pageNumber: 1,
-      text: "小明住在一个美丽的小村庄里。一天，他在后院发现了一张神秘的地图。",
+      text: "小明住在一个美丽的小村庄里。一天清晨，他在后院发现了一张泛着微光的旧地图。",
       imageUrl: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800&h=800&fit=crop",
     },
     {
       pageNumber: 2,
-      text: "\"这张地图会指引我去哪里呢？\"小明好奇地问。",
+      text: "\"这张地图会指引我去哪里呢？\"小明好奇地问天上的云朵。云朵摇摇头，不肯告诉他。",
       imageUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=800&fit=crop",
     },
     {
       pageNumber: 3,
-      text: "小明跟着地图，穿过了密密的竹林。",
+      text: "地图上画着一座彩虹桥，通向一颗闪烁的星星。小明决定踏上这段奇妙的旅程。",
       imageUrl: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=800&h=800&fit=crop",
     },
     {
       pageNumber: 4,
-      text: "他来到了一座大山前，山脚下有一个闪闪发光的洞口。",
-      imageUrl: "https://images.unsplash.com/photo-1505506874110-6a7a69069a08?w=800&h=800&fit=crop",
-    },
-    {
-      pageNumber: 5,
-      text: "洞里住着一只可爱的小精灵，小精灵说：\"欢迎来到魔法世界！\"",
-      imageUrl: "https://images.unsplash.com/photo-1500462918059-b1a0cb512f1d?w=800&h=800&fit=crop",
-    },
-    {
-      pageNumber: 6,
-      text: "小精灵送给小明一颗神奇的星星种子。",
+      text: "小明跟着地图，穿过了密密的竹林。竹叶沙沙作响，像是在唱一首神秘的歌。",
       imageUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&h=800&fit=crop",
     },
     {
+      pageNumber: 5,
+      text: "竹林深处有一只会说话的小兔子，它戴着一顶魔法师帽子，正在地上画着什么。",
+      imageUrl: "https://images.unsplash.com/photo-1505506874110-6a7a69069a08?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 6,
+      text: "\"你要去星星那里吗？\"小兔子问道，\"我可以帮你画一扇传送门。\"",
+      imageUrl: "https://images.unsplash.com/photo-1500462918059-b1a0cb512f1d?w=800&h=800&fit=crop",
+    },
+    {
       pageNumber: 7,
-      text: "小明把种子种在了山顶上，种子马上发芽开花了。",
+      text: "小兔子挥动魔法棒，地上出现了一个闪闪发光的圆圈。小明深吸一口气，跳了进去。",
       imageUrl: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800&h=800&fit=crop",
     },
     {
       pageNumber: 8,
-      text: "整个村庄都被美丽的星光照亮了，大家都出来庆祝。小明成为了村庄里的小英雄！",
+      text: "穿过传送门，小明来到了一片漂浮在天空中的花园。到处都是发光的蝴蝶在翩翩起舞。",
+      imageUrl: "https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 9,
+      text: "\"欢迎来到云端花园！\"一只戴着眼镜的猫头鹰从书中抬起头来，\"我是这里的守护者。\"",
+      imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 10,
+      text: "猫头鹰告诉小明，要到达星星，必须先穿过迷雾森林，那里住着调皮的影子精灵。",
+      imageUrl: "https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 11,
+      text: "小明勇敢地走进迷雾森林，四周什么都看不清。\"嘻嘻嘻\"，影子精灵们躲在树后偷笑。",
+      imageUrl: "https://images.unsplash.com/photo-1502134249126-9f3755a50d78?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 12,
+      text: "影子精灵们吹灭了小明的灯笼，想让他迷路。但小明想起了妈妈教他的童谣。",
+      imageUrl: "https://images.unsplash.com/photo-1517783999520-f068d7431a60?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 13,
+      text: "小明唱起了歌，歌声越来越响亮。影子精灵们捂住耳朵，从树后跑了出来。",
+      imageUrl: "https://images.unsplash.com/photo-1474291103669-7fc568846da4?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 14,
+      text: "\"你的歌声真好听！\"影子精灵们不再捉弄他，反而想和他交朋友。",
+      imageUrl: "https://images.unsplash.com/photo-1518895312237-a9e23508077d?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 15,
+      text: "影子精灵们送给小明一颗会发光的萤石：\"拿着它，你就能看清前方的路了。\"",
+      imageUrl: "https://images.unsplash.com/photo-1473081556163-2a17de81fc97?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 16,
+      text: "有了萤石的指引，小明走出了迷雾森林。眼前出现了一座用彩虹建成的桥。",
+      imageUrl: "https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 17,
+      text: "桥的尽头有一扇巨大的门，门上镶嵌着无数闪闪发光的星星宝石。",
+      imageUrl: "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 18,
+      text: "小兔子、猫头鹰、还有影子精灵们，都跑来帮助小明。他们的友谊就是打开门的钥匙。",
+      imageUrl: "https://images.unsplash.com/photo-1516339901601-2e1b62dc0c45?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 19,
+      text: "小明把小精灵送的星星种子种在了后院最温暖的角落。种子马上发芽，开出了璀璨的花。",
+      imageUrl: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800&h=800&fit=crop",
+    },
+    {
+      pageNumber: 20,
+      text: "整个村庄都被美丽的星光照亮了，大家都出来看这片奇迹。小明成为了村庄里的小英雄，也明白了真正的勇气来自友谊和善良。",
       imageUrl: "https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?w=800&h=800&fit=crop",
     },
   ] as BookPageData[],

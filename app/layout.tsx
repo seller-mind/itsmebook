@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     template: "%s | 是我呀",
   },
   description:
-    "使用AI技术，为您的孩子创作独一无二的专属绘本。上传照片，选择风格，AI自动生成8-12页精美绘本故事。",
+    "使用AI技术，为您的孩子创作独一无二的专属绘本。上传照片，选择风格，AI自动生成20页精美绘本故事。",
   keywords: [
     "AI绘本",
     "儿童绘本",
