@@ -7,7 +7,6 @@ import { useDropzone } from "react-dropzone";
 import { v4 as uuidv4 } from "uuid";
 import ChildConsentModal from "@/components/ChildConsentModal";
 import { GenerationProgress } from "@/components/AIBadge";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
 
 // 故事主题
 const THEMES = [
@@ -33,41 +32,7 @@ const STYLES = [
   { id: "nordic", name: "北欧极简", emoji: "❄️", color: "from-sky-200 to-indigo-200" },
 ];
 
-// 保存绘本弹窗组件（仅未登录用户可见）
-function SavePromptModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-8 text-center animate-fade-in">
-        <span className="text-6xl mb-6 block">💾</span>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">
-          登录后即可保存绘本
-        </h3>
-        <p className="text-gray-600 mb-8">
-          创建账户可以保存您的绘本，随时查看和下载
-        </p>
-        <div className="flex flex-col gap-3">
-          <SignUpButton mode="modal">
-            <button className="w-full btn-primary py-3">
-              免费注册
-            </button>
-          </SignUpButton>
-          <SignInButton mode="modal">
-            <button className="w-full btn-outline py-3">
-              已有账号？登录
-            </button>
-          </SignInButton>
-          <button
-            onClick={onClose}
-            className="w-full text-gray-500 hover:text-gray-700 py-2 text-sm"
-          >
-            稍后再说
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+
 
 export default function CreatePage() {
   const router = useRouter();
@@ -91,7 +56,6 @@ export default function CreatePage() {
   // 弹窗状态
   const [showConsent, setShowConsent] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
-  const [showSavePrompt, setShowSavePrompt] = useState(false);
 
   // 生成状态
   const [isGenerating, setIsGenerating] = useState(false);
@@ -172,24 +136,27 @@ export default function CreatePage() {
 
   // 开始生成
   const handleGenerate = async () => {
-    // 检查登录状态，未登录则弹窗提示
-    if (!isSignedIn) {
-      setShowSavePrompt(true);
-      return;
-    }
-
     setIsGenerating(true);
     setGenerationProgress(0);
 
-    // 模拟生成进度
+    // 模拟生成进度 - 更细腻的分步反馈
     const statusUpdates = [
-      { progress: 10, status: "正在分析照片特征..." },
-      { progress: 30, status: "正在生成故事文本..." },
-      { progress: 50, status: "正在创作绘本插图 (1/8)..." },
-      { progress: 65, status: "正在创作绘本插图 (3/8)..." },
-      { progress: 80, status: "正在创作绘本插图 (6/8)..." },
-      { progress: 95, status: "正在组装绘本..." },
-      { progress: 100, status: "完成！正在跳转..." },
+      { progress: 5, status: "正在上传照片..." },
+      { progress: 12, status: "正在识别照片中的孩子特征..." },
+      { progress: 20, status: "正在构思故事大纲..." },
+      { progress: 28, status: "正在撰写故事文本..." },
+      { progress: 35, status: "故事文本生成完成！" },
+      { progress: 40, status: "正在创作第 1 页插图..." },
+      { progress: 48, status: "正在创作第 2 页插图..." },
+      { progress: 55, status: "正在创作第 3 页插图..." },
+      { progress: 62, status: "正在创作第 4 页插图..." },
+      { progress: 68, status: "正在创作第 5 页插图..." },
+      { progress: 74, status: "正在创作第 6 页插图..." },
+      { progress: 80, status: "正在创作第 7 页插图..." },
+      { progress: 86, status: "正在创作第 8 页插图..." },
+      { progress: 92, status: "所有插图创作完成！" },
+      { progress: 96, status: "正在组装完整绘本..." },
+      { progress: 100, status: "绘本制作完成！正在跳转预览..." },
     ];
 
     for (const update of statusUpdates) {
@@ -534,12 +501,77 @@ export default function CreatePage() {
             </div>
           </div>
         ) : (
-          /* 生成中状态 */
-          <div className="py-20">
-            <GenerationProgress
-              progress={generationProgress}
-              status={generationStatus}
-            />
+          /* 生成中状态 - 全屏沉浸式 */
+          <div className="py-16">
+            <div className="max-w-lg mx-auto">
+              {/* 主图标动画 */}
+              <div className="text-center mb-10">
+                <div className="relative inline-block">
+                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center mx-auto shadow-2xl animate-pulse">
+                    <span className="text-5xl">📚</span>
+                  </div>
+                  {/* 旋转光圈 */}
+                  <div className="absolute inset-0 w-28 h-28 mx-auto rounded-full border-4 border-dashed border-orange-300 animate-spin" style={{ animationDuration: '3s' }}></div>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mt-6">AI正在创作绘本</h2>
+                <p className="text-gray-500 mt-2">预计需要1-2分钟，请耐心等待...</p>
+              </div>
+
+              {/* 实时状态 */}
+              <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-3 h-3 rounded-full bg-green-500 animate-ping"></div>
+                  <span className="text-sm font-medium text-green-600">实时进度</span>
+                </div>
+                <p className="text-lg font-medium text-gray-800 mb-4">{generationStatus}</p>
+                
+                {/* 进度条 */}
+                <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="absolute left-0 top-0 h-full bg-gradient-to-r from-orange-400 to-pink-500 rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${generationProgress}%` }}
+                  ></div>
+                  {/* 流光效果 */}
+                  <div className="absolute top-0 h-full w-20 opacity-30 bg-gradient-to-r from-transparent via-white to-transparent animate-shimmer" style={{ left: `${generationProgress - 10}%` }}></div>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">0%</span>
+                  <span className="font-bold text-orange-500">{generationProgress}%</span>
+                  <span className="text-gray-400">100%</span>
+                </div>
+              </div>
+
+              {/* 步骤清单 */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <div className="space-y-4">
+                  {[
+                    { icon: "📷", step: "上传并分析照片", done: generationProgress > 12 },
+                    { icon: "📝", step: "生成故事文本", done: generationProgress > 35 },
+                    { icon: "🎨", step: "创作8页绘本插图", done: generationProgress > 92 },
+                    { icon: "📖", step: "组装完整绘本", done: generationProgress >= 100 },
+                  ].map((item, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all duration-300 ${
+                        item.done ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                        {item.done ? '✅' : item.icon}
+                      </div>
+                      <span className={`text-sm transition-all duration-300 ${
+                        item.done ? 'text-gray-800 font-medium' : 'text-gray-400'
+                      }`}>
+                        {item.step}
+                      </span>
+                      {item.done && <span className="ml-auto text-green-500 text-xs">完成</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 温馨提示 */}
+              <p className="text-center text-xs text-gray-400 mt-6">
+                💡 请不要关闭此页面，绘本正在为您精心制作中
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -551,11 +583,6 @@ export default function CreatePage() {
         onCancel={() => setShowConsent(false)}
       />
 
-      {/* 保存提示弹窗（未登录时） */}
-      <SavePromptModal
-        isOpen={showSavePrompt}
-        onClose={() => setShowSavePrompt(false)}
-      />
     </div>
   );
 }
