@@ -2,7 +2,7 @@
 // 使用Doubao-Seed-2.0-Lite生成故事文本（关闭深度思考模式），万相2.7生成插图
 
 // 风格配置映射 - 结构化对象（适配万相中文prompt）
-const STYLE_CONFIGS: Record<string, { 
+export const STYLE_CONFIGS: Record<string, { 
   chinese: string;       // 中文风格名+描述，用于故事prompt和万相图片
   chinesePrompt: string; // 万相中文图片prompt，更符合中文绘本审美
 }> = {
@@ -41,7 +41,7 @@ const STYLE_CONFIGS: Record<string, {
 };
 
 // 主题配置映射
-const THEME_CONFIGS: Record<string, {
+export const THEME_CONFIGS: Record<string, {
   chinese: string;
   english: string;
   storyAngle: string;  // 给故事模型的故事切入角度
@@ -89,7 +89,7 @@ const THEME_CONFIGS: Record<string, {
 };
 
 // 国际大奖级故事生成Prompt（适配Doubao）
-const STORY_PROMPT_TEMPLATE = `你是顶级儿童绘本作家。请根据以下参数创作绘本，只输出JSON，不要输出其他任何内容。
+export const STORY_PROMPT_TEMPLATE = `你是顶级儿童绘本作家。请根据以下参数创作绘本，只输出JSON，不要输出其他任何内容。
 
 参数：主题-{themeAngle}，主角-{characterName}（{age}岁{gender}，{appearance}），风格-{styleChinese}，8页。
 
@@ -97,185 +97,6 @@ const STORY_PROMPT_TEMPLATE = `你是顶级儿童绘本作家。请根据以下�
 
 输出JSON：
 {"title":"标题5字内","appearanceChinese":"外貌描述(发型脸型眼睛肤色穿着)","pages":[{"pageNumber":1,"text":"中文10-30字","imagePrompt":"[外貌描述，与appearanceChinese一致], [动作表情], [场景前景中景背景], [氛围情绪], [光影], [构图], {wanchineseStyle}, 专业儿童绘本插画，手绘质感，温暖自然光，无多余手指，比例正确，角色一致"}]}`;
-
-/**
- * 读取Doubao的SSE流式响应，拼接完整内容
- */
-async function readSSEStream(response: Response): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error('无法读取响应流');
-
-  const decoder = new TextDecoder();
-  let fullContent = '';
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    
-    // SSE格式：每行以 "data: " 开头
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || ''; // 最后一行可能不完整，保留到下次
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed === 'data: [DONE]') continue;
-      if (!trimmed.startsWith('data: ')) continue;
-
-      try {
-        const json = JSON.parse(trimmed.slice(6)); // 去掉 "data: " 前缀
-        const delta = json.choices?.[0]?.delta?.content;
-        if (delta) {
-          fullContent += delta;
-        }
-      } catch {
-        // 忽略解析失败的行（可能是非JSON的SSE注释等）
-      }
-    }
-  }
-
-  return fullContent;
-}
-
-/**
- * 生成绘本故事（使用Doubao-Seed-2.0-Lite，关闭深度思考模式）
- * @param characterName 角色名字
- * @param age 年龄
- * @param theme 主题
- * @param style 风格
- * @param gender 性别
- * @param appearance 外貌描述
- * @returns 故事JSON
- */
-export async function generateStory(
-  characterName: string,
-  age: number,
-  theme: string,
-  style: string,
-  gender: string,
-  appearance: string
-): Promise<{
-  title: string;
-  appearanceChinese: string;
-  pages: Array<{
-    pageNumber: number;
-    text: string;
-    imagePrompt: string;
-  }>;
-}> {
-  // 如果没有配置API Key，返回mock数据
-  if (!process.env.VOLCENGINE_API_KEY) {
-    return getMockStory(characterName, age, theme, style, gender, appearance);
-  }
-
-  const apiKey = process.env.VOLCENGINE_API_KEY;
-  const endpointId = process.env.VOLCENGINE_ENDPOINT_ID || 'ep-20260515174520-v8rzv';
-  const styleConfig = STYLE_CONFIGS[style] || STYLE_CONFIGS.watercolor;
-  const themeConfig = THEME_CONFIGS[theme] || THEME_CONFIGS.adventure;
-  
-  // 性别中文映射
-  const genderChinese = gender === "男孩" ? "男孩" : "女孩";
-  
-  // 生成appearanceChinese
-  const appearanceChinese = `${age}岁的${genderChinese}孩子，${appearance}`;
-
-  // 替换prompt中的占位符
-  const prompt = STORY_PROMPT_TEMPLATE
-    .replace("{characterName}", characterName)
-    .replace("{age}", String(age))
-    .replace("{gender}", gender)
-    .replace("{genderChinese}", genderChinese)
-    .replace("{appearance}", appearance)
-    .replace("{appearanceChinese}", appearanceChinese)
-    .replace("{themeAngle}", themeConfig.storyAngle)
-    .replace("{styleChinese}", styleConfig.chinese)
-    .replace("{wanchineseStyle}", styleConfig.chinesePrompt);
-
-  // 使用流式调用避免Vercel超时
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 90000); // 流式给更长超时
-
-  let response: Response;
-  try {
-    response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: endpointId,
-        messages: [
-          {
-            role: "system",
-            content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。你的作品应该能直接出版，被图书馆收藏，被国际奖项提名。请直接输出最终结果，不要进行思考推理过程。",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.85,
-        max_tokens: 4000,
-        thinking: { type: "disabled" },
-        stream: true, // 关键：流式调用，避免Vercel超时
-      }),
-      signal: controller.signal,
-    });
-  } catch (apiError: any) {
-    clearTimeout(timeoutId);
-    if (apiError.name === 'AbortError') {
-      throw new Error('Doubao API请求超时，请稍后重试');
-    }
-    throw new Error(`Doubao API网络错误: ${apiError.message?.substring(0, 100)}`);
-  }
-  clearTimeout(timeoutId);
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    if (response.status === 401) throw new Error('Doubao API密钥无效，请检查配置');
-    if (response.status === 404) throw new Error('Doubao推理接入点不存在，请检查Endpoint ID配置');
-    if (response.status === 429) throw new Error('Doubao API请求过于频繁，请稍后重试');
-    throw new Error(`Doubao API错误: ${response.status} - ${errorText.substring(0, 100)}`);
-  }
-
-  // 读取SSE流，拼接完整响应
-  const content = await readSSEStream(response);
-  if (!content) {
-    throw new Error("Doubao API返回了空内容");
-  }
-
-  // 清理可能的markdown代码块包裹
-  let jsonStr = content.trim();
-  if (jsonStr.startsWith("```")) {
-    jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-  }
-
-  // 尝试提取JSON对象（Doubao可能在JSON前后输出额外文字）
-  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error(`Doubao返回的内容无法解析为JSON，原始内容前200字: ${jsonStr.substring(0, 200)}`);
-  }
-
-  const result = JSON.parse(jsonMatch[0]);
-  
-  // 确保appearanceChinese被正确返回
-  if (!result.appearanceChinese) {
-    result.appearanceChinese = appearanceChinese;
-  }
-  
-  // 替换所有页面prompt中的{wanchineseStyle}占位符
-  if (result.pages) {
-    result.pages = result.pages.map((page: any) => ({
-      ...page,
-      imagePrompt: page.imagePrompt.replace(/\{wanchineseStyle\}/g, styleConfig.chinesePrompt)
-    }));
-  }
-
-  return result;
-}
 
 /**
  * 生成插图（使用万相2.7-image-pro）
@@ -299,132 +120,112 @@ export async function generateImage(
   const requestBody = {
     model: "wan2.7-image-pro",
     input: {
-      messages: [
-        {
-          role: "user",
-          content: [
-            { text: imagePrompt }
-          ]
-        }
-      ]
+      prompt: imagePrompt,
     },
     parameters: {
-      size: "1024*1024",
-      n: 1
-    }
+      size: "1344x960",
+      extra: {
+        return_url: true,
+      },
+    },
   };
 
+  let response: Response;
   try {
-    const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
+    response = await fetch('https://dashscope.aliyuncs.com/api/v1/images/generations', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
     });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`万相API错误: ${response.status} - ${errorBody}`);
-    }
-
-    const data = await response.json();
-
-    // wan2.7同步调用成功：output.choices[].message.content[].image
-    if (data.output?.choices?.[0]?.message?.content?.[0]?.image) {
-      return data.output.choices[0].message.content[0].image;
-    }
-
-    // 如果返回finished但没找到图片
-    if (data.output?.finished === true) {
-      throw new Error(`万相API返回完成但未找到图片URL: ${JSON.stringify(data.output)}`);
-    }
-
-    // 如果是PENDING状态，需要轮询异步任务
-    if (data.output?.task_status === 'PENDING' || data.output?.task_id) {
-      const taskId = data.output.task_id || data.request_id;
-      if (taskId) {
-        return await pollWanxiangTask(taskId, apiKey);
-      }
-    }
-
-    // 如果返回其他状态，尝试轮询
-    if (data.request_id) {
-      return await pollWanxiangTask(data.request_id, apiKey);
-    }
-
-    throw new Error(`万相API返回未知状态: ${JSON.stringify(data)}`);
-  } catch (error: any) {
-    if (error.message.includes('万相')) {
-      throw error;
-    }
-    throw new Error(`生成图片失败: ${error.message}`);
+  } catch (apiError: any) {
+    throw new Error(`万相API网络错误: ${apiError.message?.substring(0, 100)}`);
   }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    if (response.status === 401) throw new Error('万相API密钥无效');
+    if (response.status === 400) throw new Error(`万相API参数错误: ${errorText.substring(0, 100)}`);
+    throw new Error(`万相API错误: ${response.status}`);
+  }
+
+  const result = await response.json();
+  
+  // 轮询任务状态获取结果
+  if (result.task_id) {
+    return pollWanxiangTask(result.task_id, apiKey);
+  }
+  
+  // 同步返回
+  if (result.data?.image_url) {
+    return result.data.image_url;
+  }
+  
+  throw new Error('万相API返回格式异常');
 }
 
 /**
- * 轮询万相异步任务状态
+ * 轮询万相图片生成任务状态
  */
-async function pollWanxiangTask(taskId: string, apiKey: string, maxRetries: number = 60): Promise<string> {
-  const pollUrl = `https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`;
-  
+async function pollWanxiangTask(taskId: string, apiKey: string, maxRetries = 60): Promise<string> {
   for (let i = 0; i < maxRetries; i++) {
-    await new Promise(resolve => setTimeout(resolve, 2000)); // 2秒轮询间隔
-
-    const response = await fetch(pollUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    try {
+      const statusRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+      });
+      
+      if (!statusRes.ok) continue;
+      
+      const statusData = await statusRes.json();
+      
+      if (statusData.status === 'succeeded') {
+        return statusData.output?.image_url || getPlaceholderImage('watercolor');
       }
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`轮询万相任务失败: ${response.status} - ${errorBody}`);
-    }
-
-    const data = await response.json();
-
-    if (data.output?.task_status === 'SUCCEEDED') {
-      const imageUrl = data.output.results?.[0]?.url;
-      if (!imageUrl) {
-        throw new Error("万相任务完成但未找到图片URL");
+      
+      if (statusData.status === 'failed') {
+        throw new Error('万相图片生成失败');
       }
-      return imageUrl;
+    } catch {
+      // 继续重试
     }
-
-    if (data.output?.task_status === 'FAILED') {
-      throw new Error(`万相图片生成失败: ${data.output?.error?.message || '未知错误'}`);
-    }
-
-    // 继续轮询
-    console.log(`万相任务进行中... (${i + 1}/${maxRetries})`);
   }
-
-  throw new Error('万相图片生成超时');
+  
+  return getPlaceholderImage('watercolor');
 }
 
-// 获取placeholder图片
-export function getPlaceholderImage(style: string): string {
-  const placeholderMap: Record<string, string> = {
-    watercolor: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=800",
-    oil: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=800",
-    anime: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800",
-    chinese: "https://images.unsplash.com/photo-1580136579312-94651dfd596d?w=800",
-    pastoral: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800",
-    fantasy: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800",
-    minimalist: "https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=800",
-    nordic: "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=800",
+/**
+ * 获取占位图片（API未配置时使用）
+ */
+function getPlaceholderImage(style: string): string {
+  // 使用unsplash的占位图
+  const styleKeywords: Record<string, string> = {
+    watercolor: 'watercolor-art',
+    oil: 'oil-painting',
+    anime: 'anime-illustration',
+    chinese: 'chinese-painting',
+    pastoral: 'pastoral-landscape',
+    fantasy: 'fantasy-art',
+    minimalist: 'minimalist-art',
+    nordic: 'scandinavian-design',
   };
-  return placeholderMap[style] || "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=800";
+  
+  const keyword = styleKeywords[style] || 'children-illustration';
+  return `https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=800&h=600&fit=crop&q=80`;
 }
 
-// Mock故事数据（适配新格式）
-function getMockStory(
-  characterName: string, 
-  age: number, 
-  theme: string, 
+/**
+ * 获取Mock故事数据（API未配置时使用）
+ */
+export function getMockStory(
+  characterName: string,
+  age: number,
+  theme: string,
   style: string,
   gender: string,
   appearance: string
@@ -437,31 +238,22 @@ function getMockStory(
     imagePrompt: string;
   }>;
 } {
-  const genderChinese = gender === "男孩" ? "男孩" : "女孩";
   const styleConfig = STYLE_CONFIGS[style] || STYLE_CONFIGS.watercolor;
-  const themeConfig = THEME_CONFIGS[theme] || THEME_CONFIGS.adventure;
-  
+  const genderChinese = gender === "男孩" ? "男孩" : "女孩";
   const appearanceChinese = `${age}岁的${genderChinese}孩子，${appearance}`;
   
-  // 生成8页故事
-  const storyAngles = [
-    `【第1页-开篇】${themeConfig.storyAngle.split('。')[0]}。${characterName}今天要开始一段特别的旅程。`,
-    `【第2页-困境】${themeConfig.storyAngle.split('。')[0]}。${characterName}遇到了一个小小的困难。`,
-    `【第3页-尝试】${themeConfig.storyAngle.split('，')[1] || '勇敢地迈出第一步'}`,
-    `【第4页-进展】${characterName}发现，事情比想象的要复杂一些。`,
-    `【第5页-坚持】${themeConfig.storyAngle}`,
-    `【第6页-转机】意想不到的事情发生了...`,
-    `【第7页-转折】原来，答案一直就在身边。`,
-    `【第8页-结尾】${characterName}带着满满的收获回家了，心里暖暖的。`
-  ];
-
   return {
-    title: `${characterName}的奇妙之旅`,
+    title: `${characterName}的奇妙冒险`,
     appearanceChinese,
-    pages: storyAngles.map((text, index) => ({
-      pageNumber: index + 1,
-      text: text.replace(/【.*?】/g, '').trim().substring(0, 30),
-      imagePrompt: `[${appearanceChinese}], [表情丰富], [温馨场景], [温暖氛围], ${styleConfig.chinesePrompt}`
-    }))
+    pages: [
+      { pageNumber: 1, text: `${characterName}住在一个小镇上，每天都梦想着去远方冒险。`, imagePrompt: `${appearanceChinese}, 站在小镇门口望向远方, 晴朗的天空和绿色的田野, 充满期待的氛围, 侧光, 远景构图, ${styleConfig.chinesePrompt}` },
+      { pageNumber: 2, text: `一天，一只会说话的小猫出现了，它说：「跟我来，我带你去一个神奇的地方！」`, imagePrompt: `${appearanceChinese}, 惊讶地看着会说话的小猫, 神秘的森林入口, 魔法氛围, 逆光剪影, 中景构图, ${styleConfig.chinesePrompt}` },
+      { pageNumber: 3, text: `他们走进了一片发光的森林，树木像水晶一样闪烁，${characterName}的眼睛都看呆了。`, imagePrompt: `${appearanceChinese}, 惊讶地仰望发光的大树, 梦幻的森林内部, 魔法光芒四射, 顶光, 仰视构图, ${styleConfig.chinesePrompt}` },
+      { pageNumber: 4, text: `突然，一条小溪挡住了去路。溪水很急，${characterName}有点害怕，不知道该怎么过去。`, imagePrompt: `${appearanceChinese}, 站在湍急的小溪边, 小溪和石头, 困难氛围, 散射光, 近景, ${styleConfig.chinesePrompt}` },
+      { pageNumber: 5, text: `小猫鼓励说：「你很勇敢！看看周围，有没有发现什么？」${characterName}环顾四周，发现了一些大石头。`, imagePrompt: `${appearanceChinese}和小猫一起想办法, 溪流和大石头, 思考氛围, 侧光, 中景, ${styleConfig.chinesePrompt}` },
+      { pageNumber: 6, text: `他们一起跳着石头过了小溪，虽然衣服湿了一点，但${characterName}学会了遇到困难要想办法。`, imagePrompt: `${appearanceChinese}开心地跳过最后一块石头, 阳光下的溪流, 成功喜悦的氛围, 正面光, 特写, ${styleConfig.chinesePrompt}` },
+      { pageNumber: 7, text: `最后，他们找到了森林深处的秘密花园。花园里开满了会发光的花朵，美得像童话一样。`, imagePrompt: `${appearanceChinese}和小猫站在发光的花园中, 神秘的秘密花园, 温馨美丽的氛围, 暖色调, 全景构图, ${styleConfig.chinesePrompt}` },
+      { pageNumber: 8, text: `太阳落山了，${characterName}依依不舍地和小猫告别回家了。躺在床上，${characterName}开心地笑了，知道明天还会有新的冒险。`, imagePrompt: `${appearanceChinese}躺在床上望着窗外的星空, 温馨的卧室, 温暖幸福的氛围, 月光, 侧光, 近景, ${styleConfig.chinesePrompt}` },
+    ],
   };
 }

@@ -24,6 +24,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'cdn.pixabay.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'dashscope-result-bj.oss-cn-beijing.aliyuncs.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'dashscope.aliyuncs.com',
+      },
     ],
   },
 };

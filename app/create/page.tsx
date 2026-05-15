@@ -151,7 +151,7 @@ export default function CreatePage() {
     }, 800);
 
     try {
-      // 第1步：生成故事
+      // 第1步：流式生成故事
       const storyRes = await fetch('/api/generate-story', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -173,7 +173,6 @@ export default function CreatePage() {
           const err = await storyRes.json();
           errMsg = err.error || errMsg;
         } catch {
-          // Vercel可能返回HTML错误页（如超时、函数崩溃）
           try {
             const text = await storyRes.text();
             if (text.includes('timeout') || text.includes('Timeout') || text.includes('504')) {
@@ -189,9 +188,53 @@ export default function CreatePage() {
         }
         throw new Error(errMsg);
       }
-      
-      const storyResult = await storyRes.json();
-      const { title, pages, appearanceChinese } = storyResult.data;
+
+      // 读取SSE流式响应
+      const reader = storyRes.body!.getReader();
+      const decoder = new TextDecoder();
+      let storyData: any = null;
+      let streamBuffer = '';
+      let fakeProgress = 0;
+
+      // 启动故事生成进度动画
+      const storyProgressTimer2 = setInterval(() => {
+        fakeProgress = Math.min(fakeProgress + Math.random() * 2, 14);
+        setGenerationProgress(Math.floor(fakeProgress));
+      }, 800);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        streamBuffer += decoder.decode(value, { stream: true });
+        const messages = streamBuffer.split('\n\n');
+        streamBuffer = messages.pop() || '';
+
+        for (const msg of messages) {
+          if (!msg.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(msg.slice(6));
+            if (event.type === 'delta') {
+              // 收到增量文本，更新状态
+              setGenerationStatus("正在构思故事...");
+            } else if (event.type === 'complete') {
+              storyData = event.data;
+            } else if (event.type === 'error') {
+              throw new Error(event.error);
+            }
+          } catch (e: any) {
+            if (e.message && !e.message.includes('JSON')) throw e;
+          }
+        }
+      }
+
+      clearInterval(storyProgressTimer2);
+
+      if (!storyData) {
+        throw new Error('故事生成失败：未收到完整数据');
+      }
+
+      const { title, pages, appearanceChinese } = storyData;
 
       setGenerationProgress(15);
       setGenerationStatus("故事创作完成！开始绘制插图...");
