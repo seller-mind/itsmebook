@@ -7,6 +7,7 @@ import { useDropzone } from "react-dropzone";
 import { v4 as uuidv4 } from "uuid";
 import ChildConsentModal from "@/components/ChildConsentModal";
 import { GenerationProgress } from "@/components/AIBadge";
+import { STYLE_CONFIGS, THEME_CONFIGS, STORY_PROMPT_TEMPLATE } from "@/lib/ai";
 
 // 故事主题
 const THEMES = [
@@ -136,7 +137,7 @@ export default function CreatePage() {
     setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
   };
 
-  // 开始生成 - 对接真实API
+  // 开始生成 - 前端直接调用API（绕过Vercel 10秒限制）
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerationProgress(0);
@@ -151,35 +152,82 @@ export default function CreatePage() {
     }, 800);
 
     try {
-      // 第1步：流式生成故事
-      const storyRes = await fetch('/api/generate-story', {
+      // 第1步：直接调用Doubao API生成故事（绕过Vercel 10秒限制）
+      const apiKey = process.env.NEXT_PUBLIC_VOLCENGINE_API_KEY;
+      const endpointId = process.env.NEXT_PUBLIC_VOLCENGINE_ENDPOINT_ID || 'ep-20260515174520-v8rzv';
+
+      if (!apiKey) {
+        throw new Error('未配置API Key，请联系管理员');
+      }
+
+      const styleConfig = STYLE_CONFIGS[selectedStyle] || STYLE_CONFIGS.watercolor;
+      const themeConfig = THEME_CONFIGS[selectedTheme] || THEME_CONFIGS.adventure;
+      const genderChinese = characterGender === "男孩" ? "男孩" : "女孩";
+      const appearanceChinese = `${parseInt(characterAge)}岁的${genderChinese}孩子，${characterAppearance || `${characterGender}，${characterAge}岁`}`;
+
+      const prompt = STORY_PROMPT_TEMPLATE
+        .replace("{characterName}", characterName)
+        .replace("{age}", characterAge)
+        .replace("{gender}", characterGender)
+        .replace("{genderChinese}", genderChinese)
+        .replace("{appearance}", characterAppearance || `${characterGender}，${characterAge}岁`)
+        .replace("{appearanceChinese}", appearanceChinese)
+        .replace("{themeAngle}", themeConfig.storyAngle)
+        .replace("{styleChinese}", styleConfig.chinese)
+        .replace("{wanchineseStyle}", styleConfig.chinesePrompt);
+
+      const doubaoRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: JSON.stringify({
-          characterName,
-          age: parseInt(characterAge),
-          gender: characterGender,
-          appearance: characterAppearance || `${characterGender}，${characterAge}岁`,
-          theme: selectedTheme,
-          style: selectedStyle,
+          model: endpointId,
+          messages: [
+            { role: "system", content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。请直接输出最终结果，不要进行思考推理过程。" },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.85,
+          max_tokens: 4000,
+          thinking: { type: "disabled" },
         }),
       });
 
       clearInterval(storyProgressTimer);
 
-      if (!storyRes.ok) {
-        let errMsg = '故事生成失败，请稍后重试';
-        try {
-          const err = await storyRes.json();
-          errMsg = err.error || errMsg;
-        } catch {
-          errMsg = '服务器响应异常，请稍后重试';
-        }
-        throw new Error(errMsg);
+      if (!doubaoRes.ok) {
+        const errorText = await doubaoRes.text();
+        throw new Error(`故事生成失败 (${doubaoRes.status})`);
       }
 
-      const storyResult = await storyRes.json();
-      const { title, pages, appearanceChinese } = storyResult.data;
+      const doubaoData = await doubaoRes.json();
+      let content = doubaoData.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('故事生成失败：返回内容为空');
+      }
+
+      // 清理markdown代码块
+      let jsonStr = content.trim();
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('故事生成失败：无法解析内容');
+      }
+
+      const storyResult = JSON.parse(jsonMatch[0]);
+      if (!storyResult.appearanceChinese) storyResult.appearanceChinese = appearanceChinese;
+      // 替换pages中的wanchineseStyle占位符
+      if (storyResult.pages) {
+        storyResult.pages = storyResult.pages.map((page: any) => ({
+          ...page,
+          imagePrompt: page.imagePrompt?.replace(/\{wanchineseStyle\}/g, styleConfig.chinesePrompt) || page.imagePrompt
+        }));
+      }
+
+      const { title, pages, appearanceChinese: storyAppearance } = storyResult;
 
       setGenerationProgress(15);
       setGenerationStatus("故事创作完成！开始绘制插图...");
@@ -202,33 +250,51 @@ export default function CreatePage() {
         }, 1000);
 
         try {
-          const imgRes = await fetch('/api/generate-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imagePrompt: page.imagePrompt,
-              style: selectedStyle,
-              pageNumber: i + 1,
-              totalPages: pages.length,
-            }),
-          });
-
-          clearInterval(pageTimer);
-
-          if (imgRes.ok) {
-            const imgData = await imgRes.json();
-            pagesWithImages.push({
-              pageNumber: page.pageNumber,
-              text: page.text,
-              imageUrl: imgData.data.imageUrl,
-            });
-          } else {
-            pagesWithImages.push({
-              pageNumber: page.pageNumber,
-              text: page.text,
-              imageUrl: '',
-            });
+          const dashscopeKey = process.env.NEXT_PUBLIC_DASHSCOPE_API_KEY;
+          if (dashscopeKey) {
+            try {
+              const wanRes = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${dashscopeKey}`,
+                },
+                body: JSON.stringify({
+                  model: "wan2.7-image-pro",
+                  input: {
+                    messages: [
+                      { role: "user", content: [{ text: page.imagePrompt }] }
+                    ]
+                  },
+                  parameters: { size: "1024*1024", n: 1 }
+                }),
+              });
+              
+              if (wanRes.ok) {
+                const wanData = await wanRes.json();
+                const imageUrl = wanData.output?.choices?.[0]?.message?.content?.[0]?.image;
+                if (imageUrl) {
+                  clearInterval(pageTimer);
+                  pagesWithImages.push({
+                    pageNumber: page.pageNumber,
+                    text: page.text,
+                    imageUrl,
+                  });
+                  setGenerationProgress(nextProgress);
+                  continue; // 跳过后面的空图push
+                }
+              }
+            } catch (e) {
+              console.error(`第${i+1}页图片生成失败:`, e);
+            }
           }
+          clearInterval(pageTimer);
+          // 生成失败则用空图
+          pagesWithImages.push({
+            pageNumber: page.pageNumber,
+            text: page.text,
+            imageUrl: '',
+          });
         } catch {
           clearInterval(pageTimer);
           pagesWithImages.push({
@@ -272,7 +338,6 @@ export default function CreatePage() {
     } catch (error: any) {
       console.error('Generation error:', error);
       clearInterval(storyProgressTimer);
-      if (storyProgressTimer2) clearInterval(storyProgressTimer2);
       setIsGenerating(false);
       setGenerationProgress(0);
       alert(`绘本生成失败：${error.message || '请稍后重试'}`);
