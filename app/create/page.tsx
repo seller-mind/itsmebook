@@ -40,7 +40,7 @@ const PLAN_CONFIGS = [
     name: "体验版", 
     price: "¥9.9", 
     isPro: false, 
-    size: "768*768", 
+    size: "1024*1024", 
     model: "wan2.7-image",
     tag: null,
     tagColor: ""
@@ -50,7 +50,7 @@ const PLAN_CONFIGS = [
     name: "标准版", 
     price: "¥19.9", 
     isPro: false, 
-    size: "768*768", 
+    size: "1024*1024", 
     model: "wan2.7-image",
     tag: "最受欢迎",
     tagColor: "bg-green-500"
@@ -70,7 +70,7 @@ const PLAN_CONFIGS = [
     name: "月卡", 
     price: "¥59.9", 
     isPro: false, 
-    size: "768*768", 
+    size: "1024*1024", 
     model: "wan2.7-image",
     tag: "省40%",
     tagColor: "bg-blue-500"
@@ -350,7 +350,7 @@ export default function CreatePage() {
 
     // 套餐参数默认值
     const model = planConfig?.model || "wan2.7-image";
-    const size = planConfig?.size || "768*768";
+    const size = planConfig?.size || "1024*1024";
 
     let lastError: Error | null = null;
     const maxRetries = 2; // 最多重试2次
@@ -502,11 +502,11 @@ export default function CreatePage() {
         photoBase64 = await fileToBase64(photos[0]);
       }
 
-      // 免费用户（未登录）默认使用普通版768
+      // 免费用户（未登录）默认使用普通版1024
       const isFreeUser = !isSignedIn;
       const planConfig = isFreeUser
-        ? { model: "wan2.7-image", size: "768*768" }
-        : PLAN_CONFIGS.find(p => p.id === selectedPlan) || { model: "wan2.7-image", size: "768*768" };
+        ? { model: "wan2.7-image", size: "1024*1024" }
+        : PLAN_CONFIGS.find(p => p.id === selectedPlan) || { model: "wan2.7-image", size: "1024*1024" };
 
       setGenerationProgress(20);
       setGenerationStatus("故事创作完成！开始绘制插图...");
