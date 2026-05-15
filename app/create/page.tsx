@@ -33,6 +33,50 @@ const STYLES = [
   { id: "nordic", name: "北欧极简", emoji: "❄️", color: "from-sky-200 to-indigo-200" },
 ];
 
+// 套餐配置
+const PLAN_CONFIGS = [
+  { 
+    id: "trial", 
+    name: "体验版", 
+    price: "¥9.9", 
+    isPro: false, 
+    size: "768*768", 
+    model: "wan2.7-image",
+    tag: null,
+    tagColor: ""
+  },
+  { 
+    id: "standard", 
+    name: "标准版", 
+    price: "¥19.9", 
+    isPro: false, 
+    size: "768*768", 
+    model: "wan2.7-image",
+    tag: "最受欢迎",
+    tagColor: "bg-green-500"
+  },
+  { 
+    id: "pro", 
+    name: "精制版", 
+    price: "¥29.9", 
+    isPro: true, 
+    size: "1024*1024", 
+    model: "wan2.7-image-pro",
+    tag: "Pro画质",
+    tagColor: "bg-gradient-to-r from-amber-500 to-orange-500"
+  },
+  { 
+    id: "monthly", 
+    name: "月卡", 
+    price: "¥59.9", 
+    isPro: false, 
+    size: "768*768", 
+    model: "wan2.7-image",
+    tag: "省40%",
+    tagColor: "bg-blue-500"
+  },
+];
+
 
 
 export default function CreatePage() {
@@ -50,6 +94,7 @@ export default function CreatePage() {
   // 选择状态
   const [selectedStyle, setSelectedStyle] = useState<string>("");
   const [selectedTheme, setSelectedTheme] = useState<string>("");
+  const [selectedPlan, setSelectedPlan] = useState<string>("standard"); // 默认标准版
   const [characterName, setCharacterName] = useState("");
   const [characterAge, setCharacterAge] = useState("5");
   const [characterGender, setCharacterGender] = useState<string>("男孩");
@@ -225,7 +270,8 @@ export default function CreatePage() {
   const generateImagesConcurrent = async (
     pages: Array<{ pageNumber: number; text: string; imagePrompt: string }>,
     onProgress: (completed: number, total: number, status: string) => void,
-    photoBase64?: string
+    photoBase64?: string,
+    planConfig?: { model: string; size: string }
   ): Promise<Array<{ pageNumber: number; text: string; imageUrl: string }>> => {
     const results: Array<{ pageNumber: number; text: string; imageUrl: string }> = new Array(pages.length);
     const total = pages.length;
@@ -242,7 +288,7 @@ export default function CreatePage() {
       const batchPromises = batchPages.map(async (page, idx) => {
         const globalIndex = batchStart + idx;
         try {
-          const imageUrl = await generateSingleImage(page.imagePrompt, globalIndex, photoBase64);
+          const imageUrl = await generateSingleImage(page.imagePrompt, globalIndex, photoBase64, planConfig);
           results[globalIndex] = { pageNumber: page.pageNumber, text: page.text, imageUrl };
         } catch (e: unknown) {
           console.error(`第${globalIndex + 1}页图片生成失败:`, e);
@@ -291,11 +337,20 @@ export default function CreatePage() {
   };
 
   // 生成单张图片（带重试2次，支持参考图）
-  const generateSingleImage = async (imagePrompt: string, pageIndex: number, photoBase64?: string): Promise<string> => {
+  const generateSingleImage = async (
+    imagePrompt: string, 
+    pageIndex: number, 
+    photoBase64?: string,
+    planConfig?: { model: string; size: string }
+  ): Promise<string> => {
     const dashscopeKey = process.env.NEXT_PUBLIC_DASHSCOPE_API_KEY;
     if (!dashscopeKey) {
       throw new Error('未配置图片生成API Key');
     }
+
+    // 套餐参数默认值
+    const model = planConfig?.model || "wan2.7-image";
+    const size = planConfig?.size || "768*768";
 
     let lastError: Error | null = null;
     const maxRetries = 2; // 最多重试2次
@@ -324,11 +379,11 @@ export default function CreatePage() {
               'Authorization': `Bearer ${dashscopeKey}`,
             },
             body: JSON.stringify({
-              model: "wan2.7-image",
+              model: model,
               input: {
                 messages: [{ role: "user", content: requestContent }]
               },
-              parameters: { size: "1024*1024", n: 1 }
+              parameters: { size: size, n: 1 }
             }),
           },
           45000 // 45秒超时
@@ -447,6 +502,12 @@ export default function CreatePage() {
         photoBase64 = await fileToBase64(photos[0]);
       }
 
+      // 免费用户（未登录）默认使用普通版768
+      const isFreeUser = !isSignedIn;
+      const planConfig = isFreeUser
+        ? { model: "wan2.7-image", size: "768*768" }
+        : PLAN_CONFIGS.find(p => p.id === selectedPlan) || { model: "wan2.7-image", size: "768*768" };
+
       setGenerationProgress(20);
       setGenerationStatus("故事创作完成！开始绘制插图...");
 
@@ -459,7 +520,8 @@ export default function CreatePage() {
           setGenerationProgress(Math.min(imgProgress, 89));
           setGenerationStatus(status);
         },
-        photoBase64
+        photoBase64,
+        planConfig
       );
 
       setGenerationProgress(90);
@@ -850,6 +912,20 @@ export default function CreatePage() {
                       )}
                     </div>
                   </div>
+                  {isSignedIn && (
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <span className="text-xl sm:text-2xl">🎯</span>
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm text-gray-500">套餐</p>
+                        <p className="font-medium text-sm sm:text-base">
+                          {PLAN_CONFIGS.find(p => p.id === selectedPlan)?.name}
+                          <span className="text-gray-400 ml-1">
+                            ({PLAN_CONFIGS.find(p => p.id === selectedPlan)?.size})
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 未登录提示 */}
@@ -858,6 +934,55 @@ export default function CreatePage() {
                     <p className="text-yellow-800 text-xs sm:text-sm">
                       💡 未登录状态下生成的绘本可以预览，但无法保存。登录后可永久保存。
                     </p>
+                  </div>
+                )}
+
+                {/* 套餐选择 */}
+                {isSignedIn && (
+                  <div className="mt-4 sm:mt-6">
+                    <h3 className="text-sm sm:text-base font-medium text-gray-700 mb-3 text-center">
+                      选择套餐（决定图片质量）
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 max-w-2xl mx-auto">
+                      {PLAN_CONFIGS.map((plan) => (
+                        <button
+                          key={plan.id}
+                          onClick={() => setSelectedPlan(plan.id)}
+                          className={`relative p-2 sm:p-3 rounded-xl text-center transition-all ${
+                            selectedPlan === plan.id
+                              ? plan.isPro
+                                ? "bg-gradient-to-br from-amber-50 to-orange-50 ring-4 ring-amber-400 shadow-lg"
+                                : "bg-primary-light ring-4 ring-primary-orange shadow-lg"
+                              : "bg-gray-50 hover:bg-gray-100"
+                          }`}
+                        >
+                          {plan.tag && (
+                            <span className={`absolute -top-2 left-1/2 -translate-x-1/2 ${plan.tagColor} text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap`}>
+                              {plan.tag}
+                            </span>
+                          )}
+                          <p className={`font-bold text-sm sm:text-base ${plan.isPro ? "text-amber-700" : "text-gray-900"}`}>
+                            {plan.name}
+                          </p>
+                          <p className={`text-xs sm:text-sm font-medium ${plan.isPro ? "text-amber-600" : "text-gray-600"}`}>
+                            {plan.price}
+                          </p>
+                          <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
+                            {plan.size}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                    {selectedPlan === "pro" && (
+                      <p className="text-xs text-amber-600 text-center mt-2">
+                        ✨ Pro画质：1024×1024 更清晰细腻
+                      </p>
+                    )}
+                    {selectedPlan === "monthly" && (
+                      <p className="text-xs text-blue-600 text-center mt-2">
+                        💎 月卡包含30天无限次使用
+                      </p>
+                    )}
                   </div>
                 )}
 
