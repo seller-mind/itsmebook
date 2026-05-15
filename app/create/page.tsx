@@ -142,6 +142,14 @@ export default function CreatePage() {
     setGenerationProgress(0);
     setGenerationStatus("正在构思故事...");
 
+    // 模拟故事生成阶段的进度（0→15%），让用户感知到在运作
+    let storyProgressTimer: NodeJS.Timeout;
+    let fakeProgress = 0;
+    storyProgressTimer = setInterval(() => {
+      fakeProgress = Math.min(fakeProgress + Math.random() * 2, 14);
+      setGenerationProgress(Math.floor(fakeProgress));
+    }, 800);
+
     try {
       // 第1步：生成故事
       const storyRes = await fetch('/api/generate-story', {
@@ -156,6 +164,8 @@ export default function CreatePage() {
           style: selectedStyle,
         }),
       });
+
+      clearInterval(storyProgressTimer);
 
       if (!storyRes.ok) {
         const err = await storyRes.json();
@@ -172,9 +182,18 @@ export default function CreatePage() {
       const pagesWithImages = [];
       for (let i = 0; i < pages.length; i++) {
         const page = pages[i];
-        const progressPercent = 15 + Math.floor(((i + 1) / pages.length) * 75);
-        setGenerationProgress(progressPercent);
+        // 每页占 15%→92% 的范围，逐页递增
+        const baseProgress = 15 + Math.floor((i / pages.length) * 77);
+        const nextProgress = 15 + Math.floor(((i + 1) / pages.length) * 77);
+        setGenerationProgress(baseProgress);
         setGenerationStatus(`正在绘制第 ${i + 1}/${pages.length} 页插图...`);
+
+        // 每页生成时模拟细粒度进度
+        let pageFakeProgress = baseProgress;
+        const pageTimer = setInterval(() => {
+          pageFakeProgress = Math.min(pageFakeProgress + Math.random() * 1.5, nextProgress - 1);
+          setGenerationProgress(Math.floor(pageFakeProgress));
+        }, 1000);
 
         try {
           const imgRes = await fetch('/api/generate-image', {
@@ -188,6 +207,8 @@ export default function CreatePage() {
             }),
           });
 
+          clearInterval(pageTimer);
+
           if (imgRes.ok) {
             const imgData = await imgRes.json();
             pagesWithImages.push({
@@ -196,7 +217,6 @@ export default function CreatePage() {
               imageUrl: imgData.data.imageUrl,
             });
           } else {
-            // 图片生成失败时使用空字符串
             pagesWithImages.push({
               pageNumber: page.pageNumber,
               text: page.text,
@@ -204,13 +224,15 @@ export default function CreatePage() {
             });
           }
         } catch {
-          // 单页生成失败，继续处理其他页
+          clearInterval(pageTimer);
           pagesWithImages.push({
             pageNumber: page.pageNumber,
             text: page.text,
             imageUrl: '',
           });
         }
+
+        setGenerationProgress(nextProgress);
       }
 
       setGenerationProgress(92);
@@ -232,13 +254,18 @@ export default function CreatePage() {
       };
       localStorage.setItem(`book_${bookId}`, JSON.stringify(bookData));
 
-      setGenerationProgress(100);
+      // 组装阶段模拟进度
+      for (let p = 92; p <= 100; p += 2) {
+        await new Promise(r => setTimeout(r, 100));
+        setGenerationProgress(p);
+      }
       setGenerationStatus("绘本制作完成！正在跳转预览...");
 
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 500));
       router.push(`/book/${bookId}`);
     } catch (error: any) {
       console.error('Generation error:', error);
+      clearInterval(storyProgressTimer);
       setIsGenerating(false);
       setGenerationProgress(0);
       alert(`绘本生成失败：${error.message || '请稍后重试'}`);
