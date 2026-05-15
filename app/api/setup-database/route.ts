@@ -2,17 +2,57 @@ import { NextResponse } from "next/server";
 
 // One-time database setup endpoint - DELETE after running
 export async function GET() {
-  const { Client } = await import("pg");
-  
-  // Use Supabase connection pooler for Vercel compatibility
-  const client = new Client({
-    connectionString: `postgresql://postgres.lhxrauqvqvehhqbzvzjr:${process.env.SUPABASE_DB_PASSWORD || '8Jt97lv9eWDbYN71'}@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres`,
-    ssl: { rejectUnauthorized: false },
-  });
-
   try {
-    await client.connect();
+    const { Client } = await import("pg");
     
+    // Try multiple connection methods
+    const connectionConfigs = [
+      // Method 1: Session mode pooler
+      {
+        connectionString: `postgresql://postgres.lhxrauqvqvehhqbzvzjr:8Jt97lv9eWDbYN71@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres`,
+        ssl: { rejectUnauthorized: false },
+      },
+      // Method 2: Transaction mode pooler
+      {
+        connectionString: `postgresql://postgres.lhxrauqvqvehhqbzvzjr:8Jt97lv9eWDbYN71@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres`,
+        ssl: { rejectUnauthorized: false },
+      },
+      // Method 3: Direct connection
+      {
+        host: "db.lhxrauqvqvehhqbzvzjr.supabase.co",
+        port: 5432,
+        database: "postgres",
+        user: "postgres",
+        password: "8Jt97lv9eWDbYN71",
+        ssl: { rejectUnauthorized: false },
+      },
+    ];
+
+    let client: any = null;
+    let connected = false;
+    let lastError = "";
+
+    for (const config of connectionConfigs) {
+      try {
+        client = new Client(config);
+        await client.connect();
+        connected = true;
+        break;
+      } catch (err: any) {
+        lastError = err.message;
+        try { await client?.end(); } catch {}
+        client = null;
+        continue;
+      }
+    }
+
+    if (!connected || !client) {
+      return NextResponse.json(
+        { success: false, error: `Could not connect to database: ${lastError}` },
+        { status: 500 }
+      );
+    }
+
     const sql = `
       CREATE TABLE IF NOT EXISTS books (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -108,7 +148,6 @@ export async function GET() {
       tables: tables.rows.map((r: any) => r.tablename),
     });
   } catch (error: any) {
-    try { await client.end(); } catch {}
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
