@@ -1,16 +1,16 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-// 基础中间件 - Clerk认证中间件待配置后启用
-// 配置 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY 后，替换为 clerkMiddleware
+const isProtectedRoute = createRouteMatcher([
+  '/create(.*)',
+  '/book/(.*)',
+])
 
-export function middleware(request: NextRequest) {
-  return NextResponse.next();
-}
+export default clerkMiddleware(async (auth, req) => {
+  if (isProtectedRoute(req)) {
+    await auth().protect()
+  }
+})
 
 export const config = {
-  matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-  ],
-};
+  matcher: ['/((?!.*\\..*|_next).*)', '/', '/(api|trpc)(.*)'],
+}

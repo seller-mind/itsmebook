@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useUser, SignInButton, SignUpButton, UserButton } from "@/lib/clerk";
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 
 export default function Navbar() {
@@ -62,28 +62,25 @@ export default function Navbar() {
 
           {/* Auth Buttons */}
           <div className="flex items-center gap-4">
-            {isSignedIn ? (
-              <>
-                <Link
-                  href="/create"
-                  className="hidden sm:inline-flex btn-primary text-sm"
-                >
-                  开始制作
-                </Link>
-                <UserButton afterSignOutUrl="/" />
-              </>
-            ) : (
-              <>
-                <SignInButton mode="modal">
-                  <button className="text-gray-600 hover:text-primary-orange transition-colors font-medium">
-                    登录
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button className="btn-primary text-sm">注册</button>
-                </SignUpButton>
-              </>
-            )}
+            <SignedIn>
+              <Link
+                href="/create"
+                className="hidden sm:inline-flex btn-primary text-sm"
+              >
+                开始制作
+              </Link>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button className="text-gray-600 hover:text-primary-orange transition-colors font-medium">
+                  登录
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="btn-primary text-sm">注册</button>
+              </SignUpButton>
+            </SignedOut>
 
             {/* Mobile Menu Button */}
             <button
@@ -142,7 +139,7 @@ export default function Navbar() {
             >
               定价
             </Link>
-            {isSignedIn && (
+            <SignedIn>
               <Link
                 href="/create"
                 className="block btn-primary text-center mt-4"
@@ -150,7 +147,7 @@ export default function Navbar() {
               >
                 开始制作
               </Link>
-            )}
+            </SignedIn>
           </div>
         </div>
       )}

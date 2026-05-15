@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 
@@ -71,7 +72,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN" className={`${notoSans.variable} ${notoSerif.variable}`}>
+    <ClerkProvider>
+      <html lang="zh-CN" className={`${notoSans.variable} ${notoSerif.variable}`}>
         <head>
           {/* 站点图标 */}
           <link rel="icon" href="/favicon.ico" />
@@ -158,5 +160,6 @@ export default function RootLayout({
           </footer>
         </body>
       </html>
+    </ClerkProvider>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser, useAuth } from "@/lib/clerk";
+import { useUser, useAuth } from "@clerk/nextjs";
 
 export default function HeroSection() {
   const router = useRouter();

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@/lib/clerk";
+import { useUser } from "@clerk/nextjs";
 
 const PLANS = [
   {

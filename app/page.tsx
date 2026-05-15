@@ -6,7 +6,7 @@ import HeroSection from "@/components/HeroSection";
 import StyleShowcase from "@/components/StyleShowcase";
 import ProcessSteps from "@/components/ProcessSteps";
 import ChildConsentModal from "@/components/ChildConsentModal";
-import { useUser } from "@/lib/clerk";
+import { useUser } from "@clerk/nextjs";
 
 export default function HomePage() {
   const router = useRouter();
