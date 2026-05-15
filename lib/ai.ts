@@ -262,6 +262,8 @@ export async function generateStory(
     ],
     temperature: 0.85,
     max_tokens: 4000,
+  }, {
+    timeout: 50000, // 50秒超时
   });
 
   const content = response.choices[0]?.message?.content;

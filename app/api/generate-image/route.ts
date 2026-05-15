@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateImage } from "@/lib/ai";
 
+// Vercel serverless函数最大执行时间设为60秒
+export const maxDuration = 60;
+
 // POST /api/generate-image
 // 生成绘本插图
 export async function POST(request: NextRequest) {

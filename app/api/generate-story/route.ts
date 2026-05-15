@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateStory } from "@/lib/ai";
 
+// Vercel serverless函数最大执行时间设为60秒
+export const maxDuration = 60;
+
 // POST /api/generate-story
 // 生成绘本故事文本
 export async function POST(request: NextRequest) {
