@@ -173,23 +173,42 @@ export async function generateStory(
   // 获取endpoint ID，默认使用doubao-seed-2.0-pro
   const endpointId = process.env.VOLCENGINE_ENDPOINT_ID || 'doubao-seed-2.0-pro';
 
-  const response = await client.chat.completions.create({
-    model: endpointId,
-    messages: [
-      {
-        role: "system",
-        content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。你的作品应该能直接出版，被图书馆收藏，被国际奖项提名。请直接输出最终结果，不要进行思考推理过程。",
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-    temperature: 0.85,
-    max_tokens: 4000,
-  }, {
-    timeout: 50000, // 50秒超时
-  });
+  let response;
+  try {
+    response = await client.chat.completions.create({
+      model: endpointId,
+      messages: [
+        {
+          role: "system",
+          content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。你的作品应该能直接出版，被图书馆收藏，被国际奖项提名。请直接输出最终结果，不要进行思考推理过程。",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.85,
+      max_tokens: 4000,
+    }, {
+      timeout: 50000, // 50秒超时
+    });
+  } catch (apiError: any) {
+    // 捕获OpenAI SDK抛出的网络/API错误
+    const msg = apiError.message || '';
+    if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('ECONNRESET')) {
+      throw new Error('Doubao API请求超时，请稍后重试');
+    }
+    if (msg.includes('401') || msg.includes('Unauthorized')) {
+      throw new Error('Doubao API密钥无效，请检查配置');
+    }
+    if (msg.includes('404') || msg.includes('not found')) {
+      throw new Error('Doubao推理接入点不存在，请检查Endpoint ID配置');
+    }
+    if (msg.includes('429') || msg.includes('rate limit')) {
+      throw new Error('Doubao API请求过于频繁，请稍后重试');
+    }
+    throw new Error(`Doubao API调用失败: ${msg.substring(0, 100)}`);
+  }
 
   const content = response.choices[0]?.message?.content;
   if (!content) {

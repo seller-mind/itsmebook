@@ -54,25 +54,35 @@ export async function POST(request: NextRequest) {
 
     // 如果是API未配置错误，返回mock数据
     if (error.message?.includes("not configured")) {
-      const body = await request.clone().json();
-      const { generateStory } = await import("@/lib/ai");
-      const mockStory = await generateStory(
-        body.characterName,
-        parseInt(body.age),
-        body.theme,
-        body.style,
-        body.gender || "男孩",
-        body.appearance || `${body.gender || "男孩"}，${body.age}岁`
-      );
-      return NextResponse.json({
-        success: true,
-        data: mockStory,
-        mock: true,
-      });
+      try {
+        const body = await request.clone().json();
+        const { generateStory } = await import("@/lib/ai");
+        const mockStory = await generateStory(
+          body.characterName,
+          parseInt(body.age),
+          body.theme,
+          body.style,
+          body.gender || "男孩",
+          body.appearance || `${body.gender || "男孩"}，${body.age}岁`
+        );
+        return NextResponse.json({
+          success: true,
+          data: mockStory,
+          mock: true,
+        });
+      } catch (mockError) {
+        // mock数据也生成失败，返回错误JSON
+        return NextResponse.json(
+          { error: "API未配置且mock数据生成失败" },
+          { status: 500 }
+        );
+      }
     }
 
+    // 截断过长的错误信息，避免前端解析问题
+    const errorMessage = (error.message || "生成故事失败，请稍后重试").substring(0, 200);
     return NextResponse.json(
-      { error: error.message || "生成故事失败，请稍后重试" },
+      { error: errorMessage },
       { status: 500 }
     );
   }

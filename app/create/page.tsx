@@ -168,8 +168,26 @@ export default function CreatePage() {
       clearInterval(storyProgressTimer);
 
       if (!storyRes.ok) {
-        const err = await storyRes.json();
-        throw new Error(err.error || '故事生成失败');
+        let errMsg = '故事生成失败，请稍后重试';
+        try {
+          const err = await storyRes.json();
+          errMsg = err.error || errMsg;
+        } catch {
+          // Vercel可能返回HTML错误页（如超时、函数崩溃）
+          try {
+            const text = await storyRes.text();
+            if (text.includes('timeout') || text.includes('Timeout') || text.includes('504')) {
+              errMsg = '故事生成超时，请稍后重试';
+            } else if (text.includes('500')) {
+              errMsg = '服务器内部错误，请稍后重试';
+            } else {
+              errMsg = '服务器响应异常，请稍后重试';
+            }
+          } catch {
+            errMsg = '网络请求失败，请检查网络后重试';
+          }
+        }
+        throw new Error(errMsg);
       }
       
       const storyResult = await storyRes.json();
