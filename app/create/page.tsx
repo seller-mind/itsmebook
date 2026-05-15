@@ -474,7 +474,7 @@ export default function CreatePage() {
 
       // 组装阶段
       for (let p = 90; p <= 100; p += 5) {
-        await new Promise(r => setTimeout(r, 80));
+        await new Promise(resolve => setTimeout(resolve, 80));
         setGenerationProgress(p);
       }
       setGenerationStatus("绘本制作完成！正在跳转预览...");
@@ -491,16 +491,16 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 pb-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* 进度指示器 */}
+    <div className="min-h-screen bg-gray-50 pt-16 pb-8 sm:pt-20 sm:pb-12 overflow-x-hidden">
+      <div className="w-full max-w-4xl mx-auto px-3 sm:px-6 lg:px-8">
+        {/* 进度指示器 - 移动端优化 */}
         {!isGenerating && (
-          <div className="mb-12">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mb-6 sm:mb-12">
+            <div className="flex items-center justify-between mb-3 sm:mb-4 overflow-x-auto px-1">
               {Array.from({ length: totalSteps }).map((_, index) => (
-                <div key={index} className="flex items-center">
+                <div key={index} className="flex items-center flex-shrink-0">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
+                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-all flex-shrink-0 ${
                       currentStep > index + 1
                         ? "bg-green-500 text-white"
                         : currentStep === index + 1
@@ -512,7 +512,7 @@ export default function CreatePage() {
                   </div>
                   {index < totalSteps - 1 && (
                     <div
-                      className={`w-16 sm:w-24 h-1 mx-2 rounded ${
+                      className={`w-10 sm:w-16 md:w-24 h-1 mx-1 sm:mx-2 rounded flex-shrink-0 ${
                         currentStep > index + 1 ? "bg-green-500" : "bg-gray-200"
                       }`}
                     />
@@ -521,7 +521,7 @@ export default function CreatePage() {
               ))}
             </div>
             <div className="text-center">
-              <span className="text-sm text-gray-500">
+              <span className="text-xs sm:text-sm text-gray-500">
                 第 {currentStep} / {totalSteps} 步
               </span>
             </div>
@@ -536,48 +536,48 @@ export default function CreatePage() {
           />
         )}
 
-        {/* 步骤内容 */}
+        {/* 步骤内容 - 移动端优化 */}
         {!isGenerating ? (
-          <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+          <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 lg:p-8 w-full overflow-hidden">
             {/* Step 1: 上传照片 */}
             {currentStep === 1 && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div className="text-center">
-                  <span className="text-4xl mb-4 block">📷</span>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  <span className="text-3xl sm:text-4xl mb-3 sm:mb-4 block">📷</span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
                     上传孩子照片
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 text-sm sm:text-base">
                     上传1-3张清晰的照片，帮助AI识别孩子特征
                   </p>
                 </div>
 
-                {/* 上传区域 */}
+                {/* 上传区域 - 移动端优化 */}
                 <div
                   {...getRootProps()}
-                  className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                  className={`border-2 border-dashed rounded-xl sm:rounded-2xl p-4 sm:p-8 text-center cursor-pointer transition-all ${
                     isDragActive
                       ? "border-primary-orange bg-primary-light"
                       : "border-gray-300 hover:border-primary-orange"
                   }`}
                 >
                   <input {...getInputProps()} />
-                  <span className="text-5xl mb-4 block">📤</span>
-                  <p className="text-gray-600 mb-2">
+                  <span className="text-4xl sm:text-5xl mb-3 sm:mb-4 block">📤</span>
+                  <p className="text-gray-600 mb-2 text-sm sm:text-base">
                     {isDragActive
                       ? "放开以上传照片"
                       : "拖拽照片到这里，或点击选择"}
                   </p>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-xs sm:text-sm text-gray-400">
                     支持 JPG、PNG 格式，单张不超过5MB
                   </p>
                 </div>
 
-                {/* 照片预览 */}
+                {/* 照片预览 - 移动端优化 */}
                 {photoPreviews.length > 0 && (
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     {photoPreviews.map((preview, index) => (
-                      <div key={index} className="relative aspect-square rounded-xl overflow-hidden">
+                      <div key={index} className="relative aspect-square rounded-lg sm:rounded-xl overflow-hidden">
                         <img
                           src={preview}
                           alt={`上传照片 ${index + 1}`}
@@ -585,7 +585,7 @@ export default function CreatePage() {
                         />
                         <button
                           onClick={() => removePhoto(index)}
-                          className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
+                          className="absolute top-1 right-1 w-6 h-6 sm:w-8 sm:h-8 bg-red-500 text-white rounded-full flex items-center justify-center text-xs sm:text-sm hover:bg-red-600 transition-colors"
                         >
                           ×
                         </button>
@@ -594,7 +594,7 @@ export default function CreatePage() {
                   </div>
                 )}
 
-                <p className="text-sm text-gray-500 text-center">
+                <p className="text-xs sm:text-sm text-gray-500 text-center">
                   💡 建议上传正面、清晰的照片，效果更佳
                 </p>
               </div>
@@ -602,30 +602,30 @@ export default function CreatePage() {
 
             {/* Step 2: 选择风格 */}
             {currentStep === 2 && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div className="text-center">
-                  <span className="text-4xl mb-4 block">🎨</span>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  <span className="text-3xl sm:text-4xl mb-3 sm:mb-4 block">🎨</span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
                     选择绘本风格
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 text-sm sm:text-base">
                     从8种精美风格中选择你喜欢的
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                   {STYLES.map((style) => (
                     <button
                       key={style.id}
                       onClick={() => setSelectedStyle(style.id)}
-                      className={`p-4 rounded-xl text-center transition-all ${
+                      className={`p-3 sm:p-4 rounded-xl text-center transition-all ${
                         selectedStyle === style.id
                           ? `bg-gradient-to-br ${style.color} ring-4 ring-primary-orange shadow-lg`
                           : "bg-gray-50 hover:bg-gray-100"
                       }`}
                     >
-                      <span className="text-4xl mb-2 block">{style.emoji}</span>
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-3xl sm:text-4xl mb-1 sm:mb-2 block">{style.emoji}</span>
+                      <span className="text-xs sm:text-sm font-medium text-gray-700 leading-tight block">
                         {style.name}
                       </span>
                     </button>
@@ -636,37 +636,39 @@ export default function CreatePage() {
 
             {/* Step 3: 选择主题 */}
             {currentStep === 3 && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div className="text-center">
-                  <span className="text-4xl mb-4 block">📚</span>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  <span className="text-3xl sm:text-4xl mb-3 sm:mb-4 block">📚</span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
                     选择故事主题
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 text-sm sm:text-base">
                     选一个孩子感兴趣的故事主题
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                   {THEMES.map((theme) => (
                     <button
                       key={theme.id}
                       onClick={() => setSelectedTheme(theme.id)}
-                      className={`p-4 rounded-xl text-center transition-all ${
+                      className={`p-3 sm:p-4 rounded-xl text-center transition-all ${
                         selectedTheme === theme.id
                           ? "bg-primary-orange text-white shadow-lg"
                           : "bg-gray-50 hover:bg-gray-100"
                       }`}
                     >
-                      <span className="text-4xl mb-2 block">{theme.emoji}</span>
-                      <span className="text-sm font-medium">{theme.name}</span>
+                      <span className="text-3xl sm:text-4xl mb-1 sm:mb-2 block">{theme.emoji}</span>
+                      <span className="text-xs sm:text-sm font-medium leading-tight block">
+                        {theme.name}
+                      </span>
                     </button>
                   ))}
                 </div>
 
                 {selectedTheme && (
-                  <div className="bg-primary-light rounded-xl p-4 text-center">
-                    <p className="text-primary-dark">
+                  <div className="bg-primary-light rounded-xl p-3 sm:p-4 text-center">
+                    <p className="text-primary-dark text-sm sm:text-base">
                       {THEMES.find((t) => t.id === selectedTheme)?.description}
                     </p>
                   </div>
@@ -676,18 +678,18 @@ export default function CreatePage() {
 
             {/* Step 4: 角色信息 */}
             {currentStep === 4 && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div className="text-center">
-                  <span className="text-4xl mb-4 block">✏️</span>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  <span className="text-3xl sm:text-4xl mb-3 sm:mb-4 block">✏️</span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
                     输入角色信息
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 text-sm sm:text-base">
                     告诉AI，小主人公是谁
                   </p>
                 </div>
 
-                <div className="space-y-4 max-w-md mx-auto">
+                <div className="space-y-4 max-w-md mx-auto w-full">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       角色名字 *
@@ -697,7 +699,7 @@ export default function CreatePage() {
                       value={characterName}
                       onChange={(e) => setCharacterName(e.target.value)}
                       placeholder="例如：小明、小花"
-                      className="input-field"
+                      className="input-field w-full"
                     />
                   </div>
 
@@ -705,11 +707,11 @@ export default function CreatePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       性别
                     </label>
-                    <div className="flex gap-3">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <button
                         type="button"
                         onClick={() => setCharacterGender("男孩")}
-                        className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                        className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-1 sm:gap-2 text-sm ${
                           characterGender === "男孩"
                             ? "bg-blue-100 text-blue-700 ring-2 ring-blue-500"
                             : "bg-gray-50 text-gray-600 hover:bg-gray-100"
@@ -721,7 +723,7 @@ export default function CreatePage() {
                       <button
                         type="button"
                         onClick={() => setCharacterGender("女孩")}
-                        className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                        className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-1 sm:gap-2 text-sm ${
                           characterGender === "女孩"
                             ? "bg-pink-100 text-pink-700 ring-2 ring-pink-500"
                             : "bg-gray-50 text-gray-600 hover:bg-gray-100"
@@ -740,7 +742,7 @@ export default function CreatePage() {
                     <select
                       value={characterAge}
                       onChange={(e) => setCharacterAge(e.target.value)}
-                      className="input-field"
+                      className="input-field w-full"
                     >
                       {Array.from({ length: 10 }, (_, i) => i + 3).map((age) => (
                         <option key={age} value={age}>
@@ -759,7 +761,7 @@ export default function CreatePage() {
                       onChange={(e) => setCharacterAppearance(e.target.value)}
                       placeholder="描述一下孩子的外貌，帮助AI画出更像的形象。&#10;例如：圆圆的脸蛋，大眼睛，短发，穿着蓝色外套"
                       rows={3}
-                      className="input-field resize-none"
+                      className="input-field resize-none w-full"
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       填写越详细，生成的角色越像您的孩子哦～
@@ -775,7 +777,7 @@ export default function CreatePage() {
                       onChange={(e) => setAdditionalInfo(e.target.value)}
                       placeholder="补充一些关于孩子或想要的故事的细节..."
                       rows={3}
-                      className="input-field resize-none"
+                      className="input-field resize-none w-full"
                     />
                   </div>
                 </div>
@@ -784,56 +786,56 @@ export default function CreatePage() {
 
             {/* Step 5: 确认并开始生成 */}
             {currentStep === 5 && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div className="text-center">
-                  <span className="text-4xl mb-4 block">✨</span>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  <span className="text-3xl sm:text-4xl mb-3 sm:mb-4 block">✨</span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
                     确认并开始生成
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 text-sm sm:text-base">
                     检查一下信息是否正确
                   </p>
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-6 space-y-4 max-w-md mx-auto">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">📷</span>
-                    <div>
-                      <p className="text-sm text-gray-500">照片</p>
-                      <p className="font-medium">{photos.length} 张照片</p>
+                <div className="bg-gray-50 rounded-xl p-4 sm:p-6 space-y-3 sm:space-y-4 max-w-md mx-auto w-full">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-xl sm:text-2xl">📷</span>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-500">照片</p>
+                      <p className="font-medium text-sm sm:text-base truncate">{photos.length} 张照片</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-xl sm:text-2xl">
                       {STYLES.find((s) => s.id === selectedStyle)?.emoji}
                     </span>
-                    <div>
-                      <p className="text-sm text-gray-500">风格</p>
-                      <p className="font-medium">
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-500">风格</p>
+                      <p className="font-medium text-sm sm:text-base truncate">
                         {STYLES.find((s) => s.id === selectedStyle)?.name}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-xl sm:text-2xl">
                       {THEMES.find((t) => t.id === selectedTheme)?.emoji}
                     </span>
-                    <div>
-                      <p className="text-sm text-gray-500">主题</p>
-                      <p className="font-medium">
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-gray-500">主题</p>
+                      <p className="font-medium text-sm sm:text-base truncate">
                         {THEMES.find((t) => t.id === selectedTheme)?.name}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">👤</span>
-                    <div>
-                      <p className="text-sm text-gray-500">主角</p>
-                      <p className="font-medium">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <span className="text-xl sm:text-2xl flex-shrink-0">👤</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-gray-500">主角</p>
+                      <p className="font-medium text-sm sm:text-base leading-snug">
                         {characterName}，{characterGender}，{characterAge}岁
                       </p>
                       {characterAppearance && (
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1 break-words">
                           外貌：{characterAppearance}
                         </p>
                       )}
@@ -843,25 +845,25 @@ export default function CreatePage() {
 
                 {/* 未登录提示 */}
                 {!isSignedIn && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center max-w-md mx-auto">
-                    <p className="text-yellow-800 text-sm">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 sm:p-4 text-center max-w-md mx-auto w-full">
+                    <p className="text-yellow-800 text-xs sm:text-sm">
                       💡 未登录状态下生成的绘本可以预览，但无法保存。登录后可永久保存。
                     </p>
                   </div>
                 )}
 
-                <p className="text-sm text-gray-500 text-center">
+                <p className="text-xs sm:text-sm text-gray-500 text-center">
                   🎉 确认无误后，点击下方按钮开始生成绘本
                 </p>
               </div>
             )}
 
-            {/* 导航按钮 */}
-            <div className="flex justify-between mt-8">
+            {/* 导航按钮 - 移动端优化 */}
+            <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 mt-6 sm:mt-8">
               <button
                 onClick={handlePrev}
                 disabled={currentStep === 1}
-                className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                className={`order-2 sm:order-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium transition-all text-sm ${
                   currentStep === 1
                     ? "text-gray-400 cursor-not-allowed"
                     : "text-gray-600 hover:bg-gray-100"
@@ -871,41 +873,41 @@ export default function CreatePage() {
               </button>
 
               {currentStep < 5 ? (
-                <button onClick={handleNext} className="btn-primary">
+                <button onClick={handleNext} className="order-1 sm:order-2 btn-primary w-full sm:w-auto text-sm">
                   下一步 →
                 </button>
               ) : (
-                <button onClick={handleGenerate} className="btn-primary">
+                <button onClick={handleGenerate} className="order-1 sm:order-2 btn-primary w-full sm:w-auto text-sm">
                   ✨ 开始生成绘本
                 </button>
               )}
             </div>
           </div>
         ) : (
-          /* 生成中状态 */
-          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-            <div className="text-6xl mb-6 animate-bounce">📖</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          /* 生成中状态 - 移动端优化 */
+          <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 lg:p-8 text-center w-full overflow-hidden">
+            <div className="text-5xl sm:text-6xl mb-4 sm:mb-6 animate-bounce">📖</div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">
               AI正在创作专属绘本...
             </h2>
-            <p className="text-gray-600 mb-8">
+            <p className="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base px-2">
               {generationStatus}
             </p>
-            <div className="max-w-md mx-auto">
-              <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+            <div className="max-w-md mx-auto w-full px-2">
+              <div className="h-2 sm:h-3 bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary-orange rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${generationProgress}%` }}
                 />
               </div>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-xs sm:text-sm text-gray-500 mt-2">
                 {generationProgress}%
               </p>
             </div>
             {/* 错误提示 */}
             {generationError && (
-              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-                <p className="text-red-700 text-sm">{generationError}</p>
+              <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-xl">
+                <p className="text-red-700 text-xs sm:text-sm">{generationError}</p>
                 <button
                   onClick={() => {
                     setIsGenerating(false);
@@ -913,7 +915,7 @@ export default function CreatePage() {
                     setGenerationProgress(0);
                     setGenerationStatus("");
                   }}
-                  className="mt-3 px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 transition-colors"
+                  className="mt-2 sm:mt-3 px-3 sm:px-4 py-1.5 sm:py-2 bg-red-100 text-red-700 rounded-lg text-xs sm:text-sm hover:bg-red-200 transition-colors"
                 >
                   关闭并重试
                 </button>
