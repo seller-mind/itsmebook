@@ -133,7 +133,7 @@ export default function ProcessSteps() {
         </div>
 
         {/* 特色功能 */}
-        <div className="mt-20 grid grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="mt-10 grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
             { icon: "⚡", title: "快速生成", desc: "3分钟完成" },
             { icon: "🎯", title: "角色一致", desc: "保持孩子特征" },

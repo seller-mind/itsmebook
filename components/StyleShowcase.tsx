@@ -74,10 +74,10 @@ export default function StyleShowcase() {
   const [hoveredStyle, setHoveredStyle] = useState<string | null>(null);
 
   return (
-    <section id="styles" className="py-20 bg-white">
+    <section id="styles" className="py-12 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* 标题区 */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8">
           <span className="text-primary-orange font-medium mb-4 block">
             ✨ 多种风格可选
           </span>
@@ -143,7 +143,7 @@ export default function StyleShowcase() {
         </div>
 
         {/* 底部提示 */}
-        <div className="text-center mt-12">
+        <div className="text-center mt-8">
           <p className="text-gray-500">
             更多风格持续更新中...
             <span className="ml-2">🎉</span>

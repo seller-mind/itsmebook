@@ -12,7 +12,7 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden gradient-hero">
+    <section className="relative flex items-center justify-center overflow-hidden gradient-hero pt-16 pb-12">
       {/* 装饰性背景元素 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* 漂浮的星星 */}
@@ -44,7 +44,7 @@ export default function HeroSection() {
       </div>
 
       {/* 主内容 */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-20">
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-12">
         {/* 主标题 */}
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
           <span className="text-gradient">你的孩子</span>
@@ -103,10 +103,10 @@ export default function HeroSection() {
         </div>
 
         {/* 统计数据 */}
-        <div className="mt-16 grid grid-cols-3 gap-8 max-w-2xl mx-auto">
+        <div className="mt-10 grid grid-cols-3 gap-8 max-w-2xl mx-auto">
           {[
             { number: "10,000+", label: "家庭选择" },
-            { number: "8-12页", label: "精美绘本" },
+            { number: "20页", label: "精美绘本" },
             { number: "3分钟", label: "快速生成" },
           ].map((stat, index) => (
             <div key={index} className="text-center">
@@ -121,24 +121,6 @@ export default function HeroSection() {
         </div>
       </div>
 
-      {/* 向下滚动提示 */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-        <a href="#features" className="text-gray-400 hover:text-primary-orange transition-colors">
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 14l-7 7m0 0l-7-7m7 7V3"
-            />
-          </svg>
-        </a>
-      </div>
     </section>
   );
 }
