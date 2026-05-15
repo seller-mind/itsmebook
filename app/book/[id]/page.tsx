@@ -195,26 +195,63 @@ export default function BookPage() {
   const [isRealBook, setIsRealBook] = useState(false);
   const [showDownloadPrompt, setShowDownloadPrompt] = useState(false);
 
-  // 从localStorage读取真实绘本数据
+  // 从localStorage读取真实绘本数据或从sample-books.json读取示例绘本
   useEffect(() => {
-    const stored = localStorage.getItem(`book_${params.id}`);
-    if (stored) {
-      try {
-        const data = JSON.parse(stored);
-        setBookData({
-          ...MOCK_BOOK_DATA,
-          ...data,
-        });
-        setIsRealBook(true);
-      } catch {
-        setBookData(MOCK_BOOK_DATA);
-        setIsRealBook(false);
+    const loadBookData = async () => {
+      // 先检查localStorage
+      const stored = localStorage.getItem(`book_${params.id}`);
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          setBookData({
+            ...MOCK_BOOK_DATA,
+            ...data,
+          });
+          setIsRealBook(true);
+          setIsLoading(false);
+          return;
+        } catch {
+          // continue to check sample books
+        }
       }
-    } else {
+
+      // 检查是否是示例绘本
+      if (params.id && typeof params.id === "string" && params.id.startsWith("sample-")) {
+        try {
+          const response = await fetch("/sample-books.json");
+          const sampleBooks = await response.json();
+          const sampleBook = sampleBooks.find((b: any) => b.id === params.id);
+          if (sampleBook) {
+            setBookData({
+              id: sampleBook.id,
+              title: sampleBook.title,
+              characterName: sampleBook.characterName,
+              characterGender: sampleBook.characterGender,
+              characterAge: sampleBook.characterAge,
+              style: sampleBook.style,
+              theme: sampleBook.theme,
+              pages: sampleBook.pages.map((p: any) => ({
+                pageNumber: p.pageNumber,
+                text: p.text,
+                imageUrl: p.imageUrl,
+              })),
+            });
+            setIsRealBook(false);
+            setIsLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to load sample book:", err);
+        }
+      }
+
+      // Fallback to mock data
       setBookData(MOCK_BOOK_DATA);
       setIsRealBook(false);
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    loadBookData();
   }, [params.id]);
 
   // 下载PDF

@@ -1,0 +1,344 @@
+[
+  {
+    "id": "sample-1",
+    "title": "小宇的小灯",
+    "style": "watercolor",
+    "theme": "adventure",
+    "characterName": "小宇",
+    "characterGender": "男孩",
+    "characterAge": "5",
+    "appearanceChinese": "5岁圆脸男孩，大眼睛，利落短发，始终穿着干净的蓝色短袖T恤",
+    "coverImage": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/55/20260515/70729cf4/62a6e3a3-fe99-4786-bbc5-acebac70b233_0.png?Expires=1778937726&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=cYLqror8D61qGjPGWacoThj0OOU%3D",
+    "author": "是我呀示例",
+    "pages": [
+      {
+        "pageNumber": 1,
+        "text": "夏末的傍晚，小宇攥着半块橘子冰，蹲在老院门槛边数爬过墙根的小蜗牛。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/55/20260515/70729cf4/62a6e3a3-fe99-4786-bbc5-acebac70b233_0.png?Expires=1778937726&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=cYLqror8D61qGjPGWacoThj0OOU%3D"
+      },
+      {
+        "pageNumber": 2,
+        "text": "奶奶从里屋探出头笑，说院后老林里的山枣红透了，晒得比蜜还甜。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/1b/20260515/218dd9c9/b0e825da-aab3-442f-aecd-27af38d0c7d9_0.png?Expires=1778937725&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=98MkAVOteLC0mImh992%2FpFokE8U%3D"
+      },
+      {
+        "pageNumber": 3,
+        "text": "小宇挎着小竹篮蹦跳往林边走，风卷着梧桐叶擦过他的蓝T恤衣角。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/02/20260515/218dd9c9/a8b06544-f696-4d47-8766-d57e8057f7ce_0.png?Expires=1778937724&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=Elacp2JlSed8jWVTg0QZKRzyb4Y%3D"
+      },
+      {
+        "pageNumber": 4,
+        "text": "天忽然暗了大半，厚云把太阳整个裹住，林子里的树影歪歪扭扭晃起来。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/6a/20260515/218dd9c9/f807cb86-5bdd-4bdd-b0a7-999978ffef6e_0.png?Expires=1778937723&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=jyobf9q%2By3DV9VEYFjnYob7ImX8%3D"
+      },
+      {
+        "pageNumber": 5,
+        "text": "远处传来闷沉沉的雷声，小宇的指尖瞬间攥紧了篮边，后背冒出细细的冷汗。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/81/20260515/70729cf4/7cb717b1-dcd7-4c56-8819-7d53cc3a86fe_0.png?Expires=1778937724&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=8pPA7CDcqNInDLcNaodDdQek%2FyE%3D"
+      },
+      {
+        "pageNumber": 6,
+        "text": "他想起上周听阿明说林深处藏着“大黑影”，脚像粘在泥地上，半步都挪不动。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/5e/20260515/70729cf4/2605b482-a7f2-418b-8895-1cf68c5626e7_0.png?Expires=1778937754&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=ibDM%2B9rEE%2Fx%2FAK3%2BR8ZiDdeXpRw%3D"
+      },
+      {
+        "pageNumber": 7,
+        "text": "风刮得树叶沙沙响，像有人躲在暗处小声说话，小宇的耳朵尖都凉透了。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/d9/20260515/70729cf4/3bd6692e-e38b-43ae-9147-cc7b616f8405_0.png?Expires=1778937752&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=P6Ygrh4U6vl1SaJmjunqyebvZ%2Fg%3D"
+      },
+      {
+        "pageNumber": 8,
+        "text": "他下意识往后退了半步，鞋底蹭到软乎乎的青苔，差点摔坐在湿草地上。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/e6/20260515/218dd9c9/f227ffea-bbf2-47c3-9804-8eba95ffb1b8_0.png?Expires=1778937753&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=vPEPlhBP08qV36TD9qYJHGUL%2FDo%3D"
+      },
+      {
+        "pageNumber": 9,
+        "text": "小宇的心跳得咚咚响，像怀里揣了只乱撞的小兔子，连呼吸都放得轻轻的。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/17/20260515/218dd9c9/fd794136-b3ed-41ab-8197-d1b8eb01b75c_0.png?Expires=1778937756&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=Pr%2FAGwSTkYOW4s0InE3lZJf7%2BYc%3D"
+      },
+      {
+        "pageNumber": 10,
+        "text": "他转头望向院的方向，家的轮廓藏在树后面，被层层叠叠的树叶挡得严严实实。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/04/20260515/218dd9c9/26d16324-d2ad-4ecc-8596-892a61e7140d_0.png?Expires=1778937754&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=s%2BNmeDCVpGJXQoaHEe6Hyp%2BJ%2BFo%3D"
+      },
+      {
+        "pageNumber": 11,
+        "text": "裤兜里忽然硌了一下，是昨天爸爸送他的迷你手电，按开就跳出暖黄的小光。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/f5/20260515/218dd9c9/2897b8af-ffe7-4ddb-8b9f-2f77f0adcc56_0.png?Expires=1778937782&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=VfBEhoXVJXTHhvAF1DpHLROxxnE%3D"
+      },
+      {
+        "pageNumber": 12,
+        "text": "那点光落在脚边的草叶上，把细碎的小绒毛都照得清清楚楚，暖融融的。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/cf/20260515/70729cf4/f0c8cc27-c0d6-432d-991c-4e794052f00e_0.png?Expires=1778937785&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=BEM7fJWNeMVoYxXl3JTMFa0A3fU%3D"
+      },
+      {
+        "pageNumber": 13,
+        "text": "小宇咬了咬嘴唇，把小手电举到身前，一步一顿朝着山枣的方向慢慢走。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/d5/20260515/70729cf4/e23ee592-9d75-4e09-abb4-bc08fd0eafd3_0.png?Expires=1778938174&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=Y5lcSjs%2FpCdg8GA1ABL6G5QsCv0%3D"
+      },
+      {
+        "pageNumber": 14,
+        "text": "树影晃到他脚边，他用手电照过去，哪有什么大黑影，只是歪倒的老枯树干。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/0f/20260515/218dd9c9/c3b1c137-2b30-4ebd-87b4-52ae6bd04945_0.png?Expires=1778938202&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=cZlAfakWJ6Rl6jKfDFSEDje5JD4%3D"
+      },
+      {
+        "pageNumber": 15,
+        "text": "雷声远了，风也软下来，转过一块凸起来的大石坡，满树的红通通山枣撞进眼里。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/53/20260515/218dd9c9/4f86f1c5-469b-42ca-a5e3-305b502629d7_0.png?Expires=1778938229&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=ks7hBlxXwfM8mubA%2BJTRH%2BnWaxw%3D"
+      },
+      {
+        "pageNumber": 16,
+        "text": "他踮着脚把最红最圆的山枣摘下来，一颗一颗轻轻放进挎着的小竹篮里。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/1e/20260515/70729cf4/55008d71-8619-47d8-8743-022cd98db3fa_0.png?Expires=1778938257&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=gOqmtYnsCA6jyA7VhIRxzeJMbCY%3D"
+      },
+      {
+        "pageNumber": 17,
+        "text": "装得满满当当的小竹篮沉乎乎的，小宇挎着它，胸口的小兔子终于慢慢安静下来。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 18,
+        "text": "推开院门的瞬间，奶奶举着小灯站在屋檐下，暖光把小宇的蓝T恤染成软融融的浅蓝。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 19,
+        "text": "咬开一颗山枣，蜜甜的汁水流进喉咙，小宇忽然发现刚才怕得发抖的自己超厉害。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 20,
+        "text": "晚风揉着橘色的晚霞，小宇攥着手里的小灯，知道勇敢从来不是不害怕呀。",
+        "imageUrl": ""
+      }
+    ]
+  },
+  {
+    "id": "sample-2",
+    "title": "朵朵的超能力",
+    "style": "fantasy",
+    "theme": "imagination",
+    "characterName": "朵朵",
+    "characterGender": "女孩",
+    "characterAge": "6",
+    "appearanceChinese": "6岁女孩，翘翘马尾辫，圆溜溜大眼睛，裙摆带白碎花的粉色连衣裙，脸蛋粉扑扑的软萌模样",
+    "coverImage": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/77/20260515/218dd9c9/8d2a53e2-d825-4ff9-869e-5bcc0e85177b_0.png?Expires=1778937812&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=xTbhnlQ8w6uMpFCkC08x08UgMoI%3D",
+    "author": "是我呀示例",
+    "pages": [
+      {
+        "pageNumber": 1,
+        "text": "周末午后的小阳台上，托着下巴的朵朵正对着空花盆发呆。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/77/20260515/218dd9c9/8d2a53e2-d825-4ff9-869e-5bcc0e85177b_0.png?Expires=1778937812&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=xTbhnlQ8w6uMpFCkC08x08UgMoI%3D"
+      },
+      {
+        "pageNumber": 2,
+        "text": "妈妈路过笑着说这盆向日葵去年枯啦，再也长不出花咯。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/ff/20260515/70729cf4/283af9d6-7804-4d66-a6e1-7ffed183951b_0.png?Expires=1778937812&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=QI5Du%2F6Yy6BMZwUMF5hLP%2FSWgwE%3D"
+      },
+      {
+        "pageNumber": 3,
+        "text": "朵朵眨眨眼晃起马尾：我有超能力，肯定能让它重新开花呀。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/49/20260515/218dd9c9/d5a5ec0a-88da-4001-a19a-4c26cfac86de_0.png?Expires=1778937811&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=dNirancCLdjgcHuzXDNgH%2FtSVuk%3D"
+      },
+      {
+        "pageNumber": 4,
+        "text": "她把小手掌轻轻盖在空花盆的泥土上，闭紧眼睛默念咒语。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/a5/20260515/70729cf4/f05f64d3-28c9-424f-a32f-d4aa2cc4167b_0.png?Expires=1778937812&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=6OB8%2B1gcKkfQuiBUTggcb0FDkZo%3D"
+      },
+      {
+        "pageNumber": 5,
+        "text": "第一缕小绿芽从软乎乎的泥土里钻了出来，顶着嫩黄小帽。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/e5/20260515/218dd9c9/615f76c0-ec33-4f23-836a-9ba50033bab8_0.png?Expires=1778937808&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=fnuj2YKkGBSZpEvwkIX8otBJvls%3D"
+      },
+      {
+        "pageNumber": 6,
+        "text": "小芽蹭蹭长高，抽出带着小绒毛的绿叶子，晃呀晃像在跳小舞。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/d1/20260515/70729cf4/4536344b-9c1b-4b0c-a662-55d6d84a1607_0.png?Expires=1778937839&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=HUdIJ8sSh5YVK7zcJ6an0StBLmY%3D"
+      },
+      {
+        "pageNumber": 7,
+        "text": "没过多久，花茎顶端鼓出了圆滚滚的绿色小花苞，藏着小秘密。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/7d/20260515/218dd9c9/42510d95-9021-4457-9eaa-fbc686faf11a_0.png?Expires=1778937841&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=h8Ve0Snl6nbrJWBZmS5tBnAq1w0%3D"
+      },
+      {
+        "pageNumber": 8,
+        "text": "朵朵对着花苞吹了一口香香的小口气，花苞瞬间裂开一条小缝。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/ab/20260515/70729cf4/7fe07c39-1bd8-4b31-9d20-60275122d28a_0.png?Expires=1778937838&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=sqHnuCBmFjOYLInOfZbbk0IT7VM%3D"
+      },
+      {
+        "pageNumber": 9,
+        "text": "金灿灿的向日葵花瓣一层层舒展开，比太阳还要明亮几分。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/33/20260515/70729cf4/a2f619f2-8a54-440d-a827-393f0711dbe5_0.png?Expires=1778937837&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=F2YzS0oeiKR%2BT7SBalZLUIQ6Wz4%3D"
+      },
+      {
+        "pageNumber": 10,
+        "text": "向日葵晃了晃花盘，居然吐出一颗圆滚滚的彩虹色小种子。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/ff/20260515/218dd9c9/41dea5ad-b6f3-4767-b324-82d1a032a7e9_0.png?Expires=1778937840&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=sxgPEDgbp7t1vWYdGnM%2F7aPY7YE%3D"
+      },
+      {
+        "pageNumber": 11,
+        "text": "小种子蹭地蹦到朵朵掌心里，带着暖乎乎的向日葵香气。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/2c/20260515/70729cf4/7c6f679f-759b-4ebc-bdb5-df745f5fce31_0.png?Expires=1778937864&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=mFkcrBVz%2BPLT8Vd%2FoHxr2QxwAwk%3D"
+      },
+      {
+        "pageNumber": 12,
+        "text": "朵朵捧着种子跑到楼下小泥地，轻轻把它埋进软乎乎的泥土里。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/f0/20260515/218dd9c9/68ad2df1-ab0b-4a3b-b646-22f6e7d70ef8_0.png?Expires=1778937868&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=DUB3EFTpOxG2kFRuJ8mX0aiSTU4%3D"
+      },
+      {
+        "pageNumber": 13,
+        "text": "她拍了拍小手默念咒语，整片草地瞬间冒出无数彩色小芽。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 14,
+        "text": "小芽飞快长成会晃脑袋的花朵，有的像星星有的像小棉花糖。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 15,
+        "text": "花丛里钻出长着透明小翅膀的迷你花精灵，围着朵朵飞圈圈。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 16,
+        "text": "邻居家的小猫咪踮脚凑过来，软乎乎的爪子碰了碰花瓣尖。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 17,
+        "text": "风把花的香味吹到整条小街上，连路过的小鸟都停在篱笆上看。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 18,
+        "text": "妈妈站在阳台笑着招手，朵朵跑回家举着沾了花瓣香的小手。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 19,
+        "text": "朵朵趴在妈妈耳边悄悄说：我的超能力呀，是会变魔法的想象力。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 20,
+        "text": "原来最厉害的超能力，就是永远闪闪发光的小孩子的想象力呀。",
+        "imageUrl": ""
+      }
+    ]
+  },
+  {
+    "id": "sample-3",
+    "title": "阿宝的叶约",
+    "style": "chinese",
+    "theme": "nature",
+    "characterName": "阿宝",
+    "characterGender": "男孩",
+    "characterAge": "7",
+    "appearanceChinese": "7岁虎头虎脑男孩，短寸头，身着干净白色对襟小褂，眉眼圆钝带着憨气",
+    "coverImage": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/24/20260515/218dd9c9/e33ee0d2-daa9-4885-8f45-9b84d3639ed9_0.png?Expires=1778937994&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=LVrKIppkeJXFWLUma39tn3lCGho%3D",
+    "author": "是我呀示例",
+    "pages": [
+      {
+        "pageNumber": 1,
+        "text": "秋阳晒软后院的柿树，阿宝踮脚扒着树干，盯着满枝飘晃的金叶子直眨眼。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/24/20260515/218dd9c9/e33ee0d2-daa9-4885-8f45-9b84d3639ed9_0.png?Expires=1778937994&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=LVrKIppkeJXFWLUma39tn3lCGho%3D"
+      },
+      {
+        "pageNumber": 2,
+        "text": "风卷着第一片柿叶擦过他耳尖，阿宝攥紧叶边，想把它塞回空枝丫上。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/88/20260515/218dd9c9/c344aadd-39a0-4fe0-b547-9922b21ef034_0.png?Expires=1778937988&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=RswcF8BccM12ukLTe8FDspHV4Ns%3D"
+      },
+      {
+        "pageNumber": 3,
+        "text": "叶子牵着他的指尖往林子里钻，脚边碎叶沙沙响，像藏着数不清的小秘密。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/a1/20260515/70729cf4/0bdbedae-c907-43fa-8856-c80daef61e00_0.png?Expires=1778937984&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=4%2FxIE9bBshovLwOO0%2BCV0CP4tS4%3D"
+      },
+      {
+        "pageNumber": 4,
+        "text": "小松鼠叼着松果蹭过他脚背，摆摆大尾巴，引他去看埋在土缝的橡果。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/93/20260515/70729cf4/5fd37a3c-7d3a-43ed-9b03-e75e8f376d96_0.png?Expires=1778937983&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=GmTZW27A7iudZSceZMfUsRjnQLM%3D"
+      },
+      {
+        "pageNumber": 5,
+        "text": "枯荷盖下蜷着几只青蛙，鼓着腮帮子呱呱叫，指了指水面飘转的残荷瓣。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/24/20260515/218dd9c9/5bcba081-89fe-4fdf-9c10-08a7958714b4_0.png?Expires=1778937986&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=trnSfeTiUUBSDYpbWpQJvRSlQTA%3D"
+      },
+      {
+        "pageNumber": 6,
+        "text": "穿蓝布衫的老蜂农坐在田埂，递给他半块桂花糕，指向坡底歇冬的蜂箱。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/03/20260515/218dd9c9/e1f11207-4beb-48fb-9e62-7d91bac8074f_0.png?Expires=1778938023&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=2RWm0nTwbJRcbLaC4RVzVcXr83A%3D"
+      },
+      {
+        "pageNumber": 7,
+        "text": "蚂蚁排着长队拖饭粒，绕开阿宝的布鞋尖，往落叶堆的小洞里钻去。",
+        "imageUrl": ""
+      },
+      {
+        "pageNumber": 8,
+        "text": "风裹着桂香绕他转三圈，把满林子的落叶都卷成慢悠悠打旋的金漩涡。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/b5/20260515/218dd9c9/16f6ae14-e144-461c-a998-d4cc3d457466_0.png?Expires=1778938022&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=oSgCTqOSSfBSUFPEeXhFpmzD1NE%3D"
+      },
+      {
+        "pageNumber": 9,
+        "text": "他跟着落叶涡往山坳走，看见老茶树的叶片铺了厚厚一层，盖着土里的芽尖。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/ef/20260515/70729cf4/4d451f24-6a16-4255-8702-8ec9596c0864_0.png?Expires=1778938022&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=OR5%2BcppXYQljFWxCWTn5%2FJOtYlQ%3D"
+      },
+      {
+        "pageNumber": 10,
+        "text": "路过的老黄牛甩甩尾巴，蹭了蹭他的发顶，哞一声，指向山尖落下去的太阳。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/cb/20260515/218dd9c9/f0c0eb18-0b34-4475-9914-9747ddcaa77b_0.png?Expires=1778938024&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=tz8vknenbc7GR5e3Ja6stEYJgoU%3D"
+      },
+      {
+        "pageNumber": 11,
+        "text": "他把攥了一路的柿叶放到落叶堆上，忽然听见叶层底下传来细细的鼾声。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/41/20260515/218dd9c9/318610bd-1260-4f51-b741-caa92b3c092b_0.png?Expires=1778938084&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=DWhvJbt0WlXOJmth%2F0OHsWbmLJQ%3D"
+      },
+      {
+        "pageNumber": 12,
+        "text": "月光漫过林梢时，阿宝踩着叶影往家走，口袋里塞了颗松鼠送的饱满橡果。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/23/20260515/70729cf4/84263405-cfad-40e4-b35d-124bcc33b3ae_0.png?Expires=1778938084&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=Uz8EhWhx7vnOSozutmRbiWvPjEk%3D"
+      },
+      {
+        "pageNumber": 13,
+        "text": "一夜霜风过后，窗玻璃结满冰花，阿宝趴在窗台，数着枝丫上的空缺口。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/44/20260515/218dd9c9/14ce2f0d-716f-47e2-ae01-72d5c2782f95_0.png?Expires=1778938085&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=jPVupA6iJnZiTPBHFR3egk32fvs%3D"
+      },
+      {
+        "pageNumber": 14,
+        "text": "他把橡果埋在柿树底下，盖了层软乎乎的腐叶，像给小芽盖了层厚棉被。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/51/20260515/218dd9c9/4ff9c5b0-ba1d-4df7-b336-79d80e8e225d_0.png?Expires=1778938082&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=fLgQmzu3nGfwXuocOZHQ7Ys2t6A%3D"
+      },
+      {
+        "pageNumber": 15,
+        "text": "落雪的日子他趴在暖炕头，听奶奶讲春燕归巢的旧事，指尖蹭着窗沿数日子。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/17/20260515/218dd9c9/553ab6f7-029e-4d9d-878c-7c453e43166b_0.png?Expires=1778938085&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=F4%2BVM2Fbr5Wr93rNQBkwD8QZpeE%3D"
+      },
+      {
+        "pageNumber": 16,
+        "text": "河冰裂开细纹路的那天，阿宝跑到林边，看见土缝里顶出星星点点的嫩绿尖。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/3d/20260515/218dd9c9/739e9cd9-e9f1-406e-a772-61d75f77d657_0.png?Expires=1778938112&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=%2FYjmCKbdQUcbWnCmTpz4vjO44So%3D"
+      },
+      {
+        "pageNumber": 17,
+        "text": "满树柿芽冒头时，第一只新燕擦着他的耳边飞过，停在去年落过叶的枝桠上。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/63/20260515/70729cf4/dc67ab2f-f16d-49e6-b1d9-6c49abe88290_0.png?Expires=1778938113&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=%2Ft%2BfRWLKmrxcpJBLXsIiJ2MtpO8%3D"
+      },
+      {
+        "pageNumber": 18,
+        "text": "阿宝忽然懂了，去年飘走的叶子，从来不是和柿树说再见，是约好了春天见。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/88/20260515/70729cf4/08485025-0533-42fb-9969-82e59da601c7_0.png?Expires=1778938112&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=hnBb38rDjoetGXkaPtbuz%2FWXPs4%3D"
+      },
+      {
+        "pageNumber": 19,
+        "text": "他埋的橡果钻出两瓣嫩黄的芽，风一吹，晃悠悠朝他招了招小叶子。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/32/20260515/218dd9c9/9e2affe9-f117-4778-af3b-bb644c4e8b0f_0.png?Expires=1778938112&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=gNnebk3bokfpV8nkGvxmflvqwVM%3D"
+      },
+      {
+        "pageNumber": 20,
+        "text": "风慢悠悠吹过新叶，万物都踩着自己的步子，不慌不忙，刚好赴约。",
+        "imageUrl": "https://dashscope-7c2c.oss-accelerate.aliyuncs.com/1d/f7/20260515/218dd9c9/3a06891e-c689-432f-b6cd-cb5fc6575f37_0.png?Expires=1778938113&OSSAccessKeyId=LTAI5tPxpiCM2hjmWrFXrym1&Signature=TCLoGSBWvg6g%2FZZf9FsuVEsyrD4%3D"
+      }
+    ]
+  }
+]

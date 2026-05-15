@@ -1,15 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import HeroSection from "@/components/HeroSection";
 import StyleShowcase from "@/components/StyleShowcase";
 import ProcessSteps from "@/components/ProcessSteps";
 import ChildConsentModal from "@/components/ChildConsentModal";
 
+// 风格名称映射
+const STYLE_NAMES: Record<string, string> = {
+  watercolor: "水彩风格",
+  oil: "油画风格",
+  anime: "日系动漫",
+  chinese: "国风水墨",
+  pastoral: "温暖田园",
+  fantasy: "梦幻童话",
+  minimalist: "简约现代",
+  nordic: "北欧极简",
+};
+
+interface SampleBook {
+  id: string;
+  title: string;
+  style: string;
+  coverImage: string;
+  author: string;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [showConsent, setShowConsent] = useState(false);
+  const [sampleBooks, setSampleBooks] = useState<SampleBook[]>([]);
+
+  // 加载示例绘本数据
+  useEffect(() => {
+    fetch("/sample-books.json")
+      .then((res) => res.json())
+      .then((data) => {
+        setSampleBooks(
+          data.map((book: any) => ({
+            id: book.id,
+            title: book.title,
+            style: book.style,
+            coverImage: book.coverImage,
+            author: book.author,
+          }))
+        );
+      })
+      .catch((err) => console.error("Failed to load sample books:", err));
+  }, []);
 
   // Plan B: 所有用户都可以直接进入创建流程
   const handleStartCreating = () => {
@@ -19,6 +58,10 @@ export default function HomePage() {
   const handleConsentConfirm = () => {
     setShowConsent(false);
     router.push("/create");
+  };
+
+  const handleViewBook = (bookId: string) => {
+    router.push(`/book/${bookId}`);
   };
 
   return (
@@ -51,49 +94,41 @@ export default function HomePage() {
 
           {/* Sample Book Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                title: "小明的太空探险",
-                style: "水彩风格",
-                author: "小明妈妈",
-                cover: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=400&h=500&fit=crop",
-              },
-              {
-                title: "莉莉的魔法花园",
-                style: "梦幻童话",
-                author: "莉莉爸爸",
-                cover: "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=400&h=500&fit=crop",
-              },
-              {
-                title: "天天交朋友",
-                style: "日系动漫",
-                author: "天天爷爷",
-                cover: "https://images.unsplash.com/photo-1476703993599-0035a21b17a9?w=400&h=500&fit=crop",
-              },
-            ].map((book, index) => (
-              <div
-                key={index}
-                className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300"
-              >
-                <div className="relative aspect-[4/5] overflow-hidden">
-                  <img
-                    src={book.cover}
-                    alt={book.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <span className="inline-block px-3 py-1 bg-white/90 rounded-full text-xs font-medium text-gray-600 mb-2">
-                      {book.style}
-                    </span>
-                    <h3 className="text-white font-bold text-lg">
-                      {book.title}
-                    </h3>
-                    <p className="text-white/80 text-sm">by {book.author}</p>
+            {sampleBooks.length > 0 ? (
+              sampleBooks.map((book) => (
+                <div
+                  key={book.id}
+                  className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 cursor-pointer"
+                  onClick={() => handleViewBook(book.id)}
+                >
+                  <div className="relative aspect-[4/5] overflow-hidden">
+                    <img
+                      src={book.coverImage || "/placeholder-book.svg"}
+                      alt={book.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      <span className="inline-block px-3 py-1 bg-white/90 rounded-full text-xs font-medium text-gray-600 mb-2">
+                        {STYLE_NAMES[book.style] || book.style}
+                      </span>
+                      <h3 className="text-white font-bold text-lg">
+                        {book.title}
+                      </h3>
+                      <p className="text-white/80 text-sm">by {book.author}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              // Fallback while loading
+              [1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="bg-gray-100 rounded-2xl animate-pulse aspect-[4/5]"
+                />
+              ))
+            )}
           </div>
         </div>
       </section>
