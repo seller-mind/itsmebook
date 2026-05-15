@@ -68,20 +68,18 @@ export default function ProcessSteps() {
   }, [isVisible]);
 
   return (
-    <section id="features" className="py-12 bg-gradient-to-b from-gray-50 to-white">
+    <section id="features" className="py-8 sm:py-12 bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* 标题区 */}
-        <div className="text-center mb-8">
-          <span className="text-secondary-blue font-medium mb-4 block">
+        <div className="text-center mb-4 sm:mb-8">
+          <span className="text-secondary-blue font-medium mb-2 sm:mb-4 block text-sm sm:text-base">
             🚀 简单4步
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+          <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">
             轻松创作专属绘本
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            无需任何设计经验，只需几步操作
-            <br />
-            就能为孩子创作一本独一无二的故事书
+          <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto">
+            无需任何设计经验，只需几步操作就能为孩子创作一本独一无二的故事书
           </p>
         </div>
 
@@ -90,8 +88,8 @@ export default function ProcessSteps() {
           {/* 连接线 */}
           <div className="hidden lg:block absolute top-24 left-0 right-0 h-1 bg-gradient-to-r from-pink-200 via-purple-200 via-blue-200 to-orange-200" />
 
-          {/* 步骤卡片 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* 步骤卡片 - 手机端2列 */}
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-8">
             {STEPS.map((step, index) => (
               <div
                 key={step.number}
@@ -104,26 +102,26 @@ export default function ProcessSteps() {
               >
                 {/* 步骤编号 */}
                 <div
-                  className={`w-12 h-12 rounded-full ${step.color} flex items-center justify-center text-xl font-bold mx-auto mb-6 relative z-10 shadow-lg`}
+                  className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full ${step.color} flex items-center justify-center text-sm sm:text-xl font-bold mx-auto mb-2 sm:mb-6 relative z-10 shadow-lg`}
                 >
                   {step.number}
                 </div>
 
                 {/* 卡片内容 */}
                 <div
-                  className={`bg-white rounded-2xl p-6 shadow-lg transition-all duration-300 ${
+                  className={`bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-lg transition-all duration-300 ${
                     activeStep === index
                       ? "ring-4 ring-primary-orange/30 scale-105"
                       : "hover:shadow-xl"
                   }`}
                 >
-                  <span className="text-5xl mb-4 block text-center">
+                  <span className="text-3xl sm:text-5xl mb-1 sm:mb-4 block text-center">
                     {step.icon}
                   </span>
-                  <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+                  <h3 className="text-sm sm:text-xl font-bold text-gray-900 text-center mb-1 sm:mb-2">
                     {step.title}
                   </h3>
-                  <p className="text-gray-600 text-center text-sm">
+                  <p className="text-gray-600 text-center text-xs sm:text-sm">
                     {step.description}
                   </p>
                 </div>
@@ -133,7 +131,7 @@ export default function ProcessSteps() {
         </div>
 
         {/* 特色功能 */}
-        <div className="mt-10 grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="mt-6 sm:mt-10 grid grid-cols-3 gap-2 sm:gap-4">
           {[
             { icon: "⚡", title: "快速生成", desc: "3分钟完成" },
             { icon: "🎯", title: "角色一致", desc: "保持孩子特征" },
@@ -141,11 +139,11 @@ export default function ProcessSteps() {
           ].map((feature, index) => (
             <div
               key={index}
-              className="bg-white rounded-xl p-4 text-center shadow-md hover:shadow-lg transition-shadow"
+              className="bg-white rounded-xl p-2 sm:p-4 text-center shadow-md hover:shadow-lg transition-shadow"
             >
-              <span className="text-3xl mb-2 block">{feature.icon}</span>
-              <h4 className="font-semibold text-gray-900">{feature.title}</h4>
-              <p className="text-sm text-gray-500">{feature.desc}</p>
+              <span className="text-xl sm:text-3xl mb-1 block">{feature.icon}</span>
+              <h4 className="font-semibold text-gray-900 text-xs sm:text-base">{feature.title}</h4>
+              <p className="text-xs text-gray-500">{feature.desc}</p>
             </div>
           ))}
         </div>
