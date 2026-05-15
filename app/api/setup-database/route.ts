@@ -1,33 +1,42 @@
 import { NextResponse } from "next/server";
+import dns from "dns";
 
 // One-time database setup endpoint - DELETE after running
 export async function GET() {
   try {
-    // Use Supabase REST API to create tables via RPC approach
-    // First, try creating an exec_sql function, then use it
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const { Client } = await import("pg");
     
-    if (!supabaseUrl || !supabaseKey) {
+    const password = "8Jt97lv9eWDbYN71";
+    const dbHost = "db.lhxrauqvqvehhqbzvzjr.supabase.co";
+    
+    // Resolve IPv6 address for the database
+    const resolveAsync = (hostname: string): Promise<string[]> => {
+      return new Promise((resolve, reject) => {
+        dns.resolve6(hostname, (err, addresses) => {
+          if (err) reject(err);
+          else resolve(addresses);
+        });
+      });
+    };
+
+    let ipv6Addr: string;
+    try {
+      const addresses = await resolveAsync(dbHost);
+      ipv6Addr = addresses[0];
+    } catch {
       return NextResponse.json(
-        { success: false, error: "Supabase credentials not configured" },
+        { success: false, error: `Cannot resolve ${dbHost} - project may need IPv4 access enabled` },
         { status: 500 }
       );
     }
 
-    // Use pg with pooler hostname - Vercel should resolve DNS correctly
-    const { Client } = await import("pg");
-    
-    const password = "8Jt97lv9eWDbYN71";
-    
-    // Try pooler connection with proper DNS
     const client = new Client({
-      host: "aws-0-ap-northeast-1.pooler.supabase.com",
-      port: 6543,
+      host: ipv6Addr,
+      port: 5432,
       database: "postgres",
-      user: "postgres.lhxrauqvqvehhqbzvzjr",
+      user: "postgres",
       password: password,
-      ssl: { rejectUnauthorized: false },
+      ssl: { rejectUnauthorized: false, servername: dbHost },
     });
 
     await client.connect();
@@ -124,7 +133,7 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message, stack: error.stack?.substring(0, 500) },
+      { success: false, error: error.message },
       { status: 500 }
     );
   }
