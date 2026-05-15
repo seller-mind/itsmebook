@@ -64,6 +64,7 @@ export default function CreatePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState("");
+  const [generationError, setGenerationError] = useState("");
 
   // 文件上传处理
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -137,19 +138,85 @@ export default function CreatePage() {
     setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
   };
 
+  // 带超时的fetch
+  const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: number) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      return res;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`请求超时（${timeoutMs / 1000}秒）`);
+      }
+      throw error;
+    }
+  };
+
+  // 生成单张图片（带重试）
+  const generateSingleImage = async (imagePrompt: string, pageIndex: number): Promise<string> => {
+    const dashscopeKey = process.env.NEXT_PUBLIC_DASHSCOPE_API_KEY;
+    if (!dashscopeKey) {
+      throw new Error('未配置图片生成API Key');
+    }
+
+    let lastError: Error | null = null;
+    // 尝试2次
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const wanRes = await fetchWithTimeout(
+          'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${dashscopeKey}`,
+            },
+            body: JSON.stringify({
+              model: "wan2.7-image-pro",
+              input: {
+                messages: [{ role: "user", content: [{ text: imagePrompt }] }]
+              },
+              parameters: { size: "1024*1024", n: 1 }
+            }),
+          },
+          60000 // 60秒超时
+        );
+
+        if (wanRes.ok) {
+          const wanData = await wanRes.json();
+          const imageUrl = wanData.output?.choices?.[0]?.message?.content?.[0]?.image;
+          if (imageUrl) {
+            return imageUrl;
+          }
+        }
+        // 如果响应不ok或者没有图片，尝试解析错误
+        const errorText = await wanRes.text().catch(() => '');
+        lastError = new Error(`图片生成失败 (${wanRes.status}): ${errorText.slice(0, 100)}`);
+      } catch (e: any) {
+        lastError = e;
+      }
+      
+      // 如果不是超时错误，不重试
+      if (!lastError.message.includes('超时')) {
+        break;
+      }
+    }
+    
+    throw lastError || new Error(`第${pageIndex + 1}页图片生成失败`);
+  };
+
   // 开始生成 - 前端直接调用API（绕过Vercel 10秒限制）
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerationProgress(0);
     setGenerationStatus("正在构思故事...");
-
-    // 模拟故事生成阶段的进度（0→15%），让用户感知到在运作
-    let storyProgressTimer: NodeJS.Timeout;
-    let fakeProgress = 0;
-    storyProgressTimer = setInterval(() => {
-      fakeProgress = Math.min(fakeProgress + Math.random() * 2, 14);
-      setGenerationProgress(Math.floor(fakeProgress));
-    }, 800);
+    setGenerationError("");
+    
+    // 清理可能存在的旧定时器
+    let storyProgressTimer: NodeJS.Timeout | null = null;
 
     try {
       // 第1步：直接调用Doubao API生成故事（绕过Vercel 10秒限制）
@@ -176,29 +243,44 @@ export default function CreatePage() {
         .replace("{styleChinese}", styleConfig.chinese)
         .replace("{wanchineseStyle}", styleConfig.chinesePrompt);
 
-      const doubaoRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: endpointId,
-          messages: [
-            { role: "system", content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。请直接输出最终结果，不要进行思考推理过程。" },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.85,
-          max_tokens: 4000,
-          thinking: { type: "disabled" },
-        }),
-      });
+      // 模拟故事生成阶段的进度（0→15%）
+      let fakeProgress = 0;
+      storyProgressTimer = setInterval(() => {
+        fakeProgress = Math.min(fakeProgress + Math.random() * 2, 14);
+        setGenerationProgress(Math.floor(fakeProgress));
+      }, 800);
 
-      clearInterval(storyProgressTimer);
+      // 更新状态提示
+      setGenerationStatus("正在等待AI构思故事（可能需要1-2分钟）...");
+
+      // 发起Doubao请求，带180秒超时
+      const doubaoRes = await fetchWithTimeout(
+        'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: endpointId,
+            messages: [
+              { role: "system", content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。请直接输出最终结果，不要进行思考推理过程。" },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.85,
+            max_tokens: 8000, // 增加token上限以支持20页故事
+            thinking: { type: "disabled" },
+          }),
+        },
+        180000 // 180秒超时
+      );
+
+      if (storyProgressTimer) clearInterval(storyProgressTimer);
 
       if (!doubaoRes.ok) {
         const errorText = await doubaoRes.text();
-        throw new Error(`故事生成失败 (${doubaoRes.status})`);
+        throw new Error(`故事生成失败 (${doubaoRes.status}): ${errorText.slice(0, 100)}`);
       }
 
       const doubaoData = await doubaoRes.json();
@@ -227,84 +309,59 @@ export default function CreatePage() {
         }));
       }
 
-      const { title, pages, appearanceChinese: storyAppearance } = storyResult;
+      const { title, pages } = storyResult;
 
       setGenerationProgress(15);
       setGenerationStatus("故事创作完成！开始绘制插图...");
 
-      // 第2步：逐页生成插图
-      const pagesWithImages = [];
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
-        // 每页占 15%→92% 的范围，逐页递增
-        const baseProgress = 15 + Math.floor((i / pages.length) * 77);
-        const nextProgress = 15 + Math.floor(((i + 1) / pages.length) * 77);
-        setGenerationProgress(baseProgress);
-        setGenerationStatus(`正在绘制第 ${i + 1}/${pages.length} 页插图...`);
+      // 第2步：并发生成插图（每组4张）
+      const pagesWithImages: Array<{ pageNumber: number; text: string; imageUrl: string }> = [];
+      const totalPages = pages.length;
+      const batchSize = 4; // 每批4张并发
+      
+      for (let batchStart = 0; batchStart < totalPages; batchStart += batchSize) {
+        const batchEnd = Math.min(batchStart + batchSize, totalPages);
+        const currentBatch = batchEnd - batchStart;
+        const batchPages = pages.slice(batchStart, batchEnd);
+        
+        // 更新批次状态
+        setGenerationStatus(`正在绘制第 ${batchStart + 1}-${batchEnd}/${totalPages} 页插图（并发生成中）...`);
+        
+        // 模拟批次进度
+        let batchProgress = batchStart;
+        const batchProgressTimer = setInterval(() => {
+          batchProgress = Math.min(batchProgress + 0.5, batchEnd - 0.5);
+          const overallProgress = 15 + Math.floor((batchProgress / totalPages) * 77);
+          setGenerationProgress(Math.min(overallProgress, 91));
+        }, 500);
 
-        // 每页生成时模拟细粒度进度
-        let pageFakeProgress = baseProgress;
-        const pageTimer = setInterval(() => {
-          pageFakeProgress = Math.min(pageFakeProgress + Math.random() * 1.5, nextProgress - 1);
-          setGenerationProgress(Math.floor(pageFakeProgress));
-        }, 1000);
-
-        try {
-          const dashscopeKey = process.env.NEXT_PUBLIC_DASHSCOPE_API_KEY;
-          if (dashscopeKey) {
-            try {
-              const wanRes = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${dashscopeKey}`,
-                },
-                body: JSON.stringify({
-                  model: "wan2.7-image-pro",
-                  input: {
-                    messages: [
-                      { role: "user", content: [{ text: page.imagePrompt }] }
-                    ]
-                  },
-                  parameters: { size: "1024*1024", n: 1 }
-                }),
-              });
-              
-              if (wanRes.ok) {
-                const wanData = await wanRes.json();
-                const imageUrl = wanData.output?.choices?.[0]?.message?.content?.[0]?.image;
-                if (imageUrl) {
-                  clearInterval(pageTimer);
-                  pagesWithImages.push({
-                    pageNumber: page.pageNumber,
-                    text: page.text,
-                    imageUrl,
-                  });
-                  setGenerationProgress(nextProgress);
-                  continue; // 跳过后面的空图push
-                }
-              }
-            } catch (e) {
-              console.error(`第${i+1}页图片生成失败:`, e);
-            }
+        // 并发生成当前批次图片
+        const batchPromises = batchPages.map(async (page: any, idx: number) => {
+          const pageIndex = batchStart + idx;
+          try {
+            const imageUrl = await generateSingleImage(page.imagePrompt, pageIndex);
+            return { success: true, pageIndex, pageNumber: page.pageNumber, text: page.text, imageUrl };
+          } catch (e: any) {
+            console.error(`第${pageIndex + 1}页图片生成失败:`, e);
+            return { success: false, pageIndex, pageNumber: page.pageNumber, text: page.text, imageUrl: '', error: e.message };
           }
-          clearInterval(pageTimer);
-          // 生成失败则用空图
-          pagesWithImages.push({
-            pageNumber: page.pageNumber,
-            text: page.text,
-            imageUrl: '',
-          });
-        } catch {
-          clearInterval(pageTimer);
-          pagesWithImages.push({
-            pageNumber: page.pageNumber,
-            text: page.text,
-            imageUrl: '',
-          });
-        }
+        });
 
-        setGenerationProgress(nextProgress);
+        const batchResults = await Promise.all(batchPromises);
+        if (batchProgressTimer) clearInterval(batchProgressTimer);
+        
+        // 收集结果
+        batchResults.forEach(result => {
+          pagesWithImages.push({
+            pageNumber: result.pageNumber,
+            text: result.text,
+            imageUrl: result.imageUrl,
+          });
+        });
+
+        // 更新进度
+        const progress = 15 + Math.floor((batchEnd / totalPages) * 77);
+        setGenerationProgress(progress);
       }
 
       setGenerationProgress(92);
@@ -337,10 +394,10 @@ export default function CreatePage() {
       router.push(`/book/${bookId}`);
     } catch (error: any) {
       console.error('Generation error:', error);
-      clearInterval(storyProgressTimer);
+      if (storyProgressTimer) clearInterval(storyProgressTimer);
       setIsGenerating(false);
       setGenerationProgress(0);
-      alert(`绘本生成失败：${error.message || '请稍后重试'}`);
+      setGenerationError(error.message || '生成失败，请稍后重试');
     }
   };
 
@@ -756,6 +813,23 @@ export default function CreatePage() {
                 {generationProgress}%
               </p>
             </div>
+            {/* 错误提示 */}
+            {generationError && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <p className="text-red-700 text-sm">{generationError}</p>
+                <button
+                  onClick={() => {
+                    setIsGenerating(false);
+                    setGenerationError("");
+                    setGenerationProgress(0);
+                    setGenerationStatus("");
+                  }}
+                  className="mt-3 px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 transition-colors"
+                >
+                  关闭并重试
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
