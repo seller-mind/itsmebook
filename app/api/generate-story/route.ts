@@ -6,12 +6,19 @@ import { generateStory } from "@/lib/openai";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { characterName, age, theme, style } = body;
+    const { characterName, age, theme, style, gender, appearance } = body;
 
     // 参数验证
     if (!characterName || !age || !theme || !style) {
       return NextResponse.json(
         { error: "缺少必要参数" },
+        { status: 400 }
+      );
+    }
+
+    if (!gender) {
+      return NextResponse.json(
+        { error: "请选择性别" },
         { status: 400 }
       );
     }
@@ -25,8 +32,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 生成故事
-    const story = await generateStory(characterName, ageNum, theme, style);
+    // 生成故事（新增gender和appearance参数）
+    const story = await generateStory(
+      characterName, 
+      ageNum, 
+      theme, 
+      style,
+      gender,
+      appearance || `${gender}，${ageNum}岁`
+    );
 
     return NextResponse.json({
       success: true,
@@ -43,7 +57,9 @@ export async function POST(request: NextRequest) {
         body.characterName,
         parseInt(body.age),
         body.theme,
-        body.style
+        body.style,
+        body.gender || "男孩",
+        body.appearance || `${body.gender || "男孩"}，${body.age}岁`
       );
       return NextResponse.json({
         success: true,
@@ -53,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "生成故事失败，请稍后重试" },
+      { error: error.message || "生成故事失败，请稍后重试" },
       { status: 500 }
     );
   }

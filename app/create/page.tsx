@@ -51,6 +51,8 @@ export default function CreatePage() {
   const [selectedTheme, setSelectedTheme] = useState<string>("");
   const [characterName, setCharacterName] = useState("");
   const [characterAge, setCharacterAge] = useState("5");
+  const [characterGender, setCharacterGender] = useState<string>("男孩");
+  const [characterAppearance, setCharacterAppearance] = useState<string>("");
   const [additionalInfo, setAdditionalInfo] = useState("");
 
   // 弹窗状态
@@ -134,40 +136,113 @@ export default function CreatePage() {
     setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
   };
 
-  // 开始生成
+  // 开始生成 - 对接真实API
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerationProgress(0);
+    setGenerationStatus("正在构思故事...");
 
-    // 模拟生成进度 - 更细腻的分步反馈
-    const statusUpdates = [
-      { progress: 5, status: "正在上传照片..." },
-      { progress: 12, status: "正在识别照片中的孩子特征..." },
-      { progress: 20, status: "正在构思故事大纲..." },
-      { progress: 28, status: "正在撰写故事文本..." },
-      { progress: 35, status: "故事文本生成完成！" },
-      { progress: 40, status: "正在创作第 1 页插图..." },
-      { progress: 48, status: "正在创作第 2 页插图..." },
-      { progress: 55, status: "正在创作第 3 页插图..." },
-      { progress: 62, status: "正在创作第 4 页插图..." },
-      { progress: 68, status: "正在创作第 5 页插图..." },
-      { progress: 74, status: "正在创作第 6 页插图..." },
-      { progress: 80, status: "正在创作第 7 页插图..." },
-      { progress: 86, status: "正在创作第 8 页插图..." },
-      { progress: 92, status: "所有插图创作完成！" },
-      { progress: 96, status: "正在组装完整绘本..." },
-      { progress: 100, status: "绘本制作完成！正在跳转预览..." },
-    ];
+    try {
+      // 第1步：生成故事
+      const storyRes = await fetch('/api/generate-story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characterName,
+          age: parseInt(characterAge),
+          gender: characterGender,
+          appearance: characterAppearance || `${characterGender}，${characterAge}岁`,
+          theme: selectedTheme,
+          style: selectedStyle,
+        }),
+      });
 
-    for (const update of statusUpdates) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      setGenerationProgress(update.progress);
-      setGenerationStatus(update.status);
+      if (!storyRes.ok) {
+        const err = await storyRes.json();
+        throw new Error(err.error || '故事生成失败');
+      }
+      
+      const storyResult = await storyRes.json();
+      const { title, pages, appearanceEnglish } = storyResult.data;
+
+      setGenerationProgress(15);
+      setGenerationStatus("故事创作完成！开始绘制插图...");
+
+      // 第2步：逐页生成插图
+      const pagesWithImages = [];
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const progressPercent = 15 + Math.floor(((i + 1) / pages.length) * 75);
+        setGenerationProgress(progressPercent);
+        setGenerationStatus(`正在绘制第 ${i + 1}/${pages.length} 页插图...`);
+
+        try {
+          const imgRes = await fetch('/api/generate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imagePrompt: page.imagePrompt,
+              style: selectedStyle,
+              pageNumber: i + 1,
+              totalPages: pages.length,
+            }),
+          });
+
+          if (imgRes.ok) {
+            const imgData = await imgRes.json();
+            pagesWithImages.push({
+              pageNumber: page.pageNumber,
+              text: page.text,
+              imageUrl: imgData.data.imageUrl,
+            });
+          } else {
+            // 图片生成失败时使用空字符串
+            pagesWithImages.push({
+              pageNumber: page.pageNumber,
+              text: page.text,
+              imageUrl: '',
+            });
+          }
+        } catch {
+          // 单页生成失败，继续处理其他页
+          pagesWithImages.push({
+            pageNumber: page.pageNumber,
+            text: page.text,
+            imageUrl: '',
+          });
+        }
+      }
+
+      setGenerationProgress(92);
+      setGenerationStatus("正在组装绘本...");
+
+      // 第3步：保存到localStorage
+      const bookId = uuidv4();
+      const bookData = {
+        id: bookId,
+        title,
+        characterName,
+        characterGender,
+        characterAge,
+        appearanceEnglish,
+        style: selectedStyle,
+        theme: selectedTheme,
+        pages: pagesWithImages,
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem(`book_${bookId}`, JSON.stringify(bookData));
+
+      setGenerationProgress(100);
+      setGenerationStatus("绘本制作完成！正在跳转预览...");
+
+      await new Promise(resolve => setTimeout(resolve, 800));
+      router.push(`/book/${bookId}`);
+    } catch (error: any) {
+      console.error('Generation error:', error);
+      setIsGenerating(false);
+      setGenerationProgress(0);
+      alert(`绘本生成失败：${error.message || '请稍后重试'}`);
     }
-
-    // 生成完成后跳转到预览页
-    const bookId = uuidv4();
-    router.push(`/book/${bookId}`);
   };
 
   return (
@@ -206,6 +281,14 @@ export default function CreatePage() {
               </span>
             </div>
           </div>
+        )}
+
+        {/* 生成进度 */}
+        {isGenerating && (
+          <GenerationProgress 
+            progress={generationProgress} 
+            status={generationStatus} 
+          />
         )}
 
         {/* 步骤内容 */}
@@ -375,6 +458,38 @@ export default function CreatePage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      性别
+                    </label>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setCharacterGender("男孩")}
+                        className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                          characterGender === "男孩"
+                            ? "bg-blue-100 text-blue-700 ring-2 ring-blue-500"
+                            : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        <span>👦</span>
+                        <span>男孩</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCharacterGender("女孩")}
+                        className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                          characterGender === "女孩"
+                            ? "bg-pink-100 text-pink-700 ring-2 ring-pink-500"
+                            : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        <span>👧</span>
+                        <span>女孩</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       年龄
                     </label>
                     <select
@@ -388,6 +503,22 @@ export default function CreatePage() {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      外貌简述（可选）
+                    </label>
+                    <textarea
+                      value={characterAppearance}
+                      onChange={(e) => setCharacterAppearance(e.target.value)}
+                      placeholder="描述一下孩子的外貌，帮助AI画出更像的形象。&#10;例如：圆圆的脸蛋，大眼睛，短发，穿着蓝色外套"
+                      rows={3}
+                      className="input-field resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      填写越详细，生成的角色越像您的孩子哦～
+                    </p>
                   </div>
 
                   <div>
@@ -454,8 +585,13 @@ export default function CreatePage() {
                     <div>
                       <p className="text-sm text-gray-500">主角</p>
                       <p className="font-medium">
-                        {characterName}，{characterAge}岁
+                        {characterName}，{characterGender}，{characterAge}岁
                       </p>
+                      {characterAppearance && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          外貌：{characterAppearance}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -501,88 +637,36 @@ export default function CreatePage() {
             </div>
           </div>
         ) : (
-          /* 生成中状态 - 全屏沉浸式 */
-          <div className="py-16">
-            <div className="max-w-lg mx-auto">
-              {/* 主图标动画 */}
-              <div className="text-center mb-10">
-                <div className="relative inline-block">
-                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center mx-auto shadow-2xl animate-pulse">
-                    <span className="text-5xl">📚</span>
-                  </div>
-                  {/* 旋转光圈 */}
-                  <div className="absolute inset-0 w-28 h-28 mx-auto rounded-full border-4 border-dashed border-orange-300 animate-spin" style={{ animationDuration: '3s' }}></div>
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mt-6">AI正在创作绘本</h2>
-                <p className="text-gray-500 mt-2">预计需要1-2分钟，请耐心等待...</p>
+          /* 生成中状态 */
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <div className="text-6xl mb-6 animate-bounce">📖</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              AI正在创作专属绘本...
+            </h2>
+            <p className="text-gray-600 mb-8">
+              {generationStatus}
+            </p>
+            <div className="max-w-md mx-auto">
+              <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary-orange rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${generationProgress}%` }}
+                />
               </div>
-
-              {/* 实时状态 */}
-              <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-3 h-3 rounded-full bg-green-500 animate-ping"></div>
-                  <span className="text-sm font-medium text-green-600">实时进度</span>
-                </div>
-                <p className="text-lg font-medium text-gray-800 mb-4">{generationStatus}</p>
-                
-                {/* 进度条 */}
-                <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden mb-2">
-                  <div
-                    className="absolute left-0 top-0 h-full bg-gradient-to-r from-orange-400 to-pink-500 rounded-full transition-all duration-700 ease-out"
-                    style={{ width: `${generationProgress}%` }}
-                  ></div>
-                  {/* 流光效果 */}
-                  <div className="absolute top-0 h-full w-20 opacity-30 bg-gradient-to-r from-transparent via-white to-transparent animate-shimmer" style={{ left: `${generationProgress - 10}%` }}></div>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">0%</span>
-                  <span className="font-bold text-orange-500">{generationProgress}%</span>
-                  <span className="text-gray-400">100%</span>
-                </div>
-              </div>
-
-              {/* 步骤清单 */}
-              <div className="bg-white rounded-2xl shadow-lg p-6">
-                <div className="space-y-4">
-                  {[
-                    { icon: "📷", step: "上传并分析照片", done: generationProgress > 12 },
-                    { icon: "📝", step: "生成故事文本", done: generationProgress > 35 },
-                    { icon: "🎨", step: "创作8页绘本插图", done: generationProgress > 92 },
-                    { icon: "📖", step: "组装完整绘本", done: generationProgress >= 100 },
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all duration-300 ${
-                        item.done ? 'bg-green-100' : 'bg-gray-100'
-                      }`}>
-                        {item.done ? '✅' : item.icon}
-                      </div>
-                      <span className={`text-sm transition-all duration-300 ${
-                        item.done ? 'text-gray-800 font-medium' : 'text-gray-400'
-                      }`}>
-                        {item.step}
-                      </span>
-                      {item.done && <span className="ml-auto text-green-500 text-xs">完成</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 温馨提示 */}
-              <p className="text-center text-xs text-gray-400 mt-6">
-                💡 请不要关闭此页面，绘本正在为您精心制作中
+              <p className="text-sm text-gray-500 mt-2">
+                {generationProgress}%
               </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* 儿童信息保护弹窗 */}
+      {/* 儿童信息使用同意弹窗 */}
       <ChildConsentModal
         isOpen={showConsent}
+        onClose={() => setShowConsent(false)}
         onConfirm={handleConsentConfirm}
-        onCancel={() => setShowConsent(false)}
       />
-
     </div>
   );
 }

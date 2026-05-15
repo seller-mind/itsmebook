@@ -7,12 +7,15 @@ import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import BookViewer, { BookPageData } from "@/components/BookViewer";
 import { AIDisclaimer } from "@/components/AIBadge";
 
-// Mock数据
+// Mock数据（作为fallback）
 const MOCK_BOOK_DATA = {
   id: "demo-book",
   title: "小明的太空探险",
   characterName: "小明",
+  characterGender: "男孩",
+  characterAge: "5",
   style: "fantasy",
+  theme: "adventure",
   pages: [
     {
       pageNumber: 1,
@@ -99,22 +102,59 @@ function DownloadPromptModal({ isOpen, onClose, isSignedIn }: { isOpen: boolean;
   );
 }
 
+// 风格名称映射
+const STYLE_NAMES: Record<string, string> = {
+  watercolor: "水彩风格",
+  oil: "油画风格",
+  anime: "日系动漫",
+  chinese: "国风水墨",
+  pastoral: "温暖田园",
+  fantasy: "梦幻童话",
+  minimalist: "简约现代",
+  nordic: "北欧极简",
+};
+
+// 主题名称映射
+const THEME_NAMES: Record<string, string> = {
+  adventure: "冒险",
+  friendship: "友谊",
+  growth: "成长",
+  courage: "勇气",
+  imagination: "想象力",
+  family: "家庭",
+  holiday: "节日",
+  nature: "自然",
+};
+
 export default function BookPage() {
   const params = useParams();
   const router = useRouter();
   const { isSignedIn } = useUser();
   const [bookData, setBookData] = useState<typeof MOCK_BOOK_DATA | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRealBook, setIsRealBook] = useState(false);
   const [showDownloadPrompt, setShowDownloadPrompt] = useState(false);
 
-  // 模拟加载数据
+  // 从localStorage读取真实绘本数据
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const stored = localStorage.getItem(`book_${params.id}`);
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        setBookData({
+          ...MOCK_BOOK_DATA,
+          ...data,
+        });
+        setIsRealBook(true);
+      } catch {
+        setBookData(MOCK_BOOK_DATA);
+        setIsRealBook(false);
+      }
+    } else {
       setBookData(MOCK_BOOK_DATA);
-      setIsLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
+      setIsRealBook(false);
+    }
+    setIsLoading(false);
   }, [params.id]);
 
   // 下载PDF
@@ -228,12 +268,23 @@ export default function BookPage() {
             {bookData.title}
           </h1>
           <p className="text-gray-500">
-            主角：{bookData.characterName} | 风格：{bookData.style} | 共{bookData.pages.length}页
+            主角：{bookData.characterName} 
+            {bookData.characterGender && ` | ${bookData.characterGender}`}
+            {bookData.characterAge && ` ${bookData.characterAge}岁`}
+            {bookData.style && ` | ${STYLE_NAMES[bookData.style] || bookData.style}`}
+            {bookData.theme && ` | ${THEME_NAMES[bookData.theme] || bookData.theme}`}
+            | 共{bookData.pages.length}页
           </p>
           {!isSignedIn && (
             <div className="mt-2 inline-flex items-center gap-2 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-4 py-1">
               <span>👀</span>
-              <span>预览模式</span>
+              <span>{isRealBook ? "预览模式" : "示例绘本"}</span>
+            </div>
+          )}
+          {isRealBook && isSignedIn && (
+            <div className="mt-2 inline-flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-full px-4 py-1">
+              <span>✅</span>
+              <span>已保存</span>
             </div>
           )}
         </div>
