@@ -1,24 +1,5 @@
 // AI 客户端配置
-// 使用Doubao-Seed-2.0-Pro生成故事文本, 万相2.7生成插图
-
-import OpenAI from 'openai';
-
-// 创建Doubao文本模型客户端（OpenAI兼容格式）
-let doubaoClient: OpenAI | null = null;
-
-export function getDoubaoClient(): OpenAI {
-  if (!doubaoClient) {
-    const apiKey = process.env.VOLCENGINE_API_KEY;
-    if (!apiKey) {
-      throw new Error('VOLCENGINE_API_KEY is not configured');
-    }
-    doubaoClient = new OpenAI({
-      apiKey,
-      baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
-    });
-  }
-  return doubaoClient;
-}
+// 使用Doubao-Seed-2.0-Lite生成故事文本（关闭深度思考模式），万相2.7生成插图
 
 // 风格配置映射 - 结构化对象（适配万相中文prompt）
 const STYLE_CONFIGS: Record<string, { 
@@ -118,7 +99,7 @@ const STORY_PROMPT_TEMPLATE = `你是顶级儿童绘本作家。请根据以下�
 {"title":"标题5字内","appearanceChinese":"外貌描述(发型脸型眼睛肤色穿着)","pages":[{"pageNumber":1,"text":"中文10-30字","imagePrompt":"[外貌描述，与appearanceChinese一致], [动作表情], [场景前景中景背景], [氛围情绪], [光影], [构图], {wanchineseStyle}, 专业儿童绘本插画，手绘质感，温暖自然光，无多余手指，比例正确，角色一致"}]}`;
 
 /**
- * 生成绘本故事（使用Doubao-Seed-2.0-Pro）
+ * 生成绘本故事（使用Doubao-Seed-2.0-Lite，关闭深度思考模式）
  * @param characterName 角色名字
  * @param age 年龄
  * @param theme 主题
@@ -148,7 +129,8 @@ export async function generateStory(
     return getMockStory(characterName, age, theme, style, gender, appearance);
   }
 
-  const client = getDoubaoClient();
+  const apiKey = process.env.VOLCENGINE_API_KEY;
+  const endpointId = process.env.VOLCENGINE_ENDPOINT_ID || 'ep-20260515174520-v8rzv';
   const styleConfig = STYLE_CONFIGS[style] || STYLE_CONFIGS.watercolor;
   const themeConfig = THEME_CONFIGS[theme] || THEME_CONFIGS.adventure;
   
@@ -170,47 +152,55 @@ export async function generateStory(
     .replace("{styleChinese}", styleConfig.chinese)
     .replace("{wanchineseStyle}", styleConfig.chinesePrompt);
 
-  // 获取endpoint ID，默认使用doubao-seed-2.0-pro
-  const endpointId = process.env.VOLCENGINE_ENDPOINT_ID || 'doubao-seed-2.0-pro';
+  // 使用AbortController实现50秒超时
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 50000);
 
-  let response;
+  let response: Response;
   try {
-    response = await client.chat.completions.create({
-      model: endpointId,
-      messages: [
-        {
-          role: "system",
-          content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。你的作品应该能直接出版，被图书馆收藏，被国际奖项提名。请直接输出最终结果，不要进行思考推理过程。",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.85,
-      max_tokens: 4000,
-    }, {
-      timeout: 50000, // 50秒超时
+    response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: endpointId,
+        messages: [
+          {
+            role: "system",
+            content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。你的作品应该能直接出版，被图书馆收藏，被国际奖项提名。请直接输出最终结果，不要进行思考推理过程。",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.85,
+        max_tokens: 4000,
+        thinking: { type: "disabled" }, // 关闭深度思考模式，大幅降低延迟
+      }),
+      signal: controller.signal,
     });
   } catch (apiError: any) {
-    // 捕获OpenAI SDK抛出的网络/API错误
-    const msg = apiError.message || '';
-    if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('ECONNRESET')) {
+    clearTimeout(timeoutId);
+    if (apiError.name === 'AbortError') {
       throw new Error('Doubao API请求超时，请稍后重试');
     }
-    if (msg.includes('401') || msg.includes('Unauthorized')) {
-      throw new Error('Doubao API密钥无效，请检查配置');
-    }
-    if (msg.includes('404') || msg.includes('not found')) {
-      throw new Error('Doubao推理接入点不存在，请检查Endpoint ID配置');
-    }
-    if (msg.includes('429') || msg.includes('rate limit')) {
-      throw new Error('Doubao API请求过于频繁，请稍后重试');
-    }
-    throw new Error(`Doubao API调用失败: ${msg.substring(0, 100)}`);
+    throw new Error(`Doubao API网络错误: ${apiError.message?.substring(0, 100)}`);
+  }
+  clearTimeout(timeoutId);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    if (response.status === 401) throw new Error('Doubao API密钥无效，请检查配置');
+    if (response.status === 404) throw new Error('Doubao推理接入点不存在，请检查Endpoint ID配置');
+    if (response.status === 429) throw new Error('Doubao API请求过于频繁，请稍后重试');
+    throw new Error(`Doubao API错误: ${response.status} - ${errorText.substring(0, 100)}`);
   }
 
-  const content = response.choices[0]?.message?.content;
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
   if (!content) {
     throw new Error("Failed to generate story from Doubao");
   }
@@ -406,61 +396,30 @@ function getMockStory(
   }>;
 } {
   const genderChinese = gender === "男孩" ? "男孩" : "女孩";
-  const appearanceChinese = `${age}岁的${genderChinese}孩子，${appearance}`;
   const styleConfig = STYLE_CONFIGS[style] || STYLE_CONFIGS.watercolor;
+  const themeConfig = THEME_CONFIGS[theme] || THEME_CONFIGS.adventure;
   
-  const stories: Record<string, any> = {
-    adventure: {
-      title: `${characterName}的星空探险`,
-      pages: [
-        { pageNumber: 1, text: `${characterName}住在一个宁静的小村庄，夜晚总是仰望星空发呆。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，站在宁静的小村庄，夜晚仰望星空，眼睛里满是好奇和向往，村庄小屋和远处起伏的山丘，温馨宁静的氛围，温暖的晚霞余晖，全景构图，${styleConfig.chinesePrompt}` },
-        { pageNumber: 2, text: `一天晚上，一颗流星划过天空，落在村外的森林里。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，惊讶地看着流星划过夜空，前景是萤火虫闪闪发光，远处是黑暗神秘的森林剪影，戏剧性光影，过肩构图，${styleConfig.chinesePrompt}` },
-        { pageNumber: 3, text: `${characterName}带上灯笼，走进森林寻找那颗神奇的星星。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，提着发光的灯笼走进神秘森林，表情好奇，古代扭曲的树木和发光蘑菇，柔和的灯笼光芒在周围形成温暖光圈，中景跟随拍摄，${styleConfig.chinesePrompt}` },
-        { pageNumber: 4, text: `森林里，${characterName}遇到了一只会发光的小狐狸。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，在森林空地上遇见一只发光的小狐狸，小狐狸发出柔和的金色光芒，惊讶但温柔的表情，空地四周花朵盛开，柔和月光透过树木，特写两只角色，${styleConfig.chinesePrompt}` },
-        { pageNumber: 5, text: `小狐狸领着${characterName}穿过竹林，越过小溪。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，跟着发光的狐狸穿过竹林，狐狸在前方欢快地跑着，闪烁的小溪穿过小路，斑驳的阳光，动态中景展示动感，${styleConfig.chinesePrompt}` },
-        { pageNumber: 6, text: `他们找到了那颗星星——它变成了一个迷路的小精灵。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，发现一个坐在坠落星星旁伤心的小精灵，精灵有半透明的翅膀微微发光，周围散落着星星碎片，温暖的黄金色光芒从精灵身上散发，情感特写，${styleConfig.chinesePrompt}` },
-        { pageNumber: 7, text: `${characterName}轻轻握住小精灵的手："我送你回家吧。"`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，轻轻握着发光小精灵的手，表情充满关爱和决心，精灵抬头眼中满是感激，通往天空的星星尘埃之路，温暖的光芒包围着两者，温馨时刻，中景，${styleConfig.chinesePrompt}` },
-        { pageNumber: 8, text: `小精灵飞上天空，化作最亮的那颗星，永远守护着村庄。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，站在草地上仰望天空，那颗最亮的星星闪烁着温暖的爱意，宁静的微笑，远处可见村庄，远大星空带柔和极光，励志全景，${styleConfig.chinesePrompt}` },
-      ],
-    },
-    friendship: {
-      title: `${characterName}和星星兔`,
-      pages: [
-        { pageNumber: 1, text: `${characterName}在花园里发现了一只受伤的小兔子，轻轻地为它包扎。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，在花园里温柔地照顾一只受伤的小兔子，双手小心地包扎绷带，柔和的晨光，色彩缤纷的花朵环绕，温柔的表情，手和小兔子的特写，${styleConfig.chinesePrompt}` },
-        { pageNumber: 2, text: `小兔子渐渐康复，它们成了最好的朋友。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，和康复的小兔子在花园里开心地玩耍，两者都欢快地笑着，花朵轻轻摇曳，蝴蝶飞舞，温暖的金色午后阳光，动态中景展示友谊，${styleConfig.chinesePrompt}` },
-        { pageNumber: 3, text: `小兔子告诉${characterName}一个秘密——它其实是一只会飞的星星兔！`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，专注地听兔子说话，表情惊讶，兔子展示了小小的闪烁翅膀，秘密私语的时刻，魔法火花出现，温馨的卧室场景，亲密特写，${styleConfig.chinesePrompt}` },
-        { pageNumber: 4, text: `它们一起飞上天空，看最美的星星。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，抱着一只长翅膀的兔子在神奇的星空飞翔，极度喜悦，云朵飘浮在下方，远处有流星，浩瀚宇宙背景，鸟瞰动态镜头，${styleConfig.chinesePrompt}` },
-        { pageNumber: 5, text: `星星兔说："谢谢你救了我，我会永远记得你的善良。"`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，拥抱发光的小兔子，充满真挚的感激，兔子的翅膀创造彩虹光芒，情感温馨时刻，漂浮在云端靠近巨大的月亮，柔和空灵光影，温暖特写，${styleConfig.chinesePrompt}` },
-        { pageNumber: 6, text: `${characterName}明白了，真正的友谊是最珍贵的宝藏。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，若有所思地坐在山顶看日出，兔子在身旁安静睡着，渐渐领悟，晨光洒满大地，宁静沉思的情绪，剪影映在多彩天空，${styleConfig.chinesePrompt}` },
-        { pageNumber: 7, text: `从此，每次${characterName}仰望星空，都能看到星星兔在对他眨眼睛。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，夜晚躺在柔软的草地上仰望星空，兔子依偎在身旁，星星眨眼仿佛在问候，宁静幸福的表情，远处有村庄灯火，梦幻氛围全景，${styleConfig.chinesePrompt}` },
-        { pageNumber: 8, text: `而那颗最亮的星星，永远守护着他们的友谊。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，站在花园里向最亮的星星挥手，兔子也用小爪子挥手，星星向下投射温暖的光束，完整圆形构图展示旅程，温情结尾场景，${styleConfig.chinesePrompt}` },
-      ],
-    },
-    growth: {
-      title: `${characterName}的勇气花园`,
-      pages: [
-        { pageNumber: 1, text: `${characterName}看到小鸟们自由飞翔，非常羡慕，希望自己也能飞。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，羡慕地看着鸟儿自由翱翔，站在阳光明媚的草地，仰望天空，小鸟在头顶形成优雅的队形，微风吹动头发，渴望的神情，仰视角度，${styleConfig.chinesePrompt}` },
-        { pageNumber: 2, text: `${characterName}试着挥动手臂跳起来，却怎么也飞不起来。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，用力跳起来挥动手臂但仍然站在地面，喜剧但坚定的表情，周围小植物弹跳，尘土飞扬效果，幽默特写，${styleConfig.chinesePrompt}` },
-        { pageNumber: 3, text: `爷爷微笑着说："每个人都有属于自己的翅膀。"`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，认真听智慧爷爷说话，爷爷温和地指向天空，温馨的花园场景，温暖的午后阳光，爱的代际时刻，中景，${styleConfig.chinesePrompt}` },
-        { pageNumber: 4, text: `${characterName}开始练习跑步、跳跃、攀登，越来越勇敢。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，自信地爬树，伸手够向更高的树枝，决心满满，秋天森林背景，树叶优雅飘落，成就感，动态仰角，${styleConfig.chinesePrompt}` },
-        { pageNumber: 5, text: `一天，${characterName}爬上山顶，看到了一片从未见过的美景。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，胜利地站在山顶，脚下是壮丽的全景，风吹动头发戏剧性扬起，双臂张开，满是欢乐，无限风光尽收眼底，云朵环绕，成功感和自由感，励志全景，${styleConfig.chinesePrompt}` },
-        { pageNumber: 6, text: `他明白了，勇敢做自己，就是最美的飞翔。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，在山顶展开双臂如翅膀，感受风拥抱身体，象征自信的翅膀以流动光芒呈现，黄金日落光影，蜕变的时刻，戏剧剪影映天空，${styleConfig.chinesePrompt}` },
-        { pageNumber: 7, text: `回到村庄，${characterName}把自己画成一只快乐的小鸟。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，在画布上画自己作为快乐小鸟的自画像，自豪满足的表情，画材散落周围，画作带有微妙魔法光芒渐渐鲜活，创意场景，${styleConfig.chinesePrompt}` },
-        { pageNumber: 8, text: `从那以后，${characterName}知道自己已经很棒了。`, imagePrompt: `一个${age}岁的${genderChinese}孩子，有${appearance}，开心地在草地舞蹈，鸟儿在头顶盘旋，自由喜悦的表情，花儿在周围盛开，温暖的春日阳光，自信满足，庆祝全景，${styleConfig.chinesePrompt}` },
-      ],
-    },
+  const appearanceChinese = `${age}岁的${genderChinese}孩子，${appearance}`;
+  
+  // 生成8页故事
+  const storyAngles = [
+    `【第1页-开篇】${themeConfig.storyAngle.split('。')[0]}。${characterName}今天要开始一段特别的旅程。`,
+    `【第2页-困境】${themeConfig.storyAngle.split('。')[0]}。${characterName}遇到了一个小小的困难。`,
+    `【第3页-尝试】${themeConfig.storyAngle.split('，')[1] || '勇敢地迈出第一步'}`,
+    `【第4页-进展】${characterName}发现，事情比想象的要复杂一些。`,
+    `【第5页-坚持】${themeConfig.storyAngle}`,
+    `【第6页-转机】意想不到的事情发生了...`,
+    `【第7页-转折】原来，答案一直就在身边。`,
+    `【第8页-结尾】${characterName}带着满满的收获回家了，心里暖暖的。`
+  ];
+
+  return {
+    title: `${characterName}的奇妙之旅`,
+    appearanceChinese,
+    pages: storyAngles.map((text, index) => ({
+      pageNumber: index + 1,
+      text: text.replace(/【.*?】/g, '').trim().substring(0, 30),
+      imagePrompt: `[${appearanceChinese}], [表情丰富], [温馨场景], [温暖氛围], ${styleConfig.chinesePrompt}`
+    }))
   };
-
-  // 默认返回冒险故事
-  const mockStory = stories[theme] || stories.adventure;
-  
-  // 确保appearanceChinese被包含
-  if (!mockStory.appearanceChinese) {
-    mockStory.appearanceChinese = appearanceChinese;
-  }
-  
-  return mockStory;
 }
-
-// 保持向后兼容的导出
-export { STYLE_CONFIGS, THEME_CONFIGS, STORY_PROMPT_TEMPLATE };
