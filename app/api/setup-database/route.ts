@@ -3,55 +3,34 @@ import { NextResponse } from "next/server";
 // One-time database setup endpoint - DELETE after running
 export async function GET() {
   try {
-    const { Client } = await import("pg");
+    // Use Supabase REST API to create tables via RPC approach
+    // First, try creating an exec_sql function, then use it
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    // Try multiple connection methods
-    const connectionConfigs = [
-      // Method 1: Session mode pooler
-      {
-        connectionString: `postgresql://postgres.lhxrauqvqvehhqbzvzjr:8Jt97lv9eWDbYN71@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres`,
-        ssl: { rejectUnauthorized: false },
-      },
-      // Method 2: Transaction mode pooler
-      {
-        connectionString: `postgresql://postgres.lhxrauqvqvehhqbzvzjr:8Jt97lv9eWDbYN71@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres`,
-        ssl: { rejectUnauthorized: false },
-      },
-      // Method 3: Direct connection
-      {
-        host: "db.lhxrauqvqvehhqbzvzjr.supabase.co",
-        port: 5432,
-        database: "postgres",
-        user: "postgres",
-        password: "8Jt97lv9eWDbYN71",
-        ssl: { rejectUnauthorized: false },
-      },
-    ];
-
-    let client: any = null;
-    let connected = false;
-    let lastError = "";
-
-    for (const config of connectionConfigs) {
-      try {
-        client = new Client(config);
-        await client.connect();
-        connected = true;
-        break;
-      } catch (err: any) {
-        lastError = err.message;
-        try { await client?.end(); } catch {}
-        client = null;
-        continue;
-      }
-    }
-
-    if (!connected || !client) {
+    if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json(
-        { success: false, error: `Could not connect to database: ${lastError}` },
+        { success: false, error: "Supabase credentials not configured" },
         { status: 500 }
       );
     }
+
+    // Use pg with pooler hostname - Vercel should resolve DNS correctly
+    const { Client } = await import("pg");
+    
+    const password = "8Jt97lv9eWDbYN71";
+    
+    // Try pooler connection with proper DNS
+    const client = new Client({
+      host: "aws-0-ap-northeast-1.pooler.supabase.com",
+      port: 6543,
+      database: "postgres",
+      user: "postgres.lhxrauqvqvehhqbzvzjr",
+      password: password,
+      ssl: { rejectUnauthorized: false },
+    });
+
+    await client.connect();
 
     const sql = `
       CREATE TABLE IF NOT EXISTS books (
@@ -113,10 +92,6 @@ export async function GET() {
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$;
 
-      INSERT INTO storage.buckets (id, name, public) 
-      VALUES ('user-photos', 'user-photos', true) 
-      ON CONFLICT (id) DO NOTHING;
-
       DO $$ BEGIN
         CREATE POLICY "Users can upload own photos" ON storage.objects 
         FOR INSERT WITH CHECK (bucket_id = 'user-photos' AND (storage.foldername(name))[1] = auth.uid()::text);
@@ -149,7 +124,7 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message, stack: error.stack?.substring(0, 500) },
       { status: 500 }
     );
   }
