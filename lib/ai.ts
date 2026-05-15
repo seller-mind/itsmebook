@@ -313,11 +313,18 @@ export async function generateImage(
   const apiKey = process.env.DASHSCOPE_API_KEY;
   const styleConfig = STYLE_CONFIGS[style] || STYLE_CONFIGS.watercolor;
 
-  // 构建万相API请求
+  // 构建万相API请求（wan2.7同步调用需要messages格式）
   const requestBody = {
     model: "wan2.7-image-pro",
     input: {
-      prompt: imagePrompt
+      messages: [
+        {
+          role: "user",
+          content: [
+            { text: imagePrompt }
+          ]
+        }
+      ]
     },
     parameters: {
       size: "1024*1024",
@@ -342,13 +349,14 @@ export async function generateImage(
 
     const data = await response.json();
 
-    // 检查同步调用是否成功
-    if (data.output?.task_status === 'SUCCEEDED') {
-      const imageUrl = data.output.results?.[0]?.url;
-      if (!imageUrl) {
-        throw new Error("万相API返回结果中未找到图片URL");
-      }
-      return imageUrl;
+    // wan2.7同步调用成功：output.choices[].message.content[].image
+    if (data.output?.choices?.[0]?.message?.content?.[0]?.image) {
+      return data.output.choices[0].message.content[0].image;
+    }
+
+    // 如果返回finished但没找到图片
+    if (data.output?.finished === true) {
+      throw new Error(`万相API返回完成但未找到图片URL: ${JSON.stringify(data.output)}`);
     }
 
     // 如果是PENDING状态，需要轮询异步任务
