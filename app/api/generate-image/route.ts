@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateImage } from "@/lib/ai";
 
-// Vercel serverless函数最大执行时间设为60秒
-export const maxDuration = 60;
+// Edge Runtime：无60秒硬限制，万相图片生成可能耗时较长
+export const runtime = 'edge';
 
 // POST /api/generate-image
 // 生成绘本插图

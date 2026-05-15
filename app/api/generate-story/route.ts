@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { STYLE_CONFIGS, THEME_CONFIGS, STORY_PROMPT_TEMPLATE } from "@/lib/ai";
 
-// Vercel serverless函数最大执行时间设为60秒
-export const maxDuration = 60;
+// Edge Runtime：无60秒硬限制，流式响应可以长时间运行
+export const runtime = 'edge';
 
 export async function POST(request: NextRequest) {
   try {
