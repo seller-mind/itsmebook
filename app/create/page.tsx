@@ -163,7 +163,7 @@ export default function CreatePage() {
       }
       
       const storyResult = await storyRes.json();
-      const { title, pages, appearanceEnglish } = storyResult.data;
+      const { title, pages, appearanceChinese } = storyResult.data;
 
       setGenerationProgress(15);
       setGenerationStatus("故事创作完成！开始绘制插图...");
@@ -224,7 +224,7 @@ export default function CreatePage() {
         characterName,
         characterGender,
         characterAge,
-        appearanceEnglish,
+        appearanceChinese,
         style: selectedStyle,
         theme: selectedTheme,
         pages: pagesWithImages,

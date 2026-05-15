@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateStory } from "@/lib/openai";
+import { generateStory } from "@/lib/ai";
 
 // POST /api/generate-story
 // 生成绘本故事文本
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     // 如果是API未配置错误，返回mock数据
     if (error.message?.includes("not configured")) {
       const body = await request.clone().json();
-      const { generateStory } = await import("@/lib/openai");
+      const { generateStory } = await import("@/lib/ai");
       const mockStory = await generateStory(
         body.characterName,
         parseInt(body.age),

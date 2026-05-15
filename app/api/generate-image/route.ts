@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateImage } from "@/lib/openai";
+import { generateImage } from "@/lib/ai";
 
 // POST /api/generate-image
 // 生成绘本插图
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     // 如果是API未配置错误，返回placeholder
     if (error.message?.includes("not configured")) {
-      const { getPlaceholderImage } = await import("@/lib/openai");
+      const { getPlaceholderImage } = await import("@/lib/ai");
       const body = await request.clone().json();
       const placeholderUrl = getPlaceholderImage(body.style);
       return NextResponse.json({
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "生成图像失败，请稍后重试" },
+      { error: error.message || "生成图像失败，请稍后重试" },
       { status: 500 }
     );
   }
