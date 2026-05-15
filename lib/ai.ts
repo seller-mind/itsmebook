@@ -165,7 +165,7 @@ const STORY_PROMPT_TEMPLATE = `你是融合了凯迪克金奖、凯特·格林�
 - 禁止文字与画面完全重复
 
 【输出格式】
-请以JSON格式输出：
+重要：你必须且只能输出纯JSON格式，不要输出任何其他文字、解释或markdown标记。请直接输出以下JSON结构：
 {
   "title": "中文故事标题（5字以内，有诗意有画面感）",
   "appearanceChinese": "外貌描述（具体：发型、脸型、眼睛、肤色、穿着，用于中文图片prompt）",
@@ -260,7 +260,6 @@ export async function generateStory(
         content: prompt,
       },
     ],
-    response_format: { type: "json_object" },
     temperature: 0.85,
     max_tokens: 4000,
   });
@@ -270,7 +269,13 @@ export async function generateStory(
     throw new Error("Failed to generate story from Doubao");
   }
 
-  const result = JSON.parse(content);
+  // 清理可能的markdown代码块包裹
+  let jsonStr = content.trim();
+  if (jsonStr.startsWith("```")) {
+    jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+  }
+
+  const result = JSON.parse(jsonStr);
   
   // 确保appearanceChinese被正确返回
   if (!result.appearanceChinese) {
