@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import BookViewer, { BookPageData } from "@/components/BookViewer";
 import { AIDisclaimer } from "@/components/AIBadge";
 
@@ -56,12 +57,55 @@ const MOCK_BOOK_DATA = {
   ] as BookPageData[],
 };
 
+// 下载提示弹窗（未登录/未付费时）
+function DownloadPromptModal({ isOpen, onClose, isSignedIn }: { isOpen: boolean; onClose: () => void; isSignedIn: boolean }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-8 text-center animate-fade-in">
+        <span className="text-6xl mb-6 block">📥</span>
+        <h3 className="text-xl font-bold text-gray-900 mb-3">
+          {isSignedIn ? "下载功能即将上线" : "登录后即可下载高清PDF"}
+        </h3>
+        <p className="text-gray-600 mb-8">
+          {isSignedIn
+            ? "PDF下载功能正在开发中，敬请期待！"
+            : "创建账户即可保存和下载您的专属绘本"}
+        </p>
+        <div className="flex flex-col gap-3">
+          {!isSignedIn ? (
+            <>
+              <SignUpButton mode="modal">
+                <button className="w-full btn-primary py-3">免费注册</button>
+              </SignUpButton>
+              <SignInButton mode="modal">
+                <button className="w-full btn-outline py-3">已有账号？登录</button>
+              </SignInButton>
+            </>
+          ) : (
+            <button className="w-full btn-primary py-3" onClick={onClose}>
+              我知道了
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="w-full text-gray-500 hover:text-gray-700 py-2 text-sm"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function BookPage() {
   const params = useParams();
   const router = useRouter();
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn } = useUser();
   const [bookData, setBookData] = useState<typeof MOCK_BOOK_DATA | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showDownloadPrompt, setShowDownloadPrompt] = useState(false);
 
   // 模拟加载数据
   useEffect(() => {
@@ -73,11 +117,9 @@ export default function BookPage() {
     return () => clearTimeout(timer);
   }, [params.id]);
 
-  // 下载PDF（付费会员功能）
+  // 下载PDF
   const handleDownload = () => {
-    // TODO: 接入Clerk privateMetadata检查用户订阅状态
-    // 免费用户引导升级，付费用户执行下载
-    alert("PDF下载为会员专属功能，即将上线！");
+    setShowDownloadPrompt(true);
   };
 
   // 分享（占位函数）
@@ -93,7 +135,13 @@ export default function BookPage() {
         console.log("分享取消");
       }
     } else {
-      alert("链接已复制到剪贴板！");
+      // 复制链接
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        alert("链接已复制到剪贴板！");
+      } catch {
+        alert("链接已复制到剪贴板！");
+      }
     }
   };
 
@@ -110,35 +158,12 @@ export default function BookPage() {
   };
 
   // 加载状态
-  if (!isLoaded || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin text-6xl mb-4">📚</div>
           <p className="text-gray-600">正在加载绘本...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // 未登录状态
-  if (!isSignedIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
-        <div className="text-center max-w-md">
-          <span className="text-6xl mb-6 block">🔐</span>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            请先登录查看绘本
-          </h1>
-          <p className="text-gray-600 mb-8">
-            登录后即可查看和下载您的专属绘本
-          </p>
-          <button
-            onClick={() => router.push("/")}
-            className="btn-primary"
-          >
-            返回首页
-          </button>
         </div>
       </div>
     );
@@ -192,7 +217,7 @@ export default function BookPage() {
               className="btn-primary flex items-center gap-2"
             >
               <span>📥</span>
-              <span>{isSignedIn ? "下载PDF" : "下载PDF (会员)"}</span>
+              <span>下载PDF</span>
             </button>
           </div>
         </div>
@@ -205,6 +230,12 @@ export default function BookPage() {
           <p className="text-gray-500">
             主角：{bookData.characterName} | 风格：{bookData.style} | 共{bookData.pages.length}页
           </p>
+          {!isSignedIn && (
+            <div className="mt-2 inline-flex items-center gap-2 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-4 py-1">
+              <span>👀</span>
+              <span>预览模式</span>
+            </div>
+          )}
         </div>
 
         {/* 绘本预览 */}
@@ -239,8 +270,20 @@ export default function BookPage() {
               🔄 再做一本
             </button>
           </div>
+          {!isSignedIn && (
+            <p className="text-sm text-gray-500 mt-4">
+              登录后可永久保存绘本，获得高清PDF下载
+            </p>
+          )}
         </div>
       </div>
+
+      {/* 下载提示弹窗 */}
+      <DownloadPromptModal
+        isOpen={showDownloadPrompt}
+        onClose={() => setShowDownloadPrompt(false)}
+        isSignedIn={isSignedIn}
+      />
     </div>
   );
 }

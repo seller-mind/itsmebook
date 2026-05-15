@@ -6,20 +6,14 @@ import HeroSection from "@/components/HeroSection";
 import StyleShowcase from "@/components/StyleShowcase";
 import ProcessSteps from "@/components/ProcessSteps";
 import ChildConsentModal from "@/components/ChildConsentModal";
-import { useUser } from "@clerk/nextjs";
 
 export default function HomePage() {
   const router = useRouter();
-  const { isSignedIn } = useUser();
   const [showConsent, setShowConsent] = useState(false);
 
+  // Plan B: 所有用户都可以直接进入创建流程
   const handleStartCreating = () => {
-    if (isSignedIn) {
-      router.push("/create");
-    } else {
-      // 未登录用户先显示同意弹窗
-      setShowConsent(true);
-    }
+    setShowConsent(true);
   };
 
   const handleConsentConfirm = () => {

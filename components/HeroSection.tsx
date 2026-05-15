@@ -2,20 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser, useAuth } from "@clerk/nextjs";
 
 export default function HeroSection() {
   const router = useRouter();
-  const { isSignedIn } = useUser();
-  const { isLoaded } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleStartClick = () => {
-    if (isSignedIn) {
-      router.push("/create");
-    } else {
-      router.push("/#start-creating");
-    }
+    router.push("/create");
   };
 
   return (

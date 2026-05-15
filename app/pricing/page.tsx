@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
 
 const PLANS = [
   {
@@ -118,16 +117,12 @@ const FAQS = [
 
 export default function PricingPage() {
   const router = useRouter();
-  const { isSignedIn } = useUser();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const handlePlanClick = (planId: string) => {
     if (planId === "free") {
-      if (isSignedIn) {
-        router.push("/create");
-      } else {
-        router.push("/sign-up");
-      }
+      // Plan B: 未登录用户也可以直接进入创建页
+      router.push("/create");
     } else {
       // 付费功能暂未开放
       alert("支付功能即将上线，敬请期待！");
@@ -308,7 +303,7 @@ export default function PricingPage() {
             满意后再升级，绝无强迫
           </p>
           <button
-            onClick={() => router.push(isSignedIn ? "/create" : "/sign-up")}
+            onClick={() => router.push("/create")}
             className="bg-white text-primary-orange font-bold text-lg px-12 py-4 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all"
           >
             🚀 立即免费开始

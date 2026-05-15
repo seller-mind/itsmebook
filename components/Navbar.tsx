@@ -5,7 +5,7 @@ import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser } 
 import { useState, useEffect } from "react";
 
 export default function Navbar() {
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn } = useUser();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -62,15 +62,18 @@ export default function Navbar() {
 
           {/* Auth Buttons */}
           <div className="flex items-center gap-4">
+            {/* 开始制作 - 对所有用户可见 */}
+            <Link
+              href="/create"
+              className="hidden sm:inline-flex btn-primary text-sm"
+            >
+              开始制作
+            </Link>
+
             <SignedIn>
-              <Link
-                href="/create"
-                className="hidden sm:inline-flex btn-primary text-sm"
-              >
-                开始制作
-              </Link>
               <UserButton afterSignOutUrl="/" />
             </SignedIn>
+
             <SignedOut>
               <SignInButton mode="modal">
                 <button className="text-gray-600 hover:text-primary-orange transition-colors font-medium">
@@ -139,15 +142,14 @@ export default function Navbar() {
             >
               定价
             </Link>
-            <SignedIn>
-              <Link
-                href="/create"
-                className="block btn-primary text-center mt-4"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                开始制作
-              </Link>
-            </SignedIn>
+            {/* 开始制作 - 移动端对所有用户可见 */}
+            <Link
+              href="/create"
+              className="block btn-primary text-center mt-4"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              开始制作
+            </Link>
           </div>
         </div>
       )}

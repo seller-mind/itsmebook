@@ -2,11 +2,12 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useUser, SignedIn, SignedOut } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useDropzone } from "react-dropzone";
 import { v4 as uuidv4 } from "uuid";
 import ChildConsentModal from "@/components/ChildConsentModal";
 import { GenerationProgress } from "@/components/AIBadge";
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
 
 // 故事主题
 const THEMES = [
@@ -32,9 +33,45 @@ const STYLES = [
   { id: "nordic", name: "北欧极简", emoji: "❄️", color: "from-sky-200 to-indigo-200" },
 ];
 
+// 保存绘本弹窗组件（仅未登录用户可见）
+function SavePromptModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-8 text-center animate-fade-in">
+        <span className="text-6xl mb-6 block">💾</span>
+        <h3 className="text-xl font-bold text-gray-900 mb-3">
+          登录后即可保存绘本
+        </h3>
+        <p className="text-gray-600 mb-8">
+          创建账户可以保存您的绘本，随时查看和下载
+        </p>
+        <div className="flex flex-col gap-3">
+          <SignUpButton mode="modal">
+            <button className="w-full btn-primary py-3">
+              免费注册
+            </button>
+          </SignUpButton>
+          <SignInButton mode="modal">
+            <button className="w-full btn-outline py-3">
+              已有账号？登录
+            </button>
+          </SignInButton>
+          <button
+            onClick={onClose}
+            className="w-full text-gray-500 hover:text-gray-700 py-2 text-sm"
+          >
+            稍后再说
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CreatePage() {
   const router = useRouter();
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn } = useUser();
 
   // 步骤状态
   const [currentStep, setCurrentStep] = useState(1);
@@ -54,6 +91,7 @@ export default function CreatePage() {
   // 弹窗状态
   const [showConsent, setShowConsent] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
+  const [showSavePrompt, setShowSavePrompt] = useState(false);
 
   // 生成状态
   const [isGenerating, setIsGenerating] = useState(false);
@@ -134,6 +172,12 @@ export default function CreatePage() {
 
   // 开始生成
   const handleGenerate = async () => {
+    // 检查登录状态，未登录则弹窗提示
+    if (!isSignedIn) {
+      setShowSavePrompt(true);
+      return;
+    }
+
     setIsGenerating(true);
     setGenerationProgress(0);
 
@@ -158,37 +202,6 @@ export default function CreatePage() {
     const bookId = uuidv4();
     router.push(`/book/${bookId}`);
   };
-
-  // 未登录处理
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin text-4xl">⏳</div>
-      </div>
-    );
-  }
-
-  if (!isSignedIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <span className="text-6xl mb-6 block">🔐</span>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            请先登录
-          </h1>
-          <p className="text-gray-600 mb-8">
-            开始制作专属绘本前，请先登录或注册账户
-          </p>
-          <button
-            onClick={() => router.push("/")}
-            className="btn-primary"
-          >
-            返回首页
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-12">
@@ -480,6 +493,15 @@ export default function CreatePage() {
                   </div>
                 </div>
 
+                {/* 未登录提示 */}
+                {!isSignedIn && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center max-w-md mx-auto">
+                    <p className="text-yellow-800 text-sm">
+                      💡 未登录状态下生成的绘本可以预览，但无法保存。登录后可永久保存。
+                    </p>
+                  </div>
+                )}
+
                 <p className="text-sm text-gray-500 text-center">
                   🎉 确认无误后，点击下方按钮开始生成绘本
                 </p>
@@ -527,6 +549,12 @@ export default function CreatePage() {
         isOpen={showConsent}
         onConfirm={handleConsentConfirm}
         onCancel={() => setShowConsent(false)}
+      />
+
+      {/* 保存提示弹窗（未登录时） */}
+      <SavePromptModal
+        isOpen={showSavePrompt}
+        onClose={() => setShowSavePrompt(false)}
       />
     </div>
   );
