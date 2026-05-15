@@ -99,6 +99,47 @@ const STORY_PROMPT_TEMPLATE = `你是顶级儿童绘本作家。请根据以下�
 {"title":"标题5字内","appearanceChinese":"外貌描述(发型脸型眼睛肤色穿着)","pages":[{"pageNumber":1,"text":"中文10-30字","imagePrompt":"[外貌描述，与appearanceChinese一致], [动作表情], [场景前景中景背景], [氛围情绪], [光影], [构图], {wanchineseStyle}, 专业儿童绘本插画，手绘质感，温暖自然光，无多余手指，比例正确，角色一致"}]}`;
 
 /**
+ * 读取Doubao的SSE流式响应，拼接完整内容
+ */
+async function readSSEStream(response: Response): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('无法读取响应流');
+
+  const decoder = new TextDecoder();
+  let fullContent = '';
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    
+    // SSE格式：每行以 "data: " 开头
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || ''; // 最后一行可能不完整，保留到下次
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === 'data: [DONE]') continue;
+      if (!trimmed.startsWith('data: ')) continue;
+
+      try {
+        const json = JSON.parse(trimmed.slice(6)); // 去掉 "data: " 前缀
+        const delta = json.choices?.[0]?.delta?.content;
+        if (delta) {
+          fullContent += delta;
+        }
+      } catch {
+        // 忽略解析失败的行（可能是非JSON的SSE注释等）
+      }
+    }
+  }
+
+  return fullContent;
+}
+
+/**
  * 生成绘本故事（使用Doubao-Seed-2.0-Lite，关闭深度思考模式）
  * @param characterName 角色名字
  * @param age 年龄
@@ -152,9 +193,9 @@ export async function generateStory(
     .replace("{styleChinese}", styleConfig.chinese)
     .replace("{wanchineseStyle}", styleConfig.chinesePrompt);
 
-  // 使用AbortController实现50秒超时
+  // 使用流式调用避免Vercel超时
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 50000);
+  const timeoutId = setTimeout(() => controller.abort(), 90000); // 流式给更长超时
 
   let response: Response;
   try {
@@ -178,7 +219,8 @@ export async function generateStory(
         ],
         temperature: 0.85,
         max_tokens: 4000,
-        thinking: { type: "disabled" }, // 关闭深度思考模式，大幅降低延迟
+        thinking: { type: "disabled" },
+        stream: true, // 关键：流式调用，避免Vercel超时
       }),
       signal: controller.signal,
     });
@@ -199,10 +241,10 @@ export async function generateStory(
     throw new Error(`Doubao API错误: ${response.status} - ${errorText.substring(0, 100)}`);
   }
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
+  // 读取SSE流，拼接完整响应
+  const content = await readSSEStream(response);
   if (!content) {
-    throw new Error("Failed to generate story from Doubao");
+    throw new Error("Doubao API返回了空内容");
   }
 
   // 清理可能的markdown代码块包裹
