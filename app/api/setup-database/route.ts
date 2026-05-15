@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 
-// One-time database setup endpoint
-// DELETE this file after running once
+// One-time database setup endpoint - DELETE after running
 export async function GET() {
   const { Client } = await import("pg");
   
+  // Use Supabase connection pooler for Vercel compatibility
   const client = new Client({
-    host: "db.lhxrauqvqvehhqbzvzjr.supabase.co",
-    port: 5432,
-    database: "postgres",
-    user: "postgres",
-    password: process.env.SUPABASE_DB_PASSWORD || "8Jt97lv9eWDbYN71",
+    connectionString: `postgresql://postgres.lhxrauqvqvehhqbzvzjr:${process.env.SUPABASE_DB_PASSWORD || '8Jt97lv9eWDbYN71'}@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres`,
     ssl: { rejectUnauthorized: false },
   });
 
@@ -112,6 +108,7 @@ export async function GET() {
       tables: tables.rows.map((r: any) => r.tablename),
     });
   } catch (error: any) {
+    try { await client.end(); } catch {}
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
