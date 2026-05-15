@@ -229,7 +229,8 @@ export default function CreatePage() {
   ): Promise<Array<{ pageNumber: number; text: string; imageUrl: string }>> => {
     const results: Array<{ pageNumber: number; text: string; imageUrl: string }> = new Array(pages.length);
     const total = pages.length;
-    const batchSize = 5;
+    // 降低批次大小从5改为3，减少API限频风险，避免429错误导致重试浪费
+    const batchSize = 3;
     let completed = 0;
 
     for (let batchStart = 0; batchStart < total; batchStart += batchSize) {
@@ -327,7 +328,7 @@ export default function CreatePage() {
               input: {
                 messages: [{ role: "user", content: requestContent }]
               },
-              parameters: { size: "1024*1024", n: 1 }
+              parameters: { size: "768*768", n: 1 }
             }),
           },
           45000 // 45秒超时

@@ -151,7 +151,7 @@ export default function HomePage() {
             🚀 立即开始制作
           </button>
           <p className="text-white/70 text-sm mt-6">
-            限时免费体验2次，满意再购买
+            限时免费体验1次，满意再购买
           </p>
         </div>
       </section>
