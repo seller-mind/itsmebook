@@ -49,6 +49,7 @@ const PLAN_CONFIGS = [
     isPro: false, 
     size: "1024*1024", 
     model: "wan2.7-image",
+    credits: 1,
     tag: null,
     tagColor: ""
   },
@@ -59,6 +60,7 @@ const PLAN_CONFIGS = [
     isPro: false, 
     size: "1024*1024", 
     model: "wan2.7-image",
+    credits: 3,
     tag: "最受欢迎",
     tagColor: "bg-green-500"
   },
@@ -69,6 +71,7 @@ const PLAN_CONFIGS = [
     isPro: true, 
     size: "1024*1024", 
     model: "wan2.7-image-pro",
+    credits: 5,
     tag: "Pro画质",
     tagColor: "bg-gradient-to-r from-amber-500 to-orange-500"
   },
@@ -79,6 +82,7 @@ const PLAN_CONFIGS = [
     isPro: false, 
     size: "1024*1024", 
     model: "wan2.7-image",
+    credits: 30,
     tag: "省40%",
     tagColor: "bg-blue-500"
   },

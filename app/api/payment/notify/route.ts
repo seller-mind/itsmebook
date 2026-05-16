@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyNotify } from '@/lib/xunhupay';
+import { getPlanConfig } from '@/lib/plan-config';
 import { createClient } from '@supabase/supabase-js';
 
 function getServiceSupabase() {
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     // 检查订单是否已处理（幂等性）
     const { data: existingOrder, error: fetchError } = await supabase
       .from('orders')
-      .select('status, user_id')
+      .select('status, user_id, plan')
       .eq('trade_order_id', tradeOrderId)
       .single();
     
@@ -95,11 +96,16 @@ export async function POST(request: NextRequest) {
       return new NextResponse('fail', { status: 500 });
     }
     
-    // 5. 增加用户免费次数
+    // 5. 根据套餐类型增加用户生成次数
+    const planConfig = getPlanConfig(existingOrder.plan);
+    const credits = planConfig?.credits || 1;
+    
+    console.log(`支付成功，套餐: ${existingOrder.plan}，增加次数: ${credits}`);
+    
     const { error: userError } = await supabase
       .rpc('increment_free_count', {
         user_id: existingOrder.user_id,
-        increment: 1,
+        increment: credits,
       });
     
     // 如果rpc失败，尝试直接更新
@@ -115,7 +121,7 @@ export async function POST(request: NextRequest) {
       if (user) {
         await supabase
           .from('users')
-          .update({ free_count: (user.free_count || 0) + 1 })
+          .update({ free_count: (user.free_count || 0) + credits })
           .eq('id', existingOrder.user_id);
       }
     }

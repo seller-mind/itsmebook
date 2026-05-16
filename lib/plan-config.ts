@@ -9,6 +9,7 @@ export interface PlanConfig {
   price: string;
   priceDisplay: string;
   pages: number;
+  credits: number; // 购买后增加的生成次数
   imageModel: string;
   imageSize: string;
   description: string;
@@ -22,6 +23,7 @@ export const PLAN_CONFIGS: Record<string, PlanConfig> = {
     price: '9.90',
     priceDisplay: '¥9.9',
     pages: 20,
+    credits: 1,
     imageModel: 'wan2.7-image',
     imageSize: '1024*1024',
     description: '基础绘本生成体验',
@@ -33,6 +35,7 @@ export const PLAN_CONFIGS: Record<string, PlanConfig> = {
     price: '19.90',
     priceDisplay: '¥19.9',
     pages: 20,
+    credits: 3,
     imageModel: 'wan2.7-image',
     imageSize: '1024*1024',
     description: '高清绘本，优质画质',
@@ -44,6 +47,7 @@ export const PLAN_CONFIGS: Record<string, PlanConfig> = {
     price: '29.90',
     priceDisplay: '¥29.9',
     pages: 20,
+    credits: 5,
     imageModel: 'wan2.7-image-pro',
     imageSize: '1024*1024',
     description: 'Pro画质，极致体验',
@@ -55,6 +59,7 @@ export const PLAN_CONFIGS: Record<string, PlanConfig> = {
     price: '59.90',
     priceDisplay: '¥59.9',
     pages: 20,
+    credits: 30,
     imageModel: 'wan2.7-image',
     imageSize: '1024*1024',
     description: '30天内无限使用',

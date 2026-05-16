@@ -262,6 +262,7 @@ export default function PaymentDialog({
                             )}
                           </div>
                           <p className="text-sm text-gray-500">{plan.description}</p>
+                          <p className="text-xs text-gray-400">{plan.credits}本绘本</p>
                         </div>
                       </div>
                       <span className="text-xl font-bold text-orange-500">{plan.priceDisplay}</span>
