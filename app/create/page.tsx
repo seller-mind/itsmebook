@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { v4 as uuidv4 } from "uuid";
 import ChildConsentModal from "@/components/ChildConsentModal";
+import PaymentDialog from "@/components/PaymentDialog";
 import { GenerationProgress } from "@/components/AIBadge";
 import { STYLE_CONFIGS, THEME_CONFIGS, STORY_PROMPT_TEMPLATE } from "@/lib/ai";
 
@@ -152,6 +153,7 @@ export default function CreatePage() {
   // 弹窗状态
   const [showConsent, setShowConsent] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
 
   // 生成状态
   const [isGenerating, setIsGenerating] = useState(false);
@@ -476,9 +478,9 @@ export default function CreatePage() {
       return;
     }
 
-    // 免费次数不足
+    // 免费次数不足 - 弹出支付窗口
     if (user.freeCount <= 0) {
-      setGenerationError('免费次数已用完，请选择套餐或联系客服');
+      setShowPayment(true);
       return;
     }
 
@@ -1143,6 +1145,38 @@ export default function CreatePage() {
         isOpen={showConsent}
         onCancel={() => setShowConsent(false)}
         onConfirm={handleConsentConfirm}
+      />
+
+      {/* 支付弹窗 */}
+      <PaymentDialog
+        isOpen={showPayment}
+        onClose={() => setShowPayment(false)}
+        onSuccess={() => {
+          // 支付成功后刷新用户信息
+          const token = localStorage.getItem("itsmebook_token");
+          const userStr = localStorage.getItem("itsmebook_user");
+          
+          if (token && userStr) {
+            try {
+              const userData = JSON.parse(userStr);
+              setUser({ ...userData, freeCount: (userData.freeCount || 0) + 1 });
+            } catch (e) {
+              // 重新获取用户信息
+              fetch("/api/auth/me", {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+                .then((res) => res.json())
+                .then((data) => {
+                  if (data.success) {
+                    setUser(data.data);
+                    localStorage.setItem("itsmebook_user", JSON.stringify(data.data));
+                  }
+                })
+                .catch(console.error);
+            }
+          }
+        }}
+        initialPlan={selectedPlan}
       />
     </div>
   );

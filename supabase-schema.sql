@@ -133,12 +133,63 @@ $$ LANGUAGE plpgsql;
 -- SELECT cron.schedule('cleanup-sms-codes', '0 3 * * *', 'SELECT cleanup_expired_sms_codes()');
 
 -- ============================================
--- 验证表创建成功
+-- 5. 创建 orders 表（支付订单表）
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.orders (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    trade_order_id VARCHAR(64) UNIQUE NOT NULL,
+    plan VARCHAR(32) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    pay_type VARCHAR(16) NOT NULL,
+    status VARCHAR(16) DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'cancelled')),
+    transaction_id VARCHAR(128),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    paid_at TIMESTAMPTZ
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON public.orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_trade_order_id ON public.orders(trade_order_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
+
+-- 启用 RLS
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+
+-- orders 表策略
+CREATE POLICY "Users can view own orders" ON public.orders
+    FOR SELECT USING (true);
+
+CREATE POLICY "Service role full access to orders" ON public.orders
+    FOR ALL USING (auth.role() = 'service_role');
+
+-- orders 表触发器
+DROP TRIGGER IF EXISTS update_orders_updated_at ON public.orders;
+
+-- ============================================
+-- 6. 创建 increment_free_count 函数（增加用户免费次数）
+-- ============================================
+CREATE OR REPLACE FUNCTION public.increment_free_count(user_id UUID, increment INTEGER DEFAULT 1)
+RETURNS INTEGER AS $$
+DECLARE
+    new_count INTEGER;
+BEGIN
+    UPDATE public.users 
+    SET free_count = COALESCE(free_count, 0) + increment
+    WHERE id = user_id
+    RETURNING free_count INTO new_count;
+    
+    RETURN new_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
+-- 7. 验证表创建成功
 -- ============================================
 SELECT 
     table_name,
     (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as column_count
 FROM information_schema.tables t 
 WHERE table_schema = 'public' 
-AND table_name IN ('users', 'sms_codes', 'books')
+AND table_name IN ('users', 'sms_codes', 'books', 'orders')
 ORDER BY table_name;
