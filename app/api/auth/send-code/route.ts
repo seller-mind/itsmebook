@@ -16,7 +16,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
+import Dypnsapi20170525, * as dypnsapiModels from '@alicloud/dypnsapi20170525';
+import OpenApi from '@alicloud/openapi-client';
+import * as TeaUtil from '@alicloud/tea-util';
 
 // 创建Supabase客户端
 function getSupabaseClient(): SupabaseClient {
@@ -45,47 +47,7 @@ function generateCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// 阿里云 V3 签名算法
-async function signRequest(
-  accessKeySecret: string,
-  method: string,
-  url: string,
-  queryParams: Record<string, string>
-): Promise<string> {
-  // 1. 对查询参数进行排序和编码
-  const sortedKeys = Object.keys(queryParams).sort();
-  const canonicalizedQueryString = sortedKeys
-    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
-    .join('&');
-  
-  // 2. 构造待签名字符串
-  const stringToSign = [
-    method.toUpperCase(),
-    url.split('?')[0], // path
-    canonicalizedQueryString,
-  ].join('\n');
-  
-  // 3. 使用 HMAC-SHA256 签名
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(accessKeySecret + '&'),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  
-  const signature = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    encoder.encode(stringToSign)
-  );
-  
-  // 4. Base64 编码
-  return btoa(String.fromCharCode(...new Uint8Array(signature)));
-}
-
-// 发送短信验证码（使用阿里云短信认证API - dypnsapi）
+// 发送短信验证码（使用阿里云官方SDK - dypnsapi）
 async function sendSmsCode(phone: string, code: string): Promise<{ success: boolean; message: string }> {
   const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
   const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
@@ -96,53 +58,34 @@ async function sendSmsCode(phone: string, code: string): Promise<{ success: bool
   }
   
   try {
-    // 阿里云短信认证API配置
-    const regionId = 'cn-hangzhou';
-    const signName = '速通互联验证码'; // 短信签名
-    const templateCode = '100001'; // 短信模板CODE
-    const gatewayUrl = 'https://dypnsapi.aliyuncs.com';
-    
-    // 构造请求参数
-    const params: Record<string, string> = {
-      PhoneNumbers: phone,
-      SignName: signName,
-      TemplateCode: templateCode,
-      Code: code,
-      CodeType: '0', // 数字验证码
-      RegionId: regionId,
-      AccessKeyId: accessKeyId,
-      Format: 'JSON',
-      SignatureMethod: 'HMAC-SHA256',
-      SignatureVersion: '1.0',
-      SignatureNonce: crypto.randomUUID(),
-      Timestamp: new Date().toISOString(),
-      Action: 'SendSmsVerifyCode',
-      Version: '2017-05-25',
-    };
-    
-    // 添加签名
-    const signature = await signRequest(accessKeySecret, 'POST', gatewayUrl, params);
-    params.Signature = signature;
-    
-    // 发送请求
-    const response = await fetch(gatewayUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams(params).toString(),
+    const config = new OpenApi.Config({
+      accessKeyId,
+      accessKeySecret,
+      endpoint: 'dypnsapi.aliyuncs.com',
     });
     
-    const result = await response.json();
+    const client = new Dypnsapi20170525(config);
     
-    if (result.Code === 'OK' || result.Code === ' dysnsapi_common_response_success') {
+    const request = new dypnsapiModels.SendSmsVerifyCodeRequest({
+      phoneNumber: phone,
+      signName: '速通互联验证码',
+      templateCode: '100001',
+      code: code,
+      codeType: 0,
+    });
+    
+    const runtime = new TeaUtil.RuntimeOptions({});
+    
+    const response = await client.sendSmsVerifyCode(request, runtime);
+    
+    if (response.body?.code === 'OK') {
       return { success: true, message: '验证码发送成功' };
     } else {
-      console.error('阿里云短信认证失败:', result);
-      return { success: false, message: result.Message || result.Code || '发送失败' };
+      console.error('阿里云短信发送失败:', response.body);
+      return { success: false, message: response.body?.message || '发送失败' };
     }
   } catch (error: any) {
-    console.error('短信发送失败:', error);
+    console.error('短信发送异常:', error.message);
     return { success: false, message: '短信服务暂时不可用' };
   }
 }

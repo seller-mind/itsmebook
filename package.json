@@ -9,10 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@alicloud/dypnsapi20170525": "^3.0.0",
+    "@alicloud/openapi-client": "^0.4.0",
+    "@alicloud/tea-util": "^1.4.0",
     "@clerk/localizations": "^4.6.3",
     "@clerk/nextjs": "^5.7.0",
     "@supabase/supabase-js": "^2.39.0",
-    "jose": "^5.2.0",
+    "jose": "^6.2.3",
     "next": "14.2.3",
     "openai": "^4.28.0",
     "pg": "^8.20.0",
