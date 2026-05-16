@@ -92,8 +92,9 @@ async function sendSmsCode(phone: string): Promise<{ success: boolean; message: 
       return { success: false, message: response.body?.message || '发送失败' };
     }
   } catch (error: any) {
-    console.error('短信发送异常:', error.message);
-    return { success: false, message: '短信服务暂时不可用' };
+    console.error('短信发送异常:', error.message, error.code, error.data);
+    // 开发阶段返回详细错误，上线后改为通用提示
+    return { success: false, message: `短信服务异常: ${error.message}`, debug: { code: error.code, data: error.data } };
   }
 }
 
