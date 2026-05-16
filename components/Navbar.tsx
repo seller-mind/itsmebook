@@ -65,6 +65,7 @@ export default function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem("itsmebook_token");
     localStorage.removeItem("itsmebook_user");
+    document.cookie = "itsmebook_token=; path=/; max-age=0";
     setUser(null);
     setIsDropdownOpen(false);
     router.push("/");

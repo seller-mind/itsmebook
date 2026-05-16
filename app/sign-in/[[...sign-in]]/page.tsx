@@ -116,9 +116,11 @@ export default function SignInPage() {
         return;
       }
 
-      // 保存Token到localStorage
+      // 保存Token到localStorage和cookie
       localStorage.setItem("itsmebook_token", data.data!.token);
       localStorage.setItem("itsmebook_user", JSON.stringify(data.data!.user));
+      // 写入cookie供Next.js中间件读取（7天过期，与JWT同步）
+      document.cookie = `itsmebook_token=${data.data!.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
 
       // 通知其他组件登录状态变化
       window.dispatchEvent(new Event("loginStateChange"));

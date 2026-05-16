@@ -1,11 +1,23 @@
-import { clerkMiddleware } from '@clerk/nextjs/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-// Plan B: 所有路由放行，不再强制登录
-// Clerk 组件仍然保留，只是移除路由级别的保护
-export default clerkMiddleware(async () => {
-  // 不拦截任何路由，允许匿名访问
-})
+// 中间件：拦截未登录用户访问/create
+// 通过cookie检查登录状态（登录时同步写入cookie）
+export default function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  if (pathname === '/create' || pathname.startsWith('/create/')) {
+    const token = request.cookies.get('itsmebook_token')?.value
+    
+    if (!token) {
+      const signInUrl = new URL('/sign-in', request.url)
+      signInUrl.searchParams.set('redirect_url', pathname)
+      return NextResponse.redirect(signInUrl)
+    }
+  }
+
+  return NextResponse.next()
+}
 
 export const config = {
-  matcher: ['/((?!.*\\..*|_next).*)', '/', '/(api|trpc)(.*)'],
+  matcher: ['/create/:path*'],
 }
