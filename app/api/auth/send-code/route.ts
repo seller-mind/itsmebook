@@ -4,10 +4,9 @@
  * 
  * 功能：
  * 1. 接收手机号
- * 2. 频率限制（60秒内只能发一次）
- * 3. 生成6位随机验证码
- * 4. 调用阿里云短信认证API发送
- * 5. 存储验证码到Supabase（5分钟过期）
+ * 2. 校验手机号格式
+ * 3. 调用阿里云短信认证API发送
+ * 4. 记录发送历史到Supabase（用于审计，不校验验证码）
  * 
  * 阿里云短信认证 (dypnsapi) API
  * 签名名称: 速通互联验证码
@@ -41,14 +40,8 @@ function isValidPhone(phone: string): boolean {
   return /^1[3-9]\d{9}$/.test(phone);
 }
 
-// 生成6位随机验证码
-function generateCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
 // 发送短信验证码（使用阿里云官方SDK - dypnsapi）
-// 返回API生成的验证码，用于存入数据库校验
-async function sendSmsCode(phone: string): Promise<{ success: boolean; message: string; verifyCode?: string }> {
+async function sendSmsCode(phone: string): Promise<{ success: boolean; message: string }> {
   const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
   const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
   
@@ -70,29 +63,25 @@ async function sendSmsCode(phone: string): Promise<{ success: boolean; message: 
       phoneNumber: phone,
       signName: '速通互联验证码',
       templateCode: '100001',
-      // 阿里云赠送模板含验证码和有效期变量，用##code##占位让API生成
       templateParam: '{"code":"##code##","min":"5"}',
       codeType: 1,       // 1=纯数字
       codeLength: 6,     // 6位验证码
-      returnVerifyCode: true, // 返回生成的验证码，用于存入数据库校验
+      returnVerifyCode: true,
       validTime: 300,    // 5分钟有效
-      interval: 60,      // 60秒发送间隔
+      interval: 60,      // 60秒发送间隔（阿里云自带频控）
     });
     
-    // 使用sendSmsVerifyCode（内部自动创建RuntimeOptions）
     const response = await client.sendSmsVerifyCode(request);
     
     if (response.statusCode === 200 && response.body?.code === 'OK') {
-      const verifyCode = response.body?.model?.verifyCode;
-      return { success: true, message: '验证码发送成功', verifyCode };
+      return { success: true, message: '验证码发送成功' };
     } else {
       console.error('阿里云短信发送失败:', JSON.stringify(response));
-      return { success: false, message: response.body?.message || '发送失败', debug: { statusCode: response.statusCode, body: response.body } };
+      return { success: false, message: '短信服务暂时不可用，请稍后重试' };
     }
   } catch (error: any) {
     console.error('短信发送异常:', error.message, error.code, error.data);
-    // 开发阶段返回详细错误，上线后改为通用提示
-    return { success: false, message: `短信服务异常: ${error.message}`, debug: { code: error.code, data: error.data } };
+    return { success: false, message: '短信服务暂时不可用，请稍后重试' };
   }
 }
 
@@ -116,38 +105,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 2. 频率限制 - 检查60秒内是否已发送
-    const supabase = getSupabaseClient();
-    
-    const { data: recentCode } = await supabase
-      .from('sms_codes')
-      .select('*')
-      .eq('phone', phone)
-      .eq('used', false)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    
-    if (recentCode) {
-      const createdAt = new Date(recentCode.created_at);
-      const now = new Date();
-      const diffSeconds = (now.getTime() - createdAt.getTime()) / 1000;
-      
-      if (diffSeconds < 60) {
-        const remainingSeconds = Math.ceil(60 - diffSeconds);
-        return NextResponse.json(
-          { 
-            success: false, 
-            message: `请 ${remainingSeconds} 秒后再试`,
-            retryAfter: remainingSeconds,
-          },
-          { status: 429 }
-        );
-      }
-    }
-    
-    // 3. 调用阿里云API发送验证码（API自动生成验证码）
+    // 2. 调用阿里云API发送验证码（阿里云自带60秒频控）
     const smsResult = await sendSmsCode(phone);
     
     if (!smsResult.success) {
@@ -157,15 +115,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 4. 将API返回的验证码存入数据库（5分钟过期）
-    const code = smsResult.verifyCode;
-    if (!code) {
-      console.error('阿里云未返回验证码');
-      return NextResponse.json(
-        { success: false, message: '验证码获取失败，请重试' },
-        { status: 500 }
-      );
-    }
+    // 3. 记录发送历史到sms_codes表（不存验证码，仅记录发送时间用于审计）
+    const supabase = getSupabaseClient();
     
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     
@@ -173,17 +124,14 @@ export async function POST(request: NextRequest) {
       .from('sms_codes')
       .insert({
         phone,
-        code,
+        code: null, // 不存储验证码，由阿里云校验
         expires_at: expiresAt.toISOString(),
         used: false,
       });
     
     if (insertError) {
-      console.error('保存验证码失败:', insertError);
-      return NextResponse.json(
-        { success: false, message: '系统错误，请稍后重试' },
-        { status: 500 }
-      );
+      console.error('记录发送历史失败:', insertError);
+      // 不影响主流程，发送已成功
     }
     
     return NextResponse.json({
@@ -194,7 +142,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('发送验证码失败:', error);
     return NextResponse.json(
-      { success: false, message: '服务器错误' },
+      { success: false, message: '短信服务暂时不可用，请稍后重试' },
       { status: 500 }
     );
   }

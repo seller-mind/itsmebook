@@ -4,14 +4,15 @@
  * 
  * 功能：
  * 1. 接收手机号+验证码
- * 2. 从Supabase查sms_codes表校验
- * 3. 校验通过后：查找或创建用户
- * 4. 签发JWT token返回
+ * 2. 调用阿里云CheckSmsVerifyCode校验
+ * 3. 校验通过后：标记sms_codes为已使用、查找或创建用户、签发JWT token
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { signToken } from '@/lib/auth';
+import Dypnsapi20170525, * as dypnsapiModels from '@alicloud/dypnsapi20170525';
+import * as $OpenApiCore from '@alicloud/openapi-core';
 
 // 创建Supabase客户端
 function getSupabaseClient(): SupabaseClient {
@@ -33,6 +34,45 @@ function getSupabaseClient(): SupabaseClient {
 // 手机号格式校验
 function isValidPhone(phone: string): boolean {
   return /^1[3-9]\d{9}$/.test(phone);
+}
+
+// 调用阿里云CheckSmsVerifyCode校验验证码
+async function checkSmsVerifyCode(phone: string, code: string): Promise<{ success: boolean; message: string }> {
+  const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
+  const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
+  
+  if (!accessKeyId || !accessKeySecret) {
+    console.error('阿里云 AccessKey not configured');
+    return { success: false, message: '短信服务未配置，请联系管理员' };
+  }
+  
+  try {
+    const config = new $OpenApiCore.$OpenApiUtil.Config({
+      accessKeyId,
+      accessKeySecret,
+      endpoint: 'dypnsapi.aliyuncs.com',
+    });
+    
+    const client = new Dypnsapi20170525(config);
+    
+    const request = new dypnsapiModels.CheckSmsVerifyCodeRequest({
+      phoneNumber: phone,
+      verifyCode: code,
+    });
+    
+    const response = await client.checkSmsVerifyCode(request);
+    
+    if (response.statusCode === 200 && response.body?.code === 'OK') {
+      return { success: true, message: '验证码校验成功' };
+    } else {
+      console.error('阿里云验证码校验失败:', JSON.stringify(response));
+      return { success: false, message: '验证码无效或已过期' };
+    }
+  } catch (error: any) {
+    console.error('验证码校验异常:', error.message, error.code, error.data);
+    // 阿里云返回错误时也可能是验证码错误，给出通用提示
+    return { success: false, message: '验证码无效或已过期' };
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -69,32 +109,27 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const supabase = getSupabaseClient();
+    // 2. 调用阿里云API校验验证码
+    const checkResult = await checkSmsVerifyCode(phone, code);
     
-    // 2. 查找有效验证码
-    const { data: validCode, error: queryError } = await supabase
-      .from('sms_codes')
-      .select('*')
-      .eq('phone', phone)
-      .eq('code', code)
-      .eq('used', false)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    
-    if (queryError || !validCode) {
+    if (!checkResult.success) {
       return NextResponse.json(
-        { success: false, message: '验证码无效或已过期' },
+        { success: false, message: checkResult.message },
         { status: 400 }
       );
     }
     
-    // 3. 标记验证码为已使用
+    const supabase = getSupabaseClient();
+    
+    // 3. 标记该手机号最近的sms_codes为已使用
     await supabase
       .from('sms_codes')
       .update({ used: true })
-      .eq('id', validCode.id);
+      .eq('phone', phone)
+      .eq('used', false)
+      .eq('phone', phone)
+      .order('created_at', { ascending: false })
+      .limit(1);
     
     // 4. 查找或创建用户
     let { data: user, error: userError } = await supabase
@@ -104,7 +139,6 @@ export async function POST(request: NextRequest) {
       .single();
     
     if (userError && userError.code !== 'PGRST116') {
-      // PGRST116 是"未找到结果"的错误，可以忽略
       console.error('查询用户失败:', userError);
       return NextResponse.json(
         { success: false, message: '系统错误，请稍后重试' },
@@ -118,7 +152,7 @@ export async function POST(request: NextRequest) {
         .from('users')
         .insert({
           phone,
-          nickname: `用户${phone.slice(-4)}`, // 默认昵称
+          nickname: `用户${phone.slice(-4)}`,
           free_count: 1, // 新用户赠送1次免费
         })
         .select()
