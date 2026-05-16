@@ -82,12 +82,12 @@ async function sendSmsCode(phone: string): Promise<{ success: boolean; message: 
     // 使用sendSmsVerifyCode（内部自动创建RuntimeOptions）
     const response = await client.sendSmsVerifyCode(request);
     
-    if (response.body?.code === 'OK') {
+    if (response.statusCode === 200 && response.body?.code === 'OK') {
       const verifyCode = response.body?.model?.verifyCode;
       return { success: true, message: '验证码发送成功', verifyCode };
     } else {
-      console.error('阿里云短信发送失败:', JSON.stringify(response.body));
-      return { success: false, message: response.body?.message || '发送失败', debug: response.body };
+      console.error('阿里云短信发送失败:', JSON.stringify(response));
+      return { success: false, message: response.body?.message || '发送失败', debug: { statusCode: response.statusCode, body: response.body } };
     }
   } catch (error: any) {
     console.error('短信发送异常:', error.message, error.code, error.data);
