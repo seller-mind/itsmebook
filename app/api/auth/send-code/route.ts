@@ -17,8 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Dypnsapi20170525, * as dypnsapiModels from '@alicloud/dypnsapi20170525';
-import OpenApi from '@alicloud/openapi-client';
-import * as TeaUtil from '@alicloud/tea-util';
+import * as $OpenApiCore from '@alicloud/openapi-core';
 
 // 创建Supabase客户端
 function getSupabaseClient(): SupabaseClient {
@@ -59,7 +58,7 @@ async function sendSmsCode(phone: string): Promise<{ success: boolean; message: 
   }
   
   try {
-    const config = new OpenApi.Config({
+    const config = new $OpenApiCore.$OpenApiUtil.Config({
       accessKeyId,
       accessKeySecret,
       endpoint: 'dypnsapi.aliyuncs.com',
@@ -80,9 +79,8 @@ async function sendSmsCode(phone: string): Promise<{ success: boolean; message: 
       interval: 60,      // 60秒发送间隔
     });
     
-    const runtime = new TeaUtil.RuntimeOptions({});
-    
-    const response = await client.sendSmsVerifyCode(request, runtime);
+    // 使用sendSmsVerifyCode（内部自动创建RuntimeOptions）
+    const response = await client.sendSmsVerifyCode(request);
     
     if (response.body?.code === 'OK') {
       const verifyCode = response.body?.model?.verifyCode;
