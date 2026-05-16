@@ -24,8 +24,15 @@ yarn-debug.log*
 yarn-error.log*
 
 # Local env files
+# ⚠️ 重要：切勿提交包含真实密钥的 .env.local 文件
 .env*.local
 .env
+
+# 生产环境密钥（绝对不要提交）
+# 生产环境请在 Vercel/其他平台的环境变量设置中添加
+_ALIYUN_*.local
+_SUPABASE_*.local
+_JWT_*.local
 
 # Vercel
 .vercel

@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
 import { useDropzone } from "react-dropzone";
 import { v4 as uuidv4 } from "uuid";
 import ChildConsentModal from "@/components/ChildConsentModal";
 import { GenerationProgress } from "@/components/AIBadge";
 import { STYLE_CONFIGS, THEME_CONFIGS, STORY_PROMPT_TEMPLATE } from "@/lib/ai";
+
+interface User {
+  id: string;
+  phone: string;
+  nickname: string;
+  freeCount: number;
+}
 
 // 故事主题
 const THEMES = [
@@ -81,7 +87,49 @@ const PLAN_CONFIGS = [
 
 export default function CreatePage() {
   const router = useRouter();
-  const { isSignedIn } = useUser();
+
+  // JWT用户状态
+  const [user, setUser] = useState<User | null>(null);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // 检查登录状态
+  useEffect(() => {
+    const token = localStorage.getItem("itsmebook_token");
+    const userStr = localStorage.getItem("itsmebook_user");
+    
+    if (token && userStr) {
+      try {
+        const userData = JSON.parse(userStr);
+        setUser(userData);
+      } catch (e) {
+        localStorage.removeItem("itsmebook_token");
+        localStorage.removeItem("itsmebook_user");
+        setUser(null);
+      }
+    }
+  }, []);
+
+  // 触发登录状态变化事件
+  useEffect(() => {
+    const handleLoginStateChange = () => {
+      const token = localStorage.getItem("itsmebook_token");
+      const userStr = localStorage.getItem("itsmebook_user");
+      
+      if (token && userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          setUser(userData);
+        } catch (e) {
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+    };
+
+    window.addEventListener("loginStateChange", handleLoginStateChange);
+    return () => window.removeEventListener("loginStateChange", handleLoginStateChange);
+  }, []);
 
   // 步骤状态
   const [currentStep, setCurrentStep] = useState(1);
@@ -502,11 +550,15 @@ export default function CreatePage() {
         photoBase64 = await fileToBase64(photos[0]);
       }
 
-      // 免费用户（未登录）默认使用普通版1024
-      const isFreeUser = !isSignedIn;
-      const planConfig = isFreeUser
-        ? { model: "wan2.7-image", size: "1024*1024" }
-        : PLAN_CONFIGS.find(p => p.id === selectedPlan) || { model: "wan2.7-image", size: "1024*1024" };
+      // 已登录用户使用选择的套餐
+      const planConfig = user
+        ? PLAN_CONFIGS.find(p => p.id === selectedPlan) || { model: "wan2.7-image", size: "1024*1024" }
+        : { model: "wan2.7-image", size: "1024*1024" };
+
+      // 检查免费次数（如果有用户但免费次数为0）
+      if (user && user.freeCount <= 0) {
+        throw new Error('免费次数已用完，请先充值或联系客服');
+      }
 
       setGenerationProgress(20);
       setGenerationStatus("故事创作完成！开始绘制插图...");
@@ -549,6 +601,29 @@ export default function CreatePage() {
         setGenerationProgress(p);
       }
       setGenerationStatus("绘本制作完成！正在跳转预览...");
+
+      // 如果已登录，扣减免费次数
+      if (user) {
+        try {
+          await fetch("/api/auth/deduct-free-count", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${localStorage.getItem("itsmebook_token")}`,
+            },
+          });
+          
+          // 更新本地用户信息
+          const updatedUser = { ...user, freeCount: user.freeCount - 1 };
+          setUser(updatedUser);
+          localStorage.setItem("itsmebook_user", JSON.stringify(updatedUser));
+          
+          // 通知Navbar更新
+          window.dispatchEvent(new Event("loginStateChange"));
+        } catch (e) {
+          console.error("扣减免费次数失败:", e);
+        }
+      }
 
       await new Promise(resolve => setTimeout(resolve, 300));
       router.push(`/book/${bookId}`);
@@ -912,7 +987,7 @@ export default function CreatePage() {
                       )}
                     </div>
                   </div>
-                  {isSignedIn && (
+                  {user && (
                     <div className="flex items-center gap-2 sm:gap-3">
                       <span className="text-xl sm:text-2xl">🎯</span>
                       <div className="min-w-0">
@@ -929,7 +1004,7 @@ export default function CreatePage() {
                 </div>
 
                 {/* 未登录提示 */}
-                {!isSignedIn && (
+                {!user && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 sm:p-4 text-center max-w-md mx-auto w-full">
                     <p className="text-yellow-800 text-xs sm:text-sm">
                       💡 未登录状态下生成的绘本可以预览，但无法保存。登录后可永久保存。
@@ -938,7 +1013,7 @@ export default function CreatePage() {
                 )}
 
                 {/* 套餐选择 */}
-                {isSignedIn && (
+                {user && (
                   <div className="mt-4 sm:mt-6">
                     <h3 className="text-sm sm:text-base font-medium text-gray-700 mb-3 text-center">
                       选择套餐（决定图片质量）
