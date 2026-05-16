@@ -70,8 +70,8 @@ async function sendSmsCode(phone: string): Promise<{ success: boolean; message: 
       phoneNumber: phone,
       signName: '速通互联验证码',
       templateCode: '100001',
-      // 使用 ##code## 占位符，让阿里云API生成验证码
-      templateParam: '{"code":"##code##"}',
+      // 阿里云赠送模板含验证码和有效期变量，用##code##占位让API生成
+      templateParam: '{"code":"##code##","min":"5"}',
       codeType: 1,       // 1=纯数字
       codeLength: 6,     // 6位验证码
       returnVerifyCode: true, // 返回生成的验证码，用于存入数据库校验
