@@ -1017,9 +1017,9 @@ export default function CreatePage() {
 
                 {/* 未登录提示 */}
                 {!user && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 sm:p-4 text-center max-w-md mx-auto w-full">
-                    <p className="text-yellow-800 text-xs sm:text-sm">
-                      💡 未登录状态下生成的绘本可以预览，但无法保存。登录后可永久保存。
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 sm:p-4 text-center max-w-md mx-auto w-full">
+                    <p className="text-orange-800 text-xs sm:text-sm font-medium">
+                      🔐 请先登录后生成绘本，新用户赠送1次免费体验
                     </p>
                   </div>
                 )}
@@ -1096,6 +1096,10 @@ export default function CreatePage() {
               {currentStep < 5 ? (
                 <button onClick={handleNext} className="order-1 sm:order-2 btn-primary w-full sm:w-auto text-sm">
                   下一步 →
+                </button>
+              ) : !user ? (
+                <button onClick={() => router.push('/sign-in')} className="order-1 sm:order-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold py-3 px-6 rounded-xl w-full sm:w-auto text-sm shadow-lg hover:shadow-xl transition-all">
+                  🔐 登录后开始生成
                 </button>
               ) : (
                 <button onClick={handleGenerate} className="order-1 sm:order-2 btn-primary w-full sm:w-auto text-sm">
