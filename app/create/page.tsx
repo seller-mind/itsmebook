@@ -493,7 +493,7 @@ export default function CreatePage() {
     try {
       // 第1步：准备参数
       const apiKey = process.env.NEXT_PUBLIC_VOLCENGINE_API_KEY;
-      const endpointId = process.env.NEXT_PUBLIC_VOLCENGINE_ENDPOINT_ID || 'ep-20260515174520-v8rzv';
+      const endpointId = process.env.NEXT_PUBLIC_VOLCENGINE_ENDPOINT_ID || 'ep-20260515144642-96m6k';
 
       if (!apiKey) {
         throw new Error('未配置API Key，请联系管理员');
