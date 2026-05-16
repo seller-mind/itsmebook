@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF8C42"/>
+      <stop offset="100%" style="stop-color:#FF6B1A"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="32" fill="url(#bg)"/>
+  <g fill="#FFFFFF">
+    <!-- 书本形状 -->
+    <path d="M40 50 L40 142 C40 146 43 150 47 150 L145 150 C149 150 152 146 152 142 L152 50 C152 46 149 42 145 42 L47 42 C43 42 40 46 40 50 Z" fill="#FFFFFF" opacity="0.95"/>
+    <!-- 书脊 -->
+    <rect x="40" y="42" width="20" height="108" rx="2" fill="#FFE4D0"/>
+    <!-- 书页 -->
+    <rect x="65" y="55" width="80" height="5" rx="2" fill="#FF8C42" opacity="0.6"/>
+    <rect x="65" y="65" width="75" height="5" rx="2" fill="#FF8C42" opacity="0.6"/>
+    <rect x="65" y="75" width="70" height="5" rx="2" fill="#FF8C42" opacity="0.6"/>
+    <rect x="65" y="85" width="65" height="5" rx="2" fill="#FF8C42" opacity="0.6"/>
+    <rect x="65" y="95" width="60" height="5" rx="2" fill="#FF8C42" opacity="0.6"/>
+    <rect x="65" y="105" width="55" height="5" rx="2" fill="#FF8C42" opacity="0.6"/>
+    <rect x="65" y="115" width="50" height="5" rx="2" fill="#FF8C42" opacity="0.6"/>
+    <!-- 星星装饰 -->
+    <circle cx="145" cy="130" r="15" fill="#FFD700" opacity="0.9"/>
+    <path d="M145 120 L147 126 L153 126 L148 130 L150 136 L145 132 L140 136 L142 130 L137 126 L143 126 Z" fill="#FFFFFF"/>
+    <!-- 魔法棒 -->
+    <path d="M25 155 L45 135 L50 140 L30 160 Z" fill="#FFD700"/>
+    <circle cx="50" cy="133" r="4" fill="#FFD700"/>
+  </g>
+</svg>

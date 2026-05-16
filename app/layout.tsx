@@ -77,10 +77,41 @@ export default function RootLayout({
         <head>
           {/* 站点图标 */}
           <link rel="icon" href="/favicon.ico" />
-          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+          <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+          
+          {/* PWA Manifest */}
+          <link rel="manifest" href="/manifest.webmanifest" />
+          
+          {/* PWA Meta Tags */}
+          <meta name="theme-color" content="#FF8C42" />
+          <meta name="mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+          <meta name="apple-mobile-web-app-title" content="是我呀" />
+          <meta name="application-name" content="是我呀" />
+          <meta name="msapplication-TileColor" content="#FF8C42" />
+          <meta name="msapplication-tap-highlight" content="no" />
         </head>
-        <body className="min-h-screen flex flex-col">
-          {/* 导航栏 */}
+          <body className="min-h-screen flex flex-col">
+            {/* 注册 Service Worker */}
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', function() {
+                      navigator.serviceWorker.register('/sw.js')
+                        .then(function(registration) {
+                          console.log('SW registered:', registration.scope);
+                        })
+                        .catch(function(error) {
+                          console.log('SW registration failed:', error);
+                        });
+                    });
+                  }
+                `,
+              }}
+            />
+            {/* 导航栏 */}
           <Navbar />
           
           {/* 主内容区 */}
