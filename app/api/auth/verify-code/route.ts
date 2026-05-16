@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { signToken } from '@/lib/auth';
 import Dypnsapi20170525, * as dypnsapiModels from '@alicloud/dypnsapi20170525';
-import * as $OpenApiCore from '@alicloud/openapi-core';
+import { Config as AliyunConfig } from '@alicloud/openapi-core/dist/utils';
 
 // 创建Supabase客户端
 function getSupabaseClient(): SupabaseClient {
@@ -47,7 +47,7 @@ async function checkSmsVerifyCode(phone: string, code: string): Promise<{ succes
   }
   
   try {
-    const config = new $OpenApiCore.$OpenApiUtil.Config({
+    const config = new AliyunConfig({
       accessKeyId,
       accessKeySecret,
       endpoint: 'dypnsapi.aliyuncs.com',
