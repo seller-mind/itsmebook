@@ -5,7 +5,7 @@
  * 功能：
  * 1. 接收手机号
  * 2. 校验手机号格式
- * 3. 调用阿里云短信认证API发送
+ * 3. 调用阿里云短信认证API发送（使用原生HTTP + V1.0签名）
  * 4. 记录发送历史到Supabase（用于审计，不校验验证码）
  * 
  * 阿里云短信认证 (dypnsapi) API
@@ -15,8 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import Dypnsapi20170525, * as dypnsapiModels from '@alicloud/dypnsapi20170525';
-import { Config as AliyunConfig } from '@alicloud/openapi-core/dist/utils';
+import crypto from 'crypto';
 
 // 创建Supabase客户端
 function getSupabaseClient(): SupabaseClient {
@@ -40,7 +39,38 @@ function isValidPhone(phone: string): boolean {
   return /^1[3-9]\d{9}$/.test(phone);
 }
 
-// 发送短信验证码（使用阿里云官方SDK - dypnsapi）
+// 阿里云V1.0签名 - percentEncode（签名专用，比encodeURIComponent多了几个字符）
+function percentEncode(str: string): string {
+  return encodeURIComponent(str)
+    .replace(/!/g, '%21')
+    .replace(/'/g, '%27')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
+    .replace(/\*/g, '%2A');
+}
+
+// 生成阿里云V1.0签名
+function generateSignature(params: Record<string, string>, accessKeySecret: string): string {
+  // 1. 按参数名排序
+  const sortedKeys = Object.keys(params).sort();
+  
+  // 2. 构造规范化请求字符串
+  const canonicalizedQueryString = sortedKeys
+    .map(key => `${percentEncode(key)}=${percentEncode(params[key])}`)
+    .join('&');
+  
+  // 3. 构造待签名字符串
+  const stringToSign = `POST&${percentEncode('/')}&${percentEncode(canonicalizedQueryString)}`;
+  
+  // 4. 计算签名（HMAC-SHA1）
+  const signature = crypto.createHmac('sha1', accessKeySecret + '&')
+    .update(stringToSign, 'utf8')
+    .digest('base64');
+  
+  return signature;
+}
+
+// 发送短信验证码（使用原生fetch + V1.0签名）
 async function sendSmsCode(phone: string): Promise<{ success: boolean; message: string }> {
   const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
   const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
@@ -51,36 +81,81 @@ async function sendSmsCode(phone: string): Promise<{ success: boolean; message: 
   }
   
   try {
-    const config = new AliyunConfig({
-      accessKeyId,
-      accessKeySecret,
-      endpoint: 'dypnsapi.aliyuncs.com',
+    // 生成UUID作为SignatureNonce
+    const signatureNonce = crypto.randomUUID();
+    
+    // Timestamp - ISO8601格式 UTC时间
+    const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    
+    // 公共参数
+    const publicParams: Record<string, string> = {
+      AccessKeyId: accessKeyId,
+      Action: 'SendSmsVerifyCode',
+      Format: 'JSON',
+      RegionId: 'cn-hangzhou',
+      SignatureMethod: 'HMAC-SHA1',
+      SignatureNonce: signatureNonce,
+      SignatureVersion: '1.0',
+      Timestamp: timestamp,
+      Version: '2017-05-25',
+    };
+    
+    // 业务参数
+    const bizParams: Record<string, string> = {
+      PhoneNumbers: phone,
+      SignName: '速通互联验证码',
+      TemplateCode: '100001',
+      TemplateParam: '{"code":"##code##","min":"5"}',
+      CodeType: '1',
+      CodeLength: '6',
+      ReturnVerifyCode: 'true',
+      ValidTime: '300',
+      Interval: '60',
+    };
+    
+    // 合并所有参数
+    const allParams = { ...publicParams, ...bizParams };
+    
+    // 计算签名
+    const signature = generateSignature(allParams, accessKeySecret);
+    
+    // 添加签名到参数
+    allParams.Signature = signature;
+    
+    // 构造请求体（标准URL编码）
+    const requestBody = Object.entries(allParams)
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&');
+    
+    // 发送请求
+    const response = await fetch('https://dypnsapi.aliyuncs.com/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: requestBody,
     });
     
-    const client = new Dypnsapi20170525(config);
+    const result = await response.text();
+    console.log('阿里云SendSmsVerifyCode响应:', result);
     
-    const request = new dypnsapiModels.SendSmsVerifyCodeRequest({
-      phoneNumber: phone,
-      signName: '速通互联验证码',
-      templateCode: '100001',
-      templateParam: '{"code":"##code##","min":"5"}',
-      codeType: 1,       // 1=纯数字
-      codeLength: 6,     // 6位验证码
-      returnVerifyCode: true,
-      validTime: 300,    // 5分钟有效
-      interval: 60,      // 60秒发送间隔（阿里云自带频控）
-    });
+    // 解析JSON响应
+    let parsedResult: any;
+    try {
+      parsedResult = JSON.parse(result);
+    } catch {
+      console.error('响应解析失败:', result);
+      return { success: false, message: '短信服务响应异常' };
+    }
     
-    const response = await client.sendSmsVerifyCode(request);
-    
-    if (response.statusCode === 200 && response.body?.code === 'OK') {
+    if (response.ok && parsedResult.Code === 'OK') {
       return { success: true, message: '验证码发送成功' };
     } else {
-      console.error('阿里云短信发送失败:', JSON.stringify(response));
+      console.error('阿里云短信发送失败:', parsedResult);
       return { success: false, message: '短信服务暂时不可用，请稍后重试' };
     }
   } catch (error: any) {
-    console.error('短信发送异常:', error.message, error.code, error.data);
+    console.error('短信发送异常:', error.message);
     return { success: false, message: '短信服务暂时不可用，请稍后重试' };
   }
 }

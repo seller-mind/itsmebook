@@ -11,8 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { signToken } from '@/lib/auth';
-import Dypnsapi20170525, * as dypnsapiModels from '@alicloud/dypnsapi20170525';
-import { Config as AliyunConfig } from '@alicloud/openapi-core/dist/utils';
+import crypto from 'crypto';
 
 // 创建Supabase客户端
 function getSupabaseClient(): SupabaseClient {
@@ -36,7 +35,38 @@ function isValidPhone(phone: string): boolean {
   return /^1[3-9]\d{9}$/.test(phone);
 }
 
-// 调用阿里云CheckSmsVerifyCode校验验证码
+// 阿里云V1.0签名 - percentEncode（签名专用，比encodeURIComponent多了几个字符）
+function percentEncode(str: string): string {
+  return encodeURIComponent(str)
+    .replace(/!/g, '%21')
+    .replace(/'/g, '%27')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
+    .replace(/\*/g, '%2A');
+}
+
+// 生成阿里云V1.0签名
+function generateSignature(params: Record<string, string>, accessKeySecret: string): string {
+  // 1. 按参数名排序
+  const sortedKeys = Object.keys(params).sort();
+  
+  // 2. 构造规范化请求字符串
+  const canonicalizedQueryString = sortedKeys
+    .map(key => `${percentEncode(key)}=${percentEncode(params[key])}`)
+    .join('&');
+  
+  // 3. 构造待签名字符串
+  const stringToSign = `POST&${percentEncode('/')}&${percentEncode(canonicalizedQueryString)}`;
+  
+  // 4. 计算签名（HMAC-SHA1）
+  const signature = crypto.createHmac('sha1', accessKeySecret + '&')
+    .update(stringToSign, 'utf8')
+    .digest('base64');
+  
+  return signature;
+}
+
+// 调用阿里云CheckSmsVerifyCode校验验证码（使用原生fetch + V1.0签名）
 async function checkSmsVerifyCode(phone: string, code: string): Promise<{ success: boolean; message: string }> {
   const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
   const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
@@ -47,30 +77,74 @@ async function checkSmsVerifyCode(phone: string, code: string): Promise<{ succes
   }
   
   try {
-    const config = new AliyunConfig({
-      accessKeyId,
-      accessKeySecret,
-      endpoint: 'dypnsapi.aliyuncs.com',
+    // 生成UUID作为SignatureNonce
+    const signatureNonce = crypto.randomUUID();
+    
+    // Timestamp - ISO8601格式 UTC时间
+    const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    
+    // 公共参数
+    const publicParams: Record<string, string> = {
+      AccessKeyId: accessKeyId,
+      Action: 'CheckSmsVerifyCode',
+      Format: 'JSON',
+      RegionId: 'cn-hangzhou',
+      SignatureMethod: 'HMAC-SHA1',
+      SignatureNonce: signatureNonce,
+      SignatureVersion: '1.0',
+      Timestamp: timestamp,
+      Version: '2017-05-25',
+    };
+    
+    // 业务参数
+    const bizParams: Record<string, string> = {
+      PhoneNumber: phone,
+      VerifyCode: code,
+    };
+    
+    // 合并所有参数
+    const allParams = { ...publicParams, ...bizParams };
+    
+    // 计算签名
+    const signature = generateSignature(allParams, accessKeySecret);
+    
+    // 添加签名到参数
+    allParams.Signature = signature;
+    
+    // 构造请求体（标准URL编码）
+    const requestBody = Object.entries(allParams)
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&');
+    
+    // 发送请求
+    const response = await fetch('https://dypnsapi.aliyuncs.com/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: requestBody,
     });
     
-    const client = new Dypnsapi20170525(config);
+    const result = await response.text();
+    console.log('阿里云CheckSmsVerifyCode响应:', result);
     
-    const request = new dypnsapiModels.CheckSmsVerifyCodeRequest({
-      phoneNumber: phone,
-      verifyCode: code,
-    });
+    // 解析JSON响应
+    let parsedResult: any;
+    try {
+      parsedResult = JSON.parse(result);
+    } catch {
+      console.error('响应解析失败:', result);
+      return { success: false, message: '验证码校验响应异常' };
+    }
     
-    const response = await client.checkSmsVerifyCode(request);
-    
-    if (response.statusCode === 200 && response.body?.code === 'OK') {
+    if (response.ok && parsedResult.Code === 'OK') {
       return { success: true, message: '验证码校验成功' };
     } else {
-      console.error('阿里云验证码校验失败:', JSON.stringify(response));
+      console.error('阿里云验证码校验失败:', parsedResult);
       return { success: false, message: '验证码无效或已过期' };
     }
   } catch (error: any) {
-    console.error('验证码校验异常:', error.message, error.code, error.data);
-    // 阿里云返回错误时也可能是验证码错误，给出通用提示
+    console.error('验证码校验异常:', error.message);
     return { success: false, message: '验证码无效或已过期' };
   }
 }
@@ -84,13 +158,6 @@ export async function POST(request: NextRequest) {
     if (!phone) {
       return NextResponse.json(
         { success: false, message: '请输入手机号' },
-        { status: 400 }
-      );
-    }
-    
-    if (!code) {
-      return NextResponse.json(
-        { success: false, message: '请输入验证码' },
         { status: 400 }
       );
     }
@@ -127,7 +194,6 @@ export async function POST(request: NextRequest) {
       .update({ used: true })
       .eq('phone', phone)
       .eq('used', false)
-      .eq('phone', phone)
       .order('created_at', { ascending: false })
       .limit(1);
     
@@ -196,7 +262,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('验证码校验失败:', error);
     return NextResponse.json(
-      { success: false, message: '服务器错误' },
+      { success: false, message: '系统错误，请稍后重试' },
       { status: 500 }
     );
   }
