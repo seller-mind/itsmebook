@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/components/LanguageProvider";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+
+interface NavbarProps {
+  lang: string;
+}
 
 interface User {
   id: string;
@@ -16,8 +22,9 @@ function maskPhone(phone: string): string {
   return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
 }
 
-export default function Navbar() {
+export default function Navbar({ lang }: NavbarProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -43,7 +50,6 @@ export default function Navbar() {
           const userData = JSON.parse(userStr);
           setUser(userData);
         } catch (e) {
-          // 解析失败，清除无效数据
           localStorage.removeItem("itsmebook_token");
           localStorage.removeItem("itsmebook_user");
           setUser(null);
@@ -53,10 +59,8 @@ export default function Navbar() {
       }
     };
 
-    // 初始检查
     checkAuth();
 
-    // 监听登录状态变化
     window.addEventListener("loginStateChange", checkAuth);
     return () => window.removeEventListener("loginStateChange", checkAuth);
   }, []);
@@ -68,7 +72,7 @@ export default function Navbar() {
     document.cookie = "itsmebook_token=; path=/; max-age=0";
     setUser(null);
     setIsDropdownOpen(false);
-    router.push("/");
+    router.push(`/${lang}`);
   };
 
   return (
@@ -82,52 +86,57 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href={`/${lang}`} className="flex items-center gap-2 group">
             <span className="text-2xl md:text-3xl transition-transform group-hover:scale-110">
               📚
             </span>
             <span className="text-xl md:text-2xl font-bold text-gray-900">
-              是我呀
+              {t('common.appName')}
             </span>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             <Link
-              href="/#features"
+              href={`/${lang}/#features`}
               className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
             >
-              功能特点
+              {t('nav.features')}
             </Link>
             <Link
-              href="/#styles"
+              href={`/${lang}/#styles`}
               className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
             >
-              绘本风格
+              {t('nav.styles')}
             </Link>
             <Link
-              href="/pricing"
+              href={`/${lang}/pricing`}
               className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
             >
-              定价
+              {t('nav.pricing')}
             </Link>
           </div>
 
           {/* Auth Buttons */}
           <div className="flex items-center gap-4">
+            {/* 语言切换器 */}
+            <LanguageSwitcher />
+            
             {/* 免费次数提示 */}
             {user && (
               <div className="hidden sm:flex items-center gap-1 text-sm text-gray-600">
-                <span className="text-orange-500 font-medium">剩余 {user.freeCount} 次</span>
+                <span className="text-orange-500 font-medium">
+                  {t('common.freeCount', { count: user.freeCount })}
+                </span>
               </div>
             )}
 
             {/* 开始制作 */}
             <Link
-              href="/create"
+              href={`/${lang}/create`}
               className="hidden sm:inline-flex btn-primary text-sm"
             >
-              开始制作
+              {t('common.startCreating')}
             </Link>
 
             {user ? (
@@ -157,18 +166,18 @@ export default function Navbar() {
                 {isDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
                     <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm text-gray-600">手机号</p>
+                      <p className="text-sm text-gray-600">{t('signin.phone')}</p>
                       <p className="font-medium text-gray-900">{maskPhone(user.phone)}</p>
                     </div>
                     <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm text-gray-600">免费次数</p>
-                      <p className="font-medium text-orange-500">{user.freeCount} 次</p>
+                      <p className="text-sm text-gray-600">{t('common.freeCount', { count: '' }).replace(' ', '')}</p>
+                      <p className="font-medium text-orange-500">{user.freeCount}</p>
                     </div>
                     <button
                       onClick={handleLogout}
                       className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
                     >
-                      退出登录
+                      {t('common.logout')}
                     </button>
                   </div>
                 )}
@@ -177,16 +186,16 @@ export default function Navbar() {
               /* 未登录 - 显示登录按钮 */
               <>
                 <Link
-                  href="/sign-in"
+                  href={`/${lang}/sign-in`}
                   className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
                 >
-                  登录
+                  {t('common.login')}
                 </Link>
                 <Link
-                  href="/sign-in"
+                  href={`/${lang}/sign-in`}
                   className="btn-primary text-sm"
                 >
-                  注册
+                  {t('common.register')}
                 </Link>
               </>
             )}
@@ -228,34 +237,36 @@ export default function Navbar() {
         <div className="md:hidden bg-white border-t border-gray-100 animate-fade-in">
           <div className="px-4 py-4 space-y-3">
             <Link
-              href="/#features"
+              href={`/${lang}/#features`}
               className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              功能特点
+              {t('nav.features')}
             </Link>
             <Link
-              href="/#styles"
+              href={`/${lang}/#styles`}
               className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              绘本风格
+              {t('nav.styles')}
             </Link>
             <Link
-              href="/pricing"
+              href={`/${lang}/pricing`}
               className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              定价
+              {t('nav.pricing')}
             </Link>
             
             {/* 移动端用户信息 */}
             {user ? (
               <>
                 <div className="py-2 border-t border-gray-100">
-                  <p className="text-sm text-gray-500">登录账号</p>
+                  <p className="text-sm text-gray-500">{t('signin.phone')}</p>
                   <p className="font-medium text-gray-900">{maskPhone(user.phone)}</p>
-                  <p className="text-sm text-orange-500 mt-1">剩余 {user.freeCount} 次免费</p>
+                  <p className="text-sm text-orange-500 mt-1">
+                    {t('common.freeCount', { count: user.freeCount })}
+                  </p>
                 </div>
                 <button
                   onClick={() => {
@@ -264,26 +275,26 @@ export default function Navbar() {
                   }}
                   className="w-full text-left py-2 text-red-500 hover:bg-red-50 rounded-lg px-4 transition"
                 >
-                  退出登录
+                  {t('common.logout')}
                 </button>
               </>
             ) : (
               <Link
-                href="/sign-in"
+                href={`/${lang}/sign-in`}
                 className="block btn-primary text-center mt-4"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                登录 / 注册
+                {t('common.login')} / {t('common.register')}
               </Link>
             )}
 
             {/* 开始制作 */}
             <Link
-              href="/create"
+              href={`/${lang}/create`}
               className="block btn-primary text-center mt-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              开始制作
+              {t('common.startCreating')}
             </Link>
           </div>
         </div>
