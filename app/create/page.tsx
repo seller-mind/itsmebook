@@ -473,6 +473,18 @@ export default function CreatePage() {
 
   // 开始生成 - 流式API + 并发图片
   const handleGenerate = async () => {
+    // 未登录不允许生成
+    if (!user) {
+      setGenerationError('请先登录后再生成绘本');
+      return;
+    }
+
+    // 免费次数不足
+    if (user.freeCount <= 0) {
+      setGenerationError('免费次数已用完，请选择套餐或联系客服');
+      return;
+    }
+
     setIsGenerating(true);
     setGenerationProgress(0);
     setGenerationStatus("正在构思故事...");
@@ -555,7 +567,7 @@ export default function CreatePage() {
         ? PLAN_CONFIGS.find(p => p.id === selectedPlan) || { model: "wan2.7-image", size: "1024*1024" }
         : { model: "wan2.7-image", size: "1024*1024" };
 
-      // 检查免费次数（如果有用户但免费次数为0）
+      // 检查免费次数（前置已校验，这里保险再查一次）
       if (user && user.freeCount <= 0) {
         throw new Error('免费次数已用完，请先充值或联系客服');
       }
