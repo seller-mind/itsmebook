@@ -102,7 +102,7 @@ async function sendSmsCode(phone: string): Promise<{ success: boolean; message: 
     
     // 业务参数
     const bizParams: Record<string, string> = {
-      PhoneNumbers: phone,
+      PhoneNumber: phone,
       SignName: '速通互联验证码',
       TemplateCode: '100001',
       TemplateParam: '{"code":"##code##","min":"5"}',
@@ -152,7 +152,7 @@ async function sendSmsCode(phone: string): Promise<{ success: boolean; message: 
       return { success: true, message: '验证码发送成功' };
     } else {
       console.error('阿里云短信发送失败:', parsedResult);
-      return { success: false, message: '短信服务暂时不可用，请稍后重试' };
+      return { success: false, message: parsedResult.Message || parsedResult.Code || '发送失败', _debug: parsedResult };
     }
   } catch (error: any) {
     console.error('短信发送异常:', error.message);
