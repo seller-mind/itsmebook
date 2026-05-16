@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { useLanguage } from "@/components/LanguageProvider";
+import { useRouter } from "next/navigation";
 
 interface LoginResponse {
   success: boolean;
@@ -25,10 +23,8 @@ interface SendCodeResponse {
   retryAfter?: number;
 }
 
-export default function SignInPage({ params }: { params: Promise<{ lang: string }> }) {
-  const { lang, t } = useLanguage();
+export default function SignInPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,8 +44,9 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
 
   // 发送验证码
   const handleSendCode = async () => {
+    // 手机号格式校验
     if (!/^1[3-9]\d{9}$/.test(phone)) {
-      setError(t('signin.phoneError') || "请输入正确的手机号");
+      setError("请输入正确的手机号");
       return;
     }
 
@@ -70,6 +67,7 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
         return;
       }
 
+      // 开始倒计时
       setCountdown(60);
       countdownRef.current = setInterval(() => {
         setCountdown((prev) => {
@@ -85,7 +83,7 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
 
       setError("");
     } catch (err) {
-      setError(t('signin.sendFail') || "发送失败，请稍后重试");
+      setError("发送失败，请稍后重试");
     } finally {
       setSending(false);
     }
@@ -96,8 +94,9 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
     e.preventDefault();
     setError("");
 
+    // 验证码格式校验
     if (!/^\d{6}$/.test(code)) {
-      setError(t('signin.codeError') || "请输入6位验证码");
+      setError("请输入6位验证码");
       return;
     }
 
@@ -117,27 +116,31 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
         return;
       }
 
+      // 保存Token到localStorage和cookie
       localStorage.setItem("itsmebook_token", data.data!.token);
       localStorage.setItem("itsmebook_user", JSON.stringify(data.data!.user));
+      // 写入cookie供Next.js中间件读取（7天过期，与JWT同步）
       document.cookie = `itsmebook_token=${data.data!.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
 
+      // 通知其他组件登录状态变化
       window.dispatchEvent(new Event("loginStateChange"));
 
-      // 跳转到之前的页面或创建页面
-      const redirectUrl = searchParams.get('redirect_url') || `/${lang}/create`;
-      router.push(redirectUrl);
+      // 跳转到创建页面
+      router.push("/create");
     } catch (err) {
-      setError(t('signin.loginFail') || "登录失败，请稍后重试");
+      setError("登录失败，请稍后重试");
     } finally {
       setLoading(false);
     }
   };
 
+  // 处理手机号输入
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "").slice(0, 11);
     setPhone(value);
   };
 
+  // 处理验证码输入
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "").slice(0, 6);
     setCode(value);
@@ -149,8 +152,8 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
         {/* Logo */}
         <div className="text-center mb-8">
           <span className="text-5xl">📚</span>
-          <h1 className="text-3xl font-bold text-gray-900 mt-4">{t('signin.welcome')}</h1>
-          <p className="text-gray-600 mt-2">{t('signin.subtitle')}</p>
+          <h1 className="text-3xl font-bold text-gray-900 mt-4">欢迎来到"是我呀"</h1>
+          <p className="text-gray-600 mt-2">登录后开始创作专属绘本</p>
         </div>
 
         {/* 登录表单 */}
@@ -159,14 +162,14 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
             {/* 手机号 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('signin.phone')}
+                手机号
               </label>
               <div className="flex gap-2">
                 <input
                   type="tel"
                   value={phone}
                   onChange={handlePhoneChange}
-                  placeholder={t('signin.phonePlaceholder')}
+                  placeholder="请输入手机号"
                   className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
                   disabled={loading}
                 />
@@ -176,7 +179,7 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
                   disabled={countdown > 0 || sending}
                   className="px-4 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition whitespace-nowrap"
                 >
-                  {sending ? t('signin.sending') : countdown > 0 ? `${countdown}s` : t('signin.getCode')}
+                  {sending ? "发送中..." : countdown > 0 ? `${countdown}s` : "获取验证码"}
                 </button>
               </div>
             </div>
@@ -184,13 +187,13 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
             {/* 验证码 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('signin.code')}
+                验证码
               </label>
               <input
                 type="text"
                 value={code}
                 onChange={handleCodeChange}
-                placeholder={t('signin.codePlaceholder')}
+                placeholder="请输入6位验证码"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition"
                 disabled={loading}
               />
@@ -215,30 +218,30 @@ export default function SignInPage({ params }: { params: Promise<{ lang: string 
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  {t('signin.logging')}
+                  登录中...
                 </span>
               ) : (
-                t('signin.loginButton')
+                "登录"
               )}
             </button>
           </form>
 
           {/* 提示 */}
           <p className="text-center text-gray-500 text-sm mt-6">
-            {t('signin.agreeTerms')}{" "}
-            <Link href={`/${lang}/terms`} className="text-orange-500 hover:underline">
-              {t('signin.termsLink')}
-            </Link>{" "}
-            {t('signin.and')}{" "}
-            <Link href={`/${lang}/privacy`} className="text-orange-500 hover:underline">
-              {t('signin.privacyLink')}
-            </Link>
+            登录即表示同意{" "}
+            <a href="/terms" className="text-orange-500 hover:underline">
+              用户协议
+            </a>{" "}
+            和{" "}
+            <a href="/privacy" className="text-orange-500 hover:underline">
+              隐私政策
+            </a>
           </p>
         </div>
 
         {/* 底部 */}
         <p className="text-center text-gray-500 text-sm mt-6">
-          {t('signin.noAccount')}
+          还没有账号？手机号登录即自动注册
         </p>
       </div>
     </div>

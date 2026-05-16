@@ -2,11 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useLanguage } from "@/components/LanguageProvider";
 import HeroSection from "@/components/HeroSection";
 import StyleShowcase from "@/components/StyleShowcase";
 import ProcessSteps from "@/components/ProcessSteps";
 import ChildConsentModal from "@/components/ChildConsentModal";
+
+// 风格名称映射
+const STYLE_NAMES: Record<string, string> = {
+  watercolor: "水彩风格",
+  oil: "油画风格",
+  anime: "日系动漫",
+  chinese: "国风水墨",
+  pastoral: "温暖田园",
+  fantasy: "梦幻童话",
+  minimalist: "简约现代",
+  nordic: "北欧极简",
+};
 
 interface SampleBook {
   id: string;
@@ -16,8 +27,7 @@ interface SampleBook {
   author: string;
 }
 
-export default function HomePage({ params }: { params: Promise<{ lang: string }> }) {
-  const { lang, t } = useLanguage();
+export default function HomePage() {
   const router = useRouter();
   const [showConsent, setShowConsent] = useState(false);
   const [sampleBooks, setSampleBooks] = useState<SampleBook[]>([]);
@@ -47,38 +57,38 @@ export default function HomePage({ params }: { params: Promise<{ lang: string }>
 
   const handleConsentConfirm = () => {
     setShowConsent(false);
-    router.push(`/${lang}/create`);
+    router.push("/create");
   };
 
   const handleViewBook = (bookId: string) => {
-    router.push(`/${lang}/book/${bookId}`);
+    router.push(`/book/${bookId}`);
   };
 
   return (
     <>
       {/* Hero Section */}
-      <HeroSection lang={lang} />
+      <HeroSection />
 
       {/* Features / Process */}
-      <ProcessSteps lang={lang} />
+      <ProcessSteps />
 
       {/* Style Showcase */}
-      <StyleShowcase lang={lang} />
+      <StyleShowcase />
 
       {/* Sample Books Section */}
       <section id="start-creating" className="py-12 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <span className="text-primary-orange font-medium mb-4 block">
-              {t('samples.sectionTag')}
+              📚 作品展示
             </span>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-              {t('samples.sectionTitle')}
+              看看其他小朋友的绘本
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              {t('samples.sectionDesc1')}
+              每一个故事都是独一无二的
               <br />
-              {t('samples.sectionDesc2')}
+              也许下一个就是您孩子的故事
             </p>
           </div>
 
@@ -100,14 +110,12 @@ export default function HomePage({ params }: { params: Promise<{ lang: string }>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-4">
                       <span className="inline-block px-3 py-1 bg-white/90 rounded-full text-xs font-medium text-gray-600 mb-2">
-                        {t(`styles.${book.style}`) || book.style}
+                        {STYLE_NAMES[book.style] || book.style}
                       </span>
                       <h3 className="text-white font-bold text-lg">
                         {book.title}
                       </h3>
-                      <p className="text-white/80 text-sm">
-                        {t('book.by')} {book.author}
-                      </p>
+                      <p className="text-white/80 text-sm">by {book.author}</p>
                     </div>
                   </div>
                 </div>
@@ -129,21 +137,21 @@ export default function HomePage({ params }: { params: Promise<{ lang: string }>
       <section className="py-20 bg-gradient-to-r from-primary-orange to-secondary-blue">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-6">
-            {t('cta.title')}
+            给孩子做一本专属绘本吧 📚
           </h2>
           <p className="text-xl text-white/90 mb-10 max-w-2xl mx-auto">
-            {t('cta.desc1')}
+            用AI技术，把孩子的照片变成一个温馨有趣的故事
             <br />
-            {t('cta.desc2')}
+            留下最珍贵的童年回忆
           </p>
           <button
             onClick={handleStartCreating}
             className="bg-white text-primary-orange font-bold text-lg px-12 py-4 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
           >
-            {t('cta.button')}
+            🚀 立即开始制作
           </button>
           <p className="text-white/70 text-sm mt-6">
-            {t('cta.hint')}
+            限时免费体验1次，满意再购买
           </p>
         </div>
       </section>
@@ -153,7 +161,6 @@ export default function HomePage({ params }: { params: Promise<{ lang: string }>
         isOpen={showConsent}
         onConfirm={handleConsentConfirm}
         onCancel={() => setShowConsent(false)}
-        lang={lang}
       />
     </>
   );

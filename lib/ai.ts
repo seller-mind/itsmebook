@@ -98,16 +98,6 @@ export const STORY_PROMPT_TEMPLATE = `你是顶级儿童绘本作家。请根据
 输出JSON：
 {"title":"标题5字内","appearanceChinese":"外貌描述(发型脸型眼睛肤色穿着)","pages":[{"pageNumber":1,"text":"中文10-50字","imagePrompt":"[外貌描述，与appearanceChinese一致], [动作表情], [场景前景中景背景], [氛围情绪], [光影], [构图], {wanchineseStyle}, 专业儿童绘本插画，手绘质感，温暖自然光，无多余手指，比例正确，角色一致"}]}`;
 
-// English story generation prompt (for /en/ users)
-export const STORY_PROMPT_TEMPLATE_EN = `You are an award-winning children's picture book author. Create a personalized picture book based on the following parameters. Output ONLY JSON, nothing else.
-
-Parameters: Theme - {themeAngle}, Main Character - {characterName} ({age} year old {gender}, {appearance}), Style - {styleChinese}, 20 pages.
-
-Requirements: 1) No lecturing, lessons hidden in the story 2) Pages 1-2: establish daily life and problem, Pages 3-12: adventure and conflict (multiple progressive scenes), Pages 13-17: deepen crisis and climax, Pages 18-19: turning point, Page 20: warm ending 3) 10-50 characters per page, poetic and concise, suitable for reading aloud 4) Character appearance consistent across all pages 5) Variety in composition: long/medium/close-up shots, bird's eye, worm's eye views alternating.
-
-Output JSON:
-{"title":"Title within 5 characters","appearanceChinese":"Appearance description (hairstyle, face shape, eyes, skin color, clothing)","pages":[{"pageNumber":1,"text":"English text 10-50 characters","imagePrompt":"[Appearance description matching appearanceChinese], [action and expression], [foreground middle ground background], [atmosphere and mood], [lighting], [composition], {wanchineseStyle}, professional children's picture book illustration, hand-drawn texture, warm natural light, no extra fingers, correct proportions, consistent character"}]}`;
-
 /**
  * 生成插图（使用万相2.7-image-pro）
  * @param imagePrompt 中文图片描述

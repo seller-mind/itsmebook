@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useLanguage } from "@/components/LanguageProvider";
 import { PLAN_CONFIGS } from "@/lib/plan-config";
 
 interface PaymentDialogProps {
@@ -9,7 +8,6 @@ interface PaymentDialogProps {
   onClose: () => void;
   onSuccess: () => void;
   initialPlan?: string;
-  lang: string;
 }
 
 interface PaymentResult {
@@ -26,9 +24,7 @@ export default function PaymentDialog({
   onClose,
   onSuccess,
   initialPlan = "standard",
-  lang,
 }: PaymentDialogProps) {
-  const { t } = useLanguage();
   const [selectedPlan, setSelectedPlan] = useState(initialPlan);
   const [selectedPayType, setSelectedPayType] = useState<"wechat" | "alipay">("wechat");
   const [isLoading, setIsLoading] = useState(false);
@@ -66,9 +62,11 @@ export default function PaymentDialog({
         const data = await response.json();
         
         if (data.success && data.data.status === "paid") {
+          // 支付成功
           clearInterval(timer);
           setPaymentSuccess(true);
           
+          // 延迟关闭，给用户一个成功反馈
           setTimeout(() => {
             onSuccess();
             onClose();
@@ -89,7 +87,7 @@ export default function PaymentDialog({
     try {
       const token = localStorage.getItem("itsmebook_token");
       if (!token) {
-        alert(t('create.loginRequired') || "请先登录");
+        alert("请先登录");
         return;
       }
       
@@ -109,6 +107,8 @@ export default function PaymentDialog({
       
       if (data.success) {
         setPaymentResult(data.data);
+        
+        // 开始轮询支付状态
         startPolling(data.data.orderId);
       } else {
         alert(data.message || "支付创建失败");
@@ -125,6 +125,7 @@ export default function PaymentDialog({
   const handleAlipayRedirect = () => {
     if (paymentResult?.url) {
       window.location.href = paymentResult.url;
+      // 支付宝页面跳转后，开始轮询
       startPolling(paymentResult.orderId);
     }
   };
@@ -154,7 +155,7 @@ export default function PaymentDialog({
         <div className="p-6">
           {/* 标题 */}
           <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-            {paymentSuccess ? t('payment.paySuccess') : paymentResult ? t('payment.title') : t('payment.title')}
+            {paymentSuccess ? "🎉 支付成功！" : paymentResult ? "请完成支付" : "选择套餐"}
           </h2>
           
           {/* 支付成功状态 */}
@@ -165,7 +166,7 @@ export default function PaymentDialog({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <p className="text-lg text-gray-600">{t('payment.refreshing')}</p>
+              <p className="text-lg text-gray-600">正在刷新页面...</p>
             </div>
           ) : paymentResult ? (
             /* 支付状态 */
@@ -173,15 +174,15 @@ export default function PaymentDialog({
               {/* 订单信息 */}
               <div className="bg-gray-50 rounded-xl p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-600">{t('payment.planInfo')}</span>
+                  <span className="text-gray-600">套餐</span>
                   <span className="font-medium">{paymentResult.planName}</span>
                 </div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-600">{t('payment.amount')}</span>
+                  <span className="text-gray-600">金额</span>
                   <span className="font-bold text-xl text-orange-500">{paymentResult.amount}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">{t('payment.orderId')}</span>
+                  <span className="text-gray-600">订单号</span>
                   <span className="text-sm text-gray-500 font-mono">{paymentResult.orderId}</span>
                 </div>
               </div>
@@ -189,7 +190,7 @@ export default function PaymentDialog({
               {/* 微信支付二维码 */}
               {paymentResult.payType === "wechat" && paymentResult.urlQrcode && (
                 <div className="text-center">
-                  <p className="text-gray-600 mb-4">{t('payment.wechatScan')}</p>
+                  <p className="text-gray-600 mb-4">请使用微信扫码支付</p>
                   <div className="inline-block p-4 bg-white border-2 border-gray-100 rounded-xl">
                     <img 
                       src={paymentResult.urlQrcode} 
@@ -197,21 +198,21 @@ export default function PaymentDialog({
                       className="w-48 h-48 mx-auto"
                     />
                   </div>
-                  <p className="text-sm text-gray-500 mt-4">{t('payment.autoRefresh')}</p>
+                  <p className="text-sm text-gray-500 mt-4">支付完成后页面将自动刷新</p>
                 </div>
               )}
               
               {/* 支付宝提示 */}
               {paymentResult.payType === "alipay" && (
                 <div className="text-center">
-                  <p className="text-gray-600 mb-4">{t('payment.alipayRedirect')}</p>
+                  <p className="text-gray-600 mb-4">请点击下方按钮跳转到支付宝完成支付</p>
                   <button
                     onClick={handleAlipayRedirect}
                     className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors"
                   >
-                    {t('payment.openAlipay')}
+                    打开支付宝支付
                   </button>
-                  <p className="text-sm text-gray-500 mt-4">{t('payment.autoRefresh')}</p>
+                  <p className="text-sm text-gray-500 mt-4">支付完成后页面将自动刷新</p>
                 </div>
               )}
               
@@ -220,7 +221,7 @@ export default function PaymentDialog({
                 onClick={() => setPaymentResult(null)}
                 className="w-full py-2 text-gray-500 hover:text-gray-700 transition-colors"
               >
-                {t('payment.backToSelect')}
+                返回重新选择
               </button>
             </div>
           ) : (
@@ -228,12 +229,12 @@ export default function PaymentDialog({
             <div className="space-y-4">
               {/* 套餐列表 */}
               <div className="space-y-3">
-                {Object.entries(PLAN_CONFIGS).map(([key, plan]) => (
+                {Object.values(PLAN_CONFIGS).map((plan) => (
                   <button
-                    key={key}
-                    onClick={() => setSelectedPlan(key)}
+                    key={plan.id}
+                    onClick={() => setSelectedPlan(plan.id)}
                     className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-                      selectedPlan === key
+                      selectedPlan === plan.id
                         ? "border-orange-400 bg-orange-50"
                         : "border-gray-200 hover:border-gray-300"
                     }`}
@@ -241,9 +242,9 @@ export default function PaymentDialog({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          selectedPlan === key ? "border-orange-400" : "border-gray-300"
+                          selectedPlan === plan.id ? "border-orange-400" : "border-gray-300"
                         }`}>
-                          {selectedPlan === key && (
+                          {selectedPlan === plan.id && (
                             <div className="w-3 h-3 rounded-full bg-orange-400" />
                           )}
                         </div>
@@ -261,6 +262,7 @@ export default function PaymentDialog({
                             )}
                           </div>
                           <p className="text-sm text-gray-500">{plan.description}</p>
+                          <p className="text-xs text-gray-400">{plan.credits}本绘本</p>
                         </div>
                       </div>
                       <span className="text-xl font-bold text-orange-500">{plan.priceDisplay}</span>
@@ -271,7 +273,7 @@ export default function PaymentDialog({
               
               {/* 支付方式 */}
               <div className="pt-4 border-t border-gray-200">
-                <p className="text-gray-600 mb-3">{t('payment.selectPayMethod')}</p>
+                <p className="text-gray-600 mb-3">选择支付方式</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setSelectedPayType("wechat")}
@@ -286,7 +288,7 @@ export default function PaymentDialog({
                         <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 01.213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 00.167-.054l1.903-1.114a.864.864 0 01.717-.098 10.16 10.16 0 002.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 01-1.162 1.178A1.17 1.17 0 014.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 01-1.162 1.178 1.17 1.17 0 01-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 01.598.082l1.584.926a.272.272 0 00.14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 01-.023-.156.49.49 0 01.201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.87c-.135-.004-.272-.01-.407-.012zm-1.56 3.33c.535 0 .969.44.969.982a.976.976 0 01-.969.983.976.976 0 01-.969-.983c0-.542.434-.982.97-.982zm4.857 0c.535 0 .969.44.969.982a.976.976 0 01-.969.983.976.976 0 01-.969-.983c0-.542.434-.982.969-.982z"/>
                       </svg>
                       <span className={`font-medium ${selectedPayType === "wechat" ? "text-green-600" : "text-gray-600"}`}>
-                        {t('payment.wechatPay')}
+                        微信支付
                       </span>
                     </div>
                   </button>
@@ -303,7 +305,7 @@ export default function PaymentDialog({
                         <path d="M19.493 6.678a4.236 4.236 0 00-3.223-1.486l-4.58 1.433a9.493 9.493 0 01-6.75 0l-4.58-1.433a4.236 4.236 0 00-3.223 1.486 4.236 4.236 0 00-.37 3.605L.768 9.79l4.58 1.433a9.492 9.492 0 016.75 0l4.58-1.433 4.01-.947a4.236 4.236 0 00.37-3.605zM12 17.9a7.4 7.4 0 110-14.8 7.4 7.4 0 010 14.8zm-4.58-6.78a9.492 9.492 0 016.75 0l4.58-1.433-2.22-.525a4.236 4.236 0 00-5.29 1.958l-3.82-9.07-4.58 1.433a9.492 9.492 0 015.29 1.958l2.22-.525-2.93-.696zm4.58-2.36a4.236 4.236 0 013.223-1.486l4.58 1.433a7.4 7.4 0 010 5.9l-4.58-1.433a4.236 4.236 0 01-3.223-1.486 4.236 4.236 0 00-.37-3.605l3.82 9.07a7.4 7.4 0 010-5.9l-3.82-9.07a4.236 4.236 0 00.37-3.605z"/>
                       </svg>
                       <span className={`font-medium ${selectedPayType === "alipay" ? "text-blue-600" : "text-gray-600"}`}>
-                        {t('payment.alipay')}
+                        支付宝
                       </span>
                     </div>
                   </button>
@@ -322,16 +324,16 @@ export default function PaymentDialog({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    {t('payment.creating')}
+                    创建支付中...
                   </span>
                 ) : (
-                  `${t('payment.payButton')} ${PLAN_CONFIGS[selectedPlan as keyof typeof PLAN_CONFIGS]?.priceDisplay}`
+                  `立即支付 ¥${PLAN_CONFIGS[selectedPlan as keyof typeof PLAN_CONFIGS]?.priceDisplay.replace("¥", "")}`
                 )}
               </button>
               
               {/* 底部提示 */}
               <p className="text-xs text-gray-400 text-center">
-                {t('payment.agreeTerms')}
+                点击支付即表示同意《支付服务协议》
               </p>
             </div>
           )}
