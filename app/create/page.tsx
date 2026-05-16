@@ -234,32 +234,27 @@ export default function CreatePage() {
   // 流式调用Doubao API生成故事
   const streamDoubaoStory = async (
     prompt: string,
-    apiKey: string,
-    endpointId: string,
     onProgress: (content: string, progress: number) => void
   ): Promise<string> => {
     const controller = new AbortController();
     // 120秒无数据则断开
     const timeoutId = setTimeout(() => controller.abort(), 120000);
 
+    const token = localStorage.getItem("itsmebook_token");
+
     const response = await fetch(
-      'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+      '/api/generate/story',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          model: endpointId,
           messages: [
             { role: "system", content: "你是一位获得过凯迪克金奖的国际顶级绘本大师。请直接输出最终结果，不要进行思考推理过程。" },
             { role: "user", content: prompt },
           ],
-          temperature: 0.85,
-          max_tokens: 8000,
-          thinking: { type: "disabled" },
-          stream: true, // 关键：开启流式
         }),
         signal: controller.signal,
       }
@@ -268,6 +263,11 @@ export default function CreatePage() {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('请先登录后再生成绘本');
+      } else if (response.status === 403) {
+        throw new Error('免费次数已用完，请选择套餐或联系客服');
+      }
       const errorText = await response.text();
       throw new Error(`故事生成失败 (${response.status}): ${errorText.slice(0, 100)}`);
     }
@@ -384,24 +384,20 @@ export default function CreatePage() {
     });
   };
 
-  // 生成单张图片（带重试2次，支持参考图）
+  // 生成单张图片（带重试2次，支持参考图）- 通过后端代理
   const generateSingleImage = async (
     imagePrompt: string, 
     pageIndex: number, 
     photoBase64?: string,
     planConfig?: { model: string; size: string }
   ): Promise<string> => {
-    const dashscopeKey = process.env.NEXT_PUBLIC_DASHSCOPE_API_KEY;
-    if (!dashscopeKey) {
-      throw new Error('未配置图片生成API Key');
-    }
-
     // 套餐参数默认值
     const model = planConfig?.model || "wan2.7-image";
     const size = planConfig?.size || "1024*1024";
 
     let lastError: Error | null = null;
-    const maxRetries = 2; // 最多重试2次
+    const maxRetries = 2;
+    const token = localStorage.getItem("itsmebook_token");
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
@@ -419,12 +415,12 @@ export default function CreatePage() {
           : [{ text: fullPrompt }];
 
         const wanRes = await fetchWithTimeout(
-          'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+          '/api/generate/image',
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${dashscopeKey}`,
+              'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify({
               model: model,
@@ -434,7 +430,7 @@ export default function CreatePage() {
               parameters: { size: size, n: 1 }
             }),
           },
-          45000 // 45秒超时
+          45000
         );
 
         if (wanRes.ok) {
@@ -446,9 +442,10 @@ export default function CreatePage() {
         }
         // 如果响应不ok或者没有图片，尝试解析错误
         const errorText = await wanRes.text().catch(() => '');
-        // 区分账户欠费和其他错误
-        if (wanRes.status === 403 || errorText.includes('balance') || errorText.includes('quota') || errorText.includes('额度') || errorText.includes('余额')) {
-          lastError = new Error('账户余额不足或额度用尽，请联系管理员充值');
+        if (wanRes.status === 401) {
+          throw new Error('请先登录后再生成绘本');
+        } else if (wanRes.status === 403) {
+          throw new Error('免费次数已用完');
         } else if (wanRes.status === 429) {
           lastError = new Error('请求过于频繁，请稍后重试');
         } else {
@@ -492,13 +489,6 @@ export default function CreatePage() {
 
     try {
       // 第1步：准备参数
-      const apiKey = process.env.NEXT_PUBLIC_VOLCENGINE_API_KEY;
-      const endpointId = process.env.NEXT_PUBLIC_VOLCENGINE_ENDPOINT_ID || 'ep-20260515144642-96m6k';
-
-      if (!apiKey) {
-        throw new Error('未配置API Key，请联系管理员');
-      }
-
       const styleConfig = STYLE_CONFIGS[selectedStyle] || STYLE_CONFIGS.watercolor;
       const themeConfig = THEME_CONFIGS[selectedTheme] || THEME_CONFIGS.adventure;
       const genderChinese = characterGender === "男孩" ? "男孩" : "女孩";
@@ -520,8 +510,6 @@ export default function CreatePage() {
       
       const content = await streamDoubaoStory(
         prompt,
-        apiKey,
-        endpointId,
         (partialContent, progress) => {
           setGenerationProgress(progress);
           const receivedChars = partialContent.length;
