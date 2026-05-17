@@ -6,14 +6,14 @@ export interface StoryPage {
   pageNumber: number;
   text: string;
   imageUrl: string;
-  audioUrl?: string; // 可选，该页对应的音频URL
+  audioUrl?: string;
 }
 
 interface StoryPlayerProps {
   pages: StoryPage[];
   title: string;
   childName: string;
-  voiceAudioUrl?: string; // 克隆声音的音频URL
+  voiceAudioUrl?: string;
   onShare?: () => void;
   onGenerateVideo?: () => void;
 }
@@ -37,17 +37,53 @@ export default function StoryPlayer({
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
   const [showStoryEnd, setShowStoryEnd] = useState(false);
 
-  // TTS音频缓存
+  // TTS音频缓存：pageIndex -> base64 audio data
   const audioCacheRef = useRef<Record<number, string>>({});
+  // 正在预加载的页
+  const preloadingRef = useRef<Set<number>>(new Set());
+  // 所有活跃的Audio元素，用于彻底清理
+  const activeAudiosRef = useRef<Set<HTMLAudioElement>>(new Set());
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const whiteNoiseRef = useRef<HTMLAudioElement | null>(null);
   const totalPages = pages.length;
+  // 用ref跟踪播放状态，避免闭包陷阱
+  const isPlayingRef = useRef(false);
+  const currentPageRef = useRef(0);
 
-  // 清理函数
-  const cleanupAudio = useCallback(() => {
+  // 同步ref
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+
+  // 彻底清理所有音频
+  const cleanupAllAudio = useCallback(() => {
+    // 停止所有活跃的Audio元素
+    activeAudiosRef.current.forEach(audio => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.oncanplay = null;
+      audio.onended = null;
+      audio.onerror = null;
+      audio.src = "";
+    });
+    activeAudiosRef.current.clear();
+    currentAudioRef.current = null;
+
+    // 停止Web Speech
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
+  // 只停当前播放的音频（翻页用）
+  const stopCurrentAudio = useCallback(() => {
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current.oncanplay = null;
+      currentAudioRef.current.onended = null;
+      currentAudioRef.current.onerror = null;
+      currentAudioRef.current.src = "";
+      activeAudiosRef.current.delete(currentAudioRef.current);
       currentAudioRef.current = null;
     }
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -62,7 +98,7 @@ export default function StoryPlayer({
       whiteNoiseRef.current.loop = true;
     }
     return () => {
-      cleanupAudio();
+      cleanupAllAudio();
       if (whiteNoiseRef.current) {
         whiteNoiseRef.current.pause();
       }
@@ -70,41 +106,79 @@ export default function StoryPlayer({
         clearTimeout(sleepTimer);
       }
     };
-  }, [sleepTimer, cleanupAudio]);
+  }, [sleepTimer, cleanupAllAudio]);
+
+  // 预加载指定页的TTS音频（不播放，只缓存）
+  const preloadPageAudio = useCallback(async (pageIndex: number) => {
+    if (pageIndex < 0 || pageIndex >= totalPages) return;
+    if (audioCacheRef.current[pageIndex]) return; // 已缓存
+    if (preloadingRef.current.has(pageIndex)) return; // 正在加载
+
+    preloadingRef.current.add(pageIndex);
+    try {
+      const pageText = pages[pageIndex].text;
+      const customVoiceId = sessionStorage.getItem("bedtime_voice_id");
+
+      const res = await fetch("/api/voice/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: pageText,
+          voice: customVoiceId || undefined,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.audioUrl) {
+        audioCacheRef.current[pageIndex] = data.audioUrl;
+      }
+    } catch {
+      // 预加载失败无所谓，播放时再处理
+    } finally {
+      preloadingRef.current.delete(pageIndex);
+    }
+  }, [pages, totalPages]);
+
+  // 批量预加载所有页的音频
+  const preloadAllPages = useCallback(() => {
+    for (let i = 0; i < totalPages; i++) {
+      if (!audioCacheRef.current[i] && !preloadingRef.current.has(i)) {
+        preloadPageAudio(i);
+      }
+    }
+  }, [totalPages, preloadPageAudio]);
 
   // 播放指定页的TTS音频
   const playPageAudio = useCallback(async (pageIndex: number) => {
     if (pageIndex < 0 || pageIndex >= totalPages) return;
-    
-    const pageText = pages[pageIndex].text;
-    
+
     // 先停止当前音频
-    cleanupAudio();
-    
+    stopCurrentAudio();
+
+    const pageText = pages[pageIndex].text;
+
     // 检查缓存
     let audioUrl = audioCacheRef.current[pageIndex];
-    
+
     if (!audioUrl) {
       setIsAudioLoading(true);
       try {
-        // 从sessionStorage读取自定义voice_id
         const customVoiceId = sessionStorage.getItem("bedtime_voice_id");
-        
+
         const res = await fetch("/api/voice/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             text: pageText,
-            voice: customVoiceId || undefined, // 优先使用克隆的声音
+            voice: customVoiceId || undefined,
           }),
         });
         const data = await res.json();
-        
+
         if (data.success && data.audioUrl) {
           audioUrl = data.audioUrl;
           audioCacheRef.current[pageIndex] = audioUrl;
         } else {
-          // 降级到Web Speech API
           setIsAudioLoading(false);
           playWithWebSpeech(pageText, pageIndex);
           return;
@@ -116,116 +190,158 @@ export default function StoryPlayer({
       }
       setIsAudioLoading(false);
     }
-    
+
     if (!audioUrl) {
       playWithWebSpeech(pageText, pageIndex);
       return;
     }
-    
+
     // 创建并播放音频
     const audio = new Audio(audioUrl);
     audio.volume = volume;
+    activeAudiosRef.current.add(audio);
     currentAudioRef.current = audio;
-    
+
     audio.oncanplay = () => {
+      // 再次确认：播放时翻到的页是不是这一页
+      if (currentPageRef.current !== pageIndex) {
+        // 已经翻走了，不要播
+        audio.pause();
+        activeAudiosRef.current.delete(audio);
+        return;
+      }
       try {
         audio.play().catch(() => {
-          // 自动播放被阻止，降级到Web Speech
-          cleanupAudio();
+          cleanupAllAudio();
           playWithWebSpeech(pageText, pageIndex);
         });
       } catch {
+        cleanupAllAudio();
         playWithWebSpeech(pageText, pageIndex);
       }
     };
-    
+
     audio.onended = () => {
-      if (isPlaying && pageIndex < totalPages - 1) {
-        // 自动翻到下一页
+      activeAudiosRef.current.delete(audio);
+      // 用ref判断，避免闭包拿到旧值
+      if (isPlayingRef.current && currentPageRef.current === pageIndex && pageIndex < totalPages - 1) {
         setTimeout(() => {
-          const next = pageIndex + 1;
-          setCurrentPage(next);
+          if (isPlayingRef.current) {
+            const next = pageIndex + 1;
+            setCurrentPage(next);
+          }
         }, 800);
       } else if (pageIndex >= totalPages - 1) {
         setIsPlaying(false);
         setShowStoryEnd(true);
       }
     };
-    
+
     audio.onerror = () => {
-      cleanupAudio();
+      activeAudiosRef.current.delete(audio);
+      stopCurrentAudio();
       playWithWebSpeech(pageText, pageIndex);
     };
-  }, [pages, totalPages, volume, isPlaying, cleanupAudio]);
+  }, [pages, totalPages, volume, stopCurrentAudio, cleanupAllAudio]);
 
   // Web Speech API降级方案
   const playWithWebSpeech = useCallback((text: string, pageIndex: number) => {
     if (typeof window === "undefined" || !window.speechSynthesis) {
-      console.warn("浏览器不支持语音合成");
       setIsPlaying(false);
       return;
     }
-    
+
     window.speechSynthesis.cancel();
-    
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "zh-CN";
     utterance.rate = 0.8;
     utterance.pitch = 1.1;
     utterance.volume = volume;
-    
-    // 选择中文语音
+
     const voices = window.speechSynthesis.getVoices();
     const zhVoice = voices.find(v => v.lang.includes("zh"));
     if (zhVoice) utterance.voice = zhVoice;
-    
-    utterance.onstart = () => {
-      setIsPlaying(true);
-    };
-    
+
     utterance.onend = () => {
-      if (isPlaying && pageIndex < totalPages - 1) {
+      if (isPlayingRef.current && currentPageRef.current === pageIndex && pageIndex < totalPages - 1) {
         setTimeout(() => {
-          const next = pageIndex + 1;
-          setCurrentPage(next);
+          if (isPlayingRef.current) {
+            const next = pageIndex + 1;
+            setCurrentPage(next);
+          }
         }, 800);
       } else if (pageIndex >= totalPages - 1) {
         setIsPlaying(false);
         setShowStoryEnd(true);
       }
     };
-    
+
     utterance.onerror = () => {
       setIsPlaying(false);
     };
-    
+
     window.speechSynthesis.speak(utterance);
-  }, [volume, isPlaying, totalPages]);
+  }, [volume, totalPages]);
 
   // 播放/暂停
   const togglePlay = useCallback(() => {
     if (isPlaying) {
-      cleanupAudio();
+      cleanupAllAudio();
       setIsPlaying(false);
     } else {
       setShowStoryEnd(false);
       setIsPlaying(true);
+      // 立即播放当前页
       playPageAudio(currentPage);
+      // 同时预加载后续页
+      preloadAllPages();
     }
-  }, [isPlaying, currentPage, cleanupAudio, playPageAudio]);
+  }, [isPlaying, currentPage, cleanupAllAudio, playPageAudio, preloadAllPages]);
 
-  // 翻页 - 翻页时自动停止当前音频
+  // 翻页
   const goToPage = useCallback((page: number) => {
-    cleanupAudio();
+    stopCurrentAudio();
     const newPage = Math.max(0, Math.min(page, totalPages - 1));
     setCurrentPage(newPage);
     setShowStoryEnd(false);
-    
-    // 如果正在播放，翻页后自动读新页
-    if (isPlaying) {
+
+    if (isPlayingRef.current) {
       playPageAudio(newPage);
     }
-  }, [totalPages, isPlaying, cleanupAudio, playPageAudio]);
+  }, [totalPages, stopCurrentAudio, playPageAudio]);
+
+  // ====== 滑动翻页 ======
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now(),
+    };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+
+    const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
+    const deltaTime = Date.now() - touchStartRef.current.time;
+
+    // 水平滑动距离 > 50px，垂直偏移不超过水平的一半，且在500ms内完成
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5 && deltaTime < 500) {
+      if (deltaX < 0 && currentPage < totalPages - 1) {
+        // 左滑 → 下一页
+        goToPage(currentPage + 1);
+      } else if (deltaX > 0 && currentPage > 0) {
+        // 右滑 → 上一页
+        goToPage(currentPage - 1);
+      }
+    }
+
+    touchStartRef.current = null;
+  }, [currentPage, totalPages, goToPage]);
 
   // 睡前模式
   const startBedtimeMode = useCallback((minutes: number) => {
@@ -307,14 +423,20 @@ export default function StoryPlayer({
         </div>
       </div>
 
-      {/* 绘本区域 */}
+      {/* 绘本区域 - 支持滑动翻页 */}
       <div className="flex-1 flex flex-col items-center px-4 py-6 gap-4">
-        {/* 绘本画面 */}
-        <div className="w-full max-w-lg aspect-square rounded-2xl overflow-hidden shadow-xl bg-white">
+        {/* 绘本画面 - 添加touch事件 */}
+        <div
+          className="w-full max-w-lg aspect-square rounded-2xl overflow-hidden shadow-xl bg-white select-none touch-pan-y"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          style={{ touchAction: "pan-y" }}
+        >
           <img
             src={currentPageData.imageUrl}
             alt={`第${currentPage + 1}页`}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover pointer-events-none"
+            draggable={false}
             onError={(e) => {
               const img = e.target as HTMLImageElement;
               if (!img.dataset.fallbackUsed) {
@@ -357,7 +479,7 @@ export default function StoryPlayer({
             <div className="flex items-center justify-center py-4">
               <svg className="w-6 h-6 animate-spin text-primary-orange mr-2" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7 7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
               <span className="text-gray-500 text-sm">正在生成语音...</span>
             </div>
@@ -389,8 +511,7 @@ export default function StoryPlayer({
 
           <button
             onClick={togglePlay}
-            disabled={isAudioLoading}
-            className="p-5 rounded-full bg-gradient-to-br from-primary-orange to-primary-dark shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-5 rounded-full bg-gradient-to-br from-primary-orange to-primary-dark shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95"
           >
             {isAudioLoading ? (
               <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
