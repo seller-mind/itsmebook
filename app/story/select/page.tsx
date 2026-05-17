@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { STORY_THEMES } from "@/lib/story";
+import { CLASSIC_STORIES, STORY_CATEGORIES, ClassicStory } from "@/lib/classic-stories";
 
 export default function StorySelectPage() {
   const router = useRouter();
@@ -13,7 +14,97 @@ export default function StorySelectPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  
+  // 经典故事库 Tab状态
+  const [activeTab, setActiveTab] = useState<"classic" | "custom">("classic");
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(
+    Object.fromEntries(STORY_CATEGORIES.map(cat => [cat.name, true]))
+  );
+  const [selectedClassicStory, setSelectedClassicStory] = useState<ClassicStory | null>(null);
 
+  // 切换分类展开/收起
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  // 选择经典故事并开始生成
+  const handleSelectClassicStory = async (story: ClassicStory) => {
+    const name = childName.trim() || "小宝贝";
+    setSelectedClassicStory(story);
+    setIsGenerating(true);
+    setProgress(0);
+    setError("");
+
+    try {
+      // 经典故事不需要AI生成文本，直接开始生成图片
+      setStatus("正在生成配图...");
+      
+      // 并发生成8张图片
+      const pagesWithImages = await Promise.all(
+        story.pages.map(async (page, index) => {
+          setProgress(Math.round((index / story.pages.length) * 90));
+          
+          try {
+            const imageRes = await fetch("/api/image/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                imagePrompt: page.imagePrompt,
+                style: "watercolor",
+                index,
+              }),
+            });
+
+            const imageData = await imageRes.json();
+            return {
+              pageNumber: page.pageNumber,
+              text: page.text,
+              imageUrl: imageData.success ? imageData.imageUrl : getPlaceholderImage(index),
+            };
+          } catch {
+            return {
+              pageNumber: page.pageNumber,
+              text: page.text,
+              imageUrl: getPlaceholderImage(index),
+            };
+          }
+        })
+      );
+
+      setProgress(95);
+      setStatus("正在完成...");
+
+      // 保存故事数据到sessionStorage
+      const storyData = {
+        title: story.title,
+        childName: name,
+        pages: pagesWithImages,
+        voiceUrl: sessionStorage.getItem("bedtime_voice_url") || "",
+        voiceId: sessionStorage.getItem("bedtime_voice_id") || "",
+        createdAt: new Date().toISOString(),
+        isClassic: true, // 标记为经典故事
+      };
+
+      sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
+
+      setProgress(100);
+      setStatus("完成！");
+
+      // 跳转到播放器
+      setTimeout(() => {
+        router.push("/story/player");
+      }, 500);
+    } catch (err: any) {
+      setError(err.message || "生成失败，请重试");
+      setIsGenerating(false);
+      setSelectedClassicStory(null);
+    }
+  };
+
+  // 自定义故事生成（原有逻辑）
   const handleGenerate = async () => {
     if (!selectedTheme && !customPrompt.trim()) {
       setError("请选择一个故事主题或输入自定义故事");
@@ -159,6 +250,7 @@ export default function StorySelectPage() {
         voiceUrl: sessionStorage.getItem("bedtime_voice_url") || "",
         voiceId: sessionStorage.getItem("bedtime_voice_id") || "",
         createdAt: new Date().toISOString(),
+        isClassic: false,
       };
 
       sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
@@ -250,11 +342,14 @@ export default function StorySelectPage() {
               </div>
             </div>
             <h3 className="font-bold text-gray-900 text-lg mb-2">
-              正在生成你的专属故事
+              {selectedClassicStory ? "正在准备经典故事" : "正在生成你的专属故事"}
             </h3>
             <p className="text-sm text-gray-500 mb-2">{status}</p>
             <p className="text-xs text-gray-400">
-              这可能需要1-2分钟，请耐心等待
+              {selectedClassicStory 
+                ? "经典故事无需等待文本生成，只需生成配图" 
+                : "这可能需要1-2分钟，请耐心等待"
+              }
             </p>
           </div>
         </div>
@@ -264,119 +359,228 @@ export default function StorySelectPage() {
       <div className="max-w-lg mx-auto px-4 pb-12">
         {/* 标题 */}
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">选择今晚的故事类型</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">选择今晚的故事</h1>
           <p className="text-sm text-gray-500">
-            选一个孩子喜欢的，或者告诉我你想要的故事
+            经典故事即选即读，也可让AI创作专属故事
           </p>
         </div>
 
-        {/* 孩子名字输入 */}
-        <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            孩子名字（可选）
-          </label>
-          <input
-            type="text"
-            value={childName}
-            onChange={(e) => setChildName(e.target.value)}
-            placeholder="输入名字，故事里会提到"
-            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-orange focus:outline-none transition-colors text-base"
-          />
+        {/* Tab切换 */}
+        <div className="bg-white rounded-2xl shadow-md p-1.5 mb-4 flex">
+          <button
+            onClick={() => setActiveTab("classic")}
+            className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+              activeTab === "classic"
+                ? "bg-gradient-to-r from-primary-orange to-amber-400 text-white shadow-md"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span>📚</span>
+            <span>经典故事库</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("custom")}
+            className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+              activeTab === "custom"
+                ? "bg-gradient-to-r from-primary-orange to-amber-400 text-white shadow-md"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span>✨</span>
+            <span>自定义故事</span>
+          </button>
         </div>
 
-        {/* 故事主题选择 */}
-        <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
-          <h3 className="font-medium text-gray-900 text-sm mb-3">故事模板</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {STORY_THEMES.map((theme) => (
-              <button
-                key={theme.id}
-                onClick={() => setSelectedTheme(theme.id)}
-                className={`p-4 rounded-xl text-center transition-all ${
-                  selectedTheme === theme.id
-                    ? "bg-gradient-to-br " + theme.color + " ring-2 ring-primary-orange shadow-md"
-                    : "bg-gray-50 hover:bg-gray-100"
-                }`}
-              >
-                <span className="text-2xl block mb-1">{theme.emoji}</span>
-                <p className="font-medium text-gray-900 text-xs">{theme.name}</p>
-                <p className="text-xs text-gray-500 mt-0.5 leading-tight">{theme.description}</p>
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* 经典故事库 */}
+        {activeTab === "classic" && (
+          <div className="space-y-3">
+            {/* 故事数量提示 */}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-3 mb-4">
+              <p className="text-sm text-amber-800 flex items-center gap-2">
+                <span className="text-lg">📚</span>
+                <span>精选 {CLASSIC_STORIES.length} 个公版经典故事，免去等待，即选即读</span>
+              </p>
+            </div>
 
-        {/* 自定义故事 */}
-        <div className="bg-white rounded-2xl shadow-md p-5 mb-6">
-          <h3 className="font-medium text-gray-900 text-sm mb-3">自定义故事</h3>
-          <p className="text-xs text-gray-500 mb-3">
-            说一句话或关键词，我会帮你生成故事
-          </p>
-          {/* 示例标签 */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            {[
-              "小兔子今天去旅行了",
-              "星星和月亮是好朋友",
-              "讲一个关于勇敢的冒险故事",
-              "小熊想吃天上的云朵",
-              "彩虹桥的另一边有什么",
-            ].map((example) => (
-              <button
-                key={example}
-                onClick={() => {
-                  setCustomPrompt(example);
-                  setSelectedTheme("");
-                }}
-                className="px-3 py-1.5 rounded-full text-xs bg-gray-50 border border-gray-200 text-gray-600 hover:bg-primary-orange/10 hover:border-primary-orange/50 hover:text-primary-orange transition-colors"
-              >
-                {example}
-              </button>
-            ))}
-          </div>
-          <textarea
-            value={customPrompt}
-            onChange={(e) => {
-              setCustomPrompt(e.target.value);
-              if (e.target.value.trim()) setSelectedTheme("");
-            }}
-            placeholder="写下你想要的故事情节..."
-            rows={3}
-            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-orange focus:outline-none transition-colors text-base resize-none"
-          />
-        </div>
+            {/* 分类展示 */}
+            {STORY_CATEGORIES.map((category) => {
+              const categoryStories = CLASSIC_STORIES.filter(s => s.category === category.name);
+              const isExpanded = expandedCategories[category.name];
+              
+              return (
+                <div key={category.name} className="bg-white rounded-2xl shadow-md overflow-hidden">
+                  {/* 分类标题 */}
+                  <button
+                    onClick={() => toggleCategory(category.name)}
+                    className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{category.emoji}</span>
+                      <span className="font-medium text-gray-800">{category.name}</span>
+                      <span className="text-xs text-gray-500">({category.count})</span>
+                    </div>
+                    <svg
+                      className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
 
-        {/* 错误提示 */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-            <p className="text-red-600 text-sm">{error}</p>
+                  {/* 分类内容 */}
+                  {isExpanded && (
+                    <div className="p-3 space-y-2">
+                      {categoryStories.map((story) => (
+                        <button
+                          key={story.id}
+                          onClick={() => handleSelectClassicStory(story)}
+                          disabled={isGenerating}
+                          className="w-full p-3 rounded-xl border border-gray-100 hover:border-primary-orange/50 hover:bg-primary-orange/5 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-lg flex-shrink-0">
+                              {story.categoryEmoji}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <h4 className="font-medium text-gray-900 truncate">{story.title}</h4>
+                                <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full flex-shrink-0">
+                                  {story.ageRange}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 line-clamp-1">{story.description}</p>
+                              <p className="text-xs text-primary-orange mt-1 flex items-center gap-1">
+                                <span>点击立即播放</span>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* 开始生成 */}
-        <button
-          onClick={handleGenerate}
-          disabled={isGenerating}
-          className="w-full btn-primary py-4 text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isGenerating ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              生成中...
-            </>
-          ) : (
-            <>
-              开始生成故事
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </>
-          )}
-        </button>
+        {/* 自定义故事 */}
+        {activeTab === "custom" && (
+          <>
+            {/* 孩子名字输入 */}
+            <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                孩子名字（可选）
+              </label>
+              <input
+                type="text"
+                value={childName}
+                onChange={(e) => setChildName(e.target.value)}
+                placeholder="输入名字，故事里会提到"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-orange focus:outline-none transition-colors text-base"
+              />
+            </div>
 
-        {/* 提示 */}
-        <p className="text-xs text-gray-400 text-center mt-4">
-          生成大约需要1-2分钟，配图会自动生成
-        </p>
+            {/* 故事主题选择 */}
+            <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
+              <h3 className="font-medium text-gray-900 text-sm mb-3">故事模板</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {STORY_THEMES.map((theme) => (
+                  <button
+                    key={theme.id}
+                    onClick={() => setSelectedTheme(theme.id)}
+                    className={`p-4 rounded-xl text-center transition-all ${
+                      selectedTheme === theme.id
+                        ? "bg-gradient-to-br " + theme.color + " ring-2 ring-primary-orange shadow-md"
+                        : "bg-gray-50 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="text-2xl block mb-1">{theme.emoji}</span>
+                    <p className="font-medium text-gray-900 text-xs">{theme.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-tight">{theme.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 自定义故事输入 */}
+            <div className="bg-white rounded-2xl shadow-md p-5 mb-6">
+              <h3 className="font-medium text-gray-900 text-sm mb-3">自定义故事</h3>
+              <p className="text-xs text-gray-500 mb-3">
+                说一句话或关键词，我会帮你生成故事
+              </p>
+              {/* 示例标签 */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[
+                  "小兔子今天去旅行了",
+                  "星星和月亮是好朋友",
+                  "讲一个关于勇敢的冒险故事",
+                  "小熊想吃天上的云朵",
+                  "彩虹桥的另一边有什么",
+                ].map((example) => (
+                  <button
+                    key={example}
+                    onClick={() => {
+                      setCustomPrompt(example);
+                      setSelectedTheme("");
+                    }}
+                    className="px-3 py-1.5 rounded-full text-xs bg-gray-50 border border-gray-200 text-gray-600 hover:bg-primary-orange/10 hover:border-primary-orange/50 hover:text-primary-orange transition-colors"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={customPrompt}
+                onChange={(e) => {
+                  setCustomPrompt(e.target.value);
+                  if (e.target.value.trim()) setSelectedTheme("");
+                }}
+                placeholder="写下你想要的故事情节..."
+                rows={3}
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-orange focus:outline-none transition-colors text-base resize-none"
+              />
+            </div>
+
+            {/* 错误提示 */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* 开始生成 */}
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="w-full btn-primary py-4 text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGenerating ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  生成中...
+                </>
+              ) : (
+                <>
+                  开始生成故事
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </>
+              )}
+            </button>
+
+            {/* 提示 */}
+            <p className="text-xs text-gray-400 text-center mt-4">
+              生成大约需要1-2分钟，配图会自动生成
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

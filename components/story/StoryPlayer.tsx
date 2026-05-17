@@ -37,8 +37,10 @@ export default function StoryPlayer({
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
   const [showStoryEnd, setShowStoryEnd] = useState(false);
 
-  // TTS音频缓存：pageIndex -> base64 audio data
+  // TTS音频URL缓存：pageIndex -> audioUrl
   const audioCacheRef = useRef<Record<number, string>>({});
+  // 预创建的Audio元素缓存：pageIndex -> HTMLAudioElement（已加载好，随时可play）
+  const audioElementCacheRef = useRef<Record<number, HTMLAudioElement>>({});
   // 正在预加载的页
   const preloadingRef = useRef<Set<number>>(new Set());
   // 所有活跃的Audio元素，用于彻底清理
@@ -108,10 +110,10 @@ export default function StoryPlayer({
     };
   }, [sleepTimer, cleanupAllAudio]);
 
-  // 预加载指定页的TTS音频（不播放，只缓存）
+  // 预加载单页TTS音频并创建Audio元素
   const preloadPageAudio = useCallback(async (pageIndex: number) => {
     if (pageIndex < 0 || pageIndex >= totalPages) return;
-    if (audioCacheRef.current[pageIndex]) return; // 已缓存
+    if (audioCacheRef.current[pageIndex]) return; // 已有URL缓存
     if (preloadingRef.current.has(pageIndex)) return; // 正在加载
 
     preloadingRef.current.add(pageIndex);
@@ -131,23 +133,27 @@ export default function StoryPlayer({
 
       if (data.success && data.audioUrl) {
         audioCacheRef.current[pageIndex] = data.audioUrl;
+        // 立即创建Audio元素并预加载，翻页时可直接play
+        const audio = new Audio();
+        audio.preload = "auto";
+        audio.src = data.audioUrl;
+        audio.volume = volume;
+        // 缓存Audio元素
+        audioElementCacheRef.current[pageIndex] = audio;
       }
     } catch {
-      // 预加载失败无所谓，播放时再处理
+      // 预加载失败，播放时再处理
     } finally {
       preloadingRef.current.delete(pageIndex);
     }
-  }, [pages, totalPages]);
+  }, [pages, totalPages, volume]);
 
-  // 只预加载当前页和下一页的音频（避免一次性请求8页浪费钱）
-  const preloadNextPages = useCallback((currentIndex: number) => {
-    // 当前页
-    if (!audioCacheRef.current[currentIndex] && !preloadingRef.current.has(currentIndex)) {
-      preloadPageAudio(currentIndex);
-    }
-    // 下一页
-    if (currentIndex + 1 < totalPages && !audioCacheRef.current[currentIndex + 1] && !preloadingRef.current.has(currentIndex + 1)) {
-      preloadPageAudio(currentIndex + 1);
+  // 一次性预加载所有页面的TTS音频
+  const preloadAllPages = useCallback(() => {
+    for (let i = 0; i < totalPages; i++) {
+      if (!audioCacheRef.current[i] && !preloadingRef.current.has(i)) {
+        preloadPageAudio(i);
+      }
     }
   }, [totalPages, preloadPageAudio]);
 
