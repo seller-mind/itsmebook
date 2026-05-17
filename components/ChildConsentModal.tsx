@@ -73,11 +73,11 @@ export default function ChildConsentModal({
                 <span>👨‍👩‍👧</span> 家长监护
               </h3>
               <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>本服务面向3-12岁儿童的家长</li>
-                <li>建议在家长陪同下使用</li>
+                <li>本服务面向家长使用，不直接面向儿童</li>
+                <li>所有操作由家长完成，儿童不直接参与</li>
                 <li>AI生成内容仅供参考，需家长审核</li>
                 <li>故事中可使用昵称代替真实姓名</li>
-                <li>详情请阅读<a href="/children-privacy" className="text-primary-orange hover:underline font-medium">《儿童隐私政策》</a></li>
+                <li>详情请阅读<a href="/privacy" className="text-primary-orange hover:underline font-medium">《隐私政策》</a></li>
               </ul>
             </div>
 

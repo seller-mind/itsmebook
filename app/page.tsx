@@ -302,8 +302,6 @@ export default function HomePage() {
           <button onClick={() => router.push("/privacy")} className="hover:text-gray-600">隐私政策</button>
           {" · "}
           <button onClick={() => router.push("/terms")} className="hover:text-gray-600">使用条款</button>
-          {" · "}
-          <button onClick={() => router.push("/children-privacy")} className="hover:text-gray-600">儿童隐私</button>
         </p>
       </div>
 

@@ -174,11 +174,6 @@ export default function RootLayout({
                         用户协议
                       </a>
                     </li>
-                    <li>
-                      <a href="/children-privacy" className="hover:text-primary-orange transition-colors">
-                        儿童隐私政策
-                      </a>
-                    </li>
                   </ul>
                 </div>
                 
@@ -194,11 +189,6 @@ export default function RootLayout({
                     <li>
                       <a href="/cookie" className="hover:text-primary-orange transition-colors">
                         Cookie政策
-                      </a>
-                    </li>
-                    <li>
-                      <a href="/children-privacy" className="hover:text-primary-orange transition-colors">
-                        儿童隐私政策
                       </a>
                     </li>
                   </ul>
