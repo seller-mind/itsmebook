@@ -157,7 +157,7 @@ export default function StoryPlayer({
     }
   }, [totalPages, preloadPageAudio]);
 
-  // 播放指定页的TTS音频
+  // 播放指定页的TTS音频（优先用已缓存的Audio元素，实现瞬间播放）
   const playPageAudio = useCallback(async (pageIndex: number) => {
     if (pageIndex < 0 || pageIndex >= totalPages) return;
 
@@ -166,7 +166,46 @@ export default function StoryPlayer({
 
     const pageText = pages[pageIndex].text;
 
-    // 检查缓存
+    // 优先使用已预创建的Audio元素（翻页即播的关键）
+    const cachedAudio = audioElementCacheRef.current[pageIndex];
+    if (cachedAudio) {
+      cachedAudio.currentTime = 0;
+      cachedAudio.volume = volume;
+      activeAudiosRef.current.add(cachedAudio);
+      currentAudioRef.current = cachedAudio;
+
+      cachedAudio.onended = () => {
+        activeAudiosRef.current.delete(cachedAudio);
+        if (isPlayingRef.current && currentPageRef.current === pageIndex && pageIndex < totalPages - 1) {
+          setTimeout(() => {
+            if (isPlayingRef.current) {
+              const next = pageIndex + 1;
+              setCurrentPage(next);
+            }
+          }, 800);
+        } else if (pageIndex >= totalPages - 1) {
+          setIsPlaying(false);
+          setShowStoryEnd(true);
+        }
+      };
+
+      cachedAudio.onerror = () => {
+        activeAudiosRef.current.delete(cachedAudio);
+        delete audioElementCacheRef.current[pageIndex];
+        delete audioCacheRef.current[pageIndex];
+        playWithWebSpeech(pageText, pageIndex);
+      };
+
+      try {
+        await cachedAudio.play();
+      } catch {
+        activeAudiosRef.current.delete(cachedAudio);
+        playWithWebSpeech(pageText, pageIndex);
+      }
+      return;
+    }
+
+    // 没有缓存的Audio元素，检查URL缓存
     let audioUrl = audioCacheRef.current[pageIndex];
 
     if (!audioUrl) {
@@ -205,16 +244,15 @@ export default function StoryPlayer({
       return;
     }
 
-    // 创建并播放音频
+    // 用URL创建Audio播放，同时缓存Audio元素
     const audio = new Audio(audioUrl);
     audio.volume = volume;
     activeAudiosRef.current.add(audio);
     currentAudioRef.current = audio;
+    audioElementCacheRef.current[pageIndex] = audio;
 
     audio.oncanplay = () => {
-      // 再次确认：播放时翻到的页是不是这一页
       if (currentPageRef.current !== pageIndex) {
-        // 已经翻走了，不要播
         audio.pause();
         activeAudiosRef.current.delete(audio);
         return;
@@ -232,7 +270,6 @@ export default function StoryPlayer({
 
     audio.onended = () => {
       activeAudiosRef.current.delete(audio);
-      // 用ref判断，避免闭包拿到旧值
       if (isPlayingRef.current && currentPageRef.current === pageIndex && pageIndex < totalPages - 1) {
         setTimeout(() => {
           if (isPlayingRef.current) {
@@ -248,6 +285,8 @@ export default function StoryPlayer({
 
     audio.onerror = () => {
       activeAudiosRef.current.delete(audio);
+      delete audioElementCacheRef.current[pageIndex];
+      delete audioCacheRef.current[pageIndex];
       stopCurrentAudio();
       playWithWebSpeech(pageText, pageIndex);
     };
@@ -303,10 +342,10 @@ export default function StoryPlayer({
       setIsPlaying(true);
       // 立即播放当前页
       playPageAudio(currentPage);
-      // 预加载下一页
-      preloadNextPages(currentPage);
+      // 预加载所有页面TTS（翻页即播的关键）
+      preloadAllPages();
     }
-  }, [isPlaying, currentPage, cleanupAllAudio, playPageAudio, preloadNextPages]);
+  }, [isPlaying, currentPage, cleanupAllAudio, playPageAudio, preloadAllPages]);
 
   // 翻页
   const goToPage = useCallback((page: number) => {
@@ -317,9 +356,9 @@ export default function StoryPlayer({
 
     if (isPlayingRef.current) {
       playPageAudio(newPage);
-      preloadNextPages(newPage);
+      preloadAllPages();
     }
-  }, [totalPages, stopCurrentAudio, playPageAudio]);
+  }, [totalPages, stopCurrentAudio, playPageAudio, preloadAllPages]);
 
   // ====== 滑动翻页 ======
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
