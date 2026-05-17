@@ -124,7 +124,7 @@ export default function Navbar() {
 
             {/* 开始制作 */}
             <Link
-              href="/create"
+              href="/recording"
               className="hidden sm:inline-flex btn-primary text-sm"
             >
               开始制作

@@ -12,7 +12,7 @@ export default function PrivacyPage() {
         {/* Header */}
         <div className="mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">隐私政策</h1>
-          <p className="text-gray-500">最后更新日期：2026年5月16日</p>
+          <p className="text-gray-500">最后更新日期：2026年5月17日</p>
         </div>
 
         {/* Content */}
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
               "是我呀"（以下简称"我们"）非常重视用户的隐私和个人信息保护。本隐私政策旨在向您说明我们如何收集、使用、存储和保护您的个人信息，以及您享有的相关权利。请您在使用我们的服务前，仔细阅读并了解本隐私政策。
             </p>
             <p className="text-gray-600 leading-relaxed mt-4">
-              <strong>特别提示：</strong>如果您是14周岁以下儿童的监护人，请同时阅读我们的《儿童隐私政策》以了解我们如何专门保护儿童个人信息。
+              <strong>特别提示：</strong>我们仅收集您的声音用于故事生成，<strong>不收集、不存储儿童照片</strong>。如果您是14周岁以下儿童的监护人，请同时阅读我们的《儿童隐私政策》以了解我们如何专门保护儿童个人信息。
             </p>
           </section>
 
@@ -54,9 +54,9 @@ export default function PrivacyPage() {
             <div className="space-y-4 text-gray-600 leading-relaxed">
               <h3 className="font-semibold text-gray-800">1. 您主动提供的信息</h3>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>账户信息：注册时提供的邮箱、昵称等</li>
-                <li>照片：您上传的用于生成绘本的孩子照片</li>
-                <li>创作偏好：选择的绘本风格、主题等信息</li>
+                <li><strong>声音录音：</strong>您在录制页面录制的声音样本，用于AI声音克隆和故事生成。声音数据仅用于生成您的专属睡前故事，不会用于其他目的。</li>
+                <li>账户信息：注册时提供的邮箱、手机号等</li>
+                <li>故事偏好：选择的故事主题、孩子的名字等信息</li>
                 <li>反馈信息：您向我们提供的建议或反馈</li>
               </ul>
 
@@ -67,30 +67,38 @@ export default function PrivacyPage() {
                 <li>日志信息：访问时间、浏览记录等</li>
                 <li>Cookie信息：访问偏好、登录状态等</li>
               </ul>
+
+              <h3 className="font-semibold text-gray-800 font-bold text-green-700">🚫 我们不收集的信息</h3>
+              <ul className="list-disc list-inside space-y-2 ml-4 text-green-600">
+                <li><strong>我们不收集用户照片或儿童照片</strong></li>
+                <li><strong>我们不收集精确地理位置</strong></li>
+                <li><strong>我们不收集通讯录信息</strong></li>
+              </ul>
             </div>
           </section>
 
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>🔐</span> 信息使用
+              <span>🎤</span> 声音数据特别说明
             </h2>
-            <p className="text-gray-600 leading-relaxed mb-4">
-              我们收集的信息将用于以下目的：
-            </p>
-            <ul className="list-disc list-inside space-y-2 text-gray-600 ml-4">
-              <li>提供、维护和改进我们的服务</li>
-              <li>生成您定制的绘本内容</li>
-              <li>处理您的支付和订阅</li>
-              <li>向您发送服务相关的通知</li>
-              <li>回应您的咨询和反馈</li>
-              <li>分析服务使用情况，优化用户体验</li>
-              <li>保障服务安全和防范欺诈</li>
-            </ul>
+            <div className="space-y-4 text-gray-600 leading-relaxed">
+              <p>我们非常重视您的声音数据安全，采取以下保护措施：</p>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li><strong>仅用于故事生成：</strong>您的声音数据仅用于生成您的专属睡前故事，不会用于训练AI模型</li>
+                <li><strong>加密存储：</strong>声音数据采用AES-256加密存储</li>
+                <li><strong>可随时删除：</strong>您可以随时联系客服删除您的声音数据</li>
+                <li><strong>不共享给第三方：</strong>您的声音数据不会出售或共享给任何第三方</li>
+                <li><strong>本地优先：</strong>部分处理在本地设备完成，减少数据传输</li>
+              </ul>
+              <p className="bg-green-50 p-4 rounded-xl border border-green-200">
+                <strong>💡 您的权利：</strong>您拥有您声音数据的完全控制权，可以随时要求删除。删除后，我们将无法恢复您的声音克隆数据。
+              </p>
+            </div>
           </section>
 
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>🛡️</span> 信息保护
+              <span>🔐</span> 信息保护
             </h2>
             <div className="space-y-4 text-gray-600 leading-relaxed">
               <p>我们采取多种安全措施保护您的信息安全：</p>
@@ -125,18 +133,18 @@ export default function PrivacyPage() {
                     <tr>
                       <td className="border border-gray-200 p-3 font-medium">Supabase</td>
                       <td className="border border-gray-200 p-3">数据存储、用户数据管理</td>
-                      <td className="border border-gray-200 p-3">用户账户数据、照片、生成内容</td>
+                      <td className="border border-gray-200 p-3">用户账户数据、声音数据（加密）、生成内容</td>
                       <td className="border border-gray-200 p-3"><a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-orange hover:underline">查看</a></td>
                     </tr>
                     <tr>
                       <td colSpan={4} className="border border-gray-200 p-3 bg-yellow-50 text-sm">
-                        <strong>⚠️ 数据跨境传输说明：</strong>Supabase数据中心位于新加坡，您的个人信息和上传的照片将通过互联网传输至新加坡存储。我们已按照《中华人民共和国个人信息保护法》第三十八条的规定，与Supabase签署数据处理协议（DPA），确保数据处理符合相关安全标准。Supabase已通过SOC 2 Type II、ISO 27001等国际安全认证。您继续使用本服务即表示同意数据跨境传输。如您不同意，可在账户设置中注销账户以停止数据处理。
+                        <strong>⚠️ 数据跨境传输说明：</strong>Supabase数据中心位于新加坡，您的个人信息将通过互联网传输至新加坡存储。我们已按照《中华人民共和国个人信息保护法》第三十八条的规定，与Supabase签署数据处理协议（DPA），确保数据处理符合相关安全标准。Supabase已通过SOC 2 Type II、ISO 27001等国际安全认证。您继续使用本服务即表示同意数据跨境传输。如您不同意，可在账户设置中注销账户以停止数据处理。
                       </td>
                     </tr>
                     <tr className="bg-gray-50">
                       <td className="border border-gray-200 p-3 font-medium">火山引擎（豆包）</td>
-                      <td className="border border-gray-200 p-3">AI内容生成</td>
-                      <td className="border border-gray-200 p-3">用户描述、照片参考</td>
+                      <td className="border border-gray-200 p-3">AI内容生成、声音克隆</td>
+                      <td className="border border-gray-200 p-3">故事描述、声音数据（仅用于本次生成）</td>
                       <td className="border border-gray-200 p-3"><a href="https://www.volcengine.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-orange hover:underline">查看</a></td>
                     </tr>
                     <tr>
@@ -174,7 +182,7 @@ export default function PrivacyPage() {
               <p>根据《中华人民共和国个人信息保护法》的相关规定，我们就数据跨境传输向您说明如下：</p>
               
               <h3 className="font-semibold text-gray-800">1. 跨境传输情况</h3>
-              <p>我们的数据存储服务商Supabase的数据中心位于新加坡（亚太地区）。当您使用我们的服务时，您的个人信息（包括账户信息和上传的照片）将通过互联网传输至新加坡的服务器进行存储和处理。</p>
+              <p>我们的数据存储服务商Supabase的数据中心位于新加坡（亚太地区）。当您使用我们的服务时，您的个人信息（包括账户信息和声音数据）将通过互联网传输至新加坡的服务器进行存储和处理。</p>
               
               <h3 className="font-semibold text-gray-800">2. 法律依据与合规措施</h3>
               <p>我们已按照《个人信息保护法》第三十八条的规定，采取以下措施确保数据跨境传输的合法性：</p>
@@ -199,185 +207,45 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>⏱️</span> 数据保留期限
+              <span>🗑️</span> 数据保留与删除
             </h2>
             <div className="space-y-4 text-gray-600 leading-relaxed">
-              <p>我们将在以下期限内保留您的个人信息：</p>
-              <div className="overflow-x-auto mt-4">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border border-gray-200 p-3 text-left font-semibold">数据类型</th>
-                      <th className="border border-gray-200 p-3 text-left font-semibold">保留期限</th>
-                      <th className="border border-gray-200 p-3 text-left font-semibold">到期处理方式</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="border border-gray-200 p-3">账户数据</td>
-                      <td className="border border-gray-200 p-3">账户存续期间 + 注销后30天</td>
-                      <td className="border border-gray-200 p-3">安全删除</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-200 p-3">上传照片</td>
-                      <td className="border border-gray-200 p-3">您主动删除前持续保留</td>
-                      <td className="border border-gray-200 p-3">手动删除（可联系客服协助）</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-gray-200 p-3">生成的绘本</td>
-                      <td className="border border-gray-200 p-3">您主动删除前持续保留</td>
-                      <td className="border border-gray-200 p-3">手动删除（请及时下载保存）</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-200 p-3">订单数据</td>
-                      <td className="border border-gray-200 p-3">不少于5年</td>
-                      <td className="border border-gray-200 p-3">根据《电子商务法》要求保留</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-gray-200 p-3">访问日志</td>
-                      <td className="border border-gray-200 p-3">180天</td>
-                      <td className="border border-gray-200 p-3">自动清理</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-200 p-3">Cookie数据</td>
-                      <td className="border border-gray-200 p-3">根据具体Cookie类型（见Cookie政策）</td>
-                      <td className="border border-gray-200 p-3">浏览器自动清理或手动清除</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>🍪</span> Cookie使用
-            </h2>
-            <div className="space-y-4 text-gray-600 leading-relaxed">
-              <p>
-                我们使用Cookie和类似技术来改善用户体验，包括记住您的偏好设置、分析网站流量等。详情请阅读我们的《Cookie政策》。
-              </p>
-              <p className="mt-2">
-                <a href="/cookie" className="text-primary-orange hover:underline font-medium">查看完整Cookie政策 →</a>
-              </p>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>👶</span> 儿童隐私
-            </h2>
-            <div className="space-y-4 text-gray-600 leading-relaxed">
-              <p>
-                我们特别重视儿童的隐私保护。根据《儿童个人信息网络保护规定》的要求，我们制定了专门的《儿童隐私政策》来保护14周岁以下儿童的个人信息。
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-4">
-                <p className="text-blue-800">
-                  <strong>重要提示：</strong>如果您是14周岁以下儿童的监护人，请务必阅读我们的《儿童隐私政策》，了解我们如何专门保护您孩子的个人信息。
-                </p>
-              </div>
-              <p className="mt-4">
-                <a href="/children-privacy" className="text-primary-orange hover:underline font-medium">查看儿童隐私政策 →</a>
-              </p>
-              <h3 className="font-semibold text-gray-800 mt-4">作为家长或监护人：</h3>
+              <h3 className="font-semibold text-gray-800">1. 声音数据</h3>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>您需确认同意后，孩子才能使用我们的服务</li>
-                <li>我们不会故意收集13岁以下儿童的个人信息（除非有监护人同意）</li>
-                <li>您上传的照片仅用于生成您的个人绘本</li>
-                <li>您可以随时删除孩子的照片和相关内容</li>
+                <li>声音数据将保留至您主动删除或账户注销</li>
+                <li>您可以随时联系客服要求删除声音数据</li>
+                <li>账户注销后，声音数据将在15个工作日内删除</li>
+              </ul>
+
+              <h3 className="font-semibold text-gray-800">2. 账户信息</h3>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li>账户信息在账户存续期间持续保存</li>
+                <li>账户注销后30天内删除</li>
+              </ul>
+
+              <h3 className="font-semibold text-gray-800">3. 订单数据</h3>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li>根据《电子商务法》要求，订单数据保存不少于3年</li>
               </ul>
             </div>
           </section>
 
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>⚠️</span> 数据安全事件应急预案
+              <span>✏️</span> 您的权利
             </h2>
             <div className="space-y-4 text-gray-600 leading-relaxed">
-              <p>我们建立了完善的数据安全事件应急响应机制：</p>
-              
-              <h3 className="font-semibold text-gray-800">1. 发现与评估</h3>
-              <p>我们通过安全监控系统持续监测数据安全风险。一旦发现事件，将立即进行影响评估。</p>
-              
-              <h3 className="font-semibold text-gray-800">2. 通知机制</h3>
-              <p>根据《中华人民共和国个人信息保护法》第五十七条的要求：</p>
+              <p>根据相关法律法规，您享有以下权利：</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>我们将在安全事件发生后<strong>72小时内</strong>向有关主管部门报告</li>
-                <li>我们将在安全事件发生后<strong>72小时内</strong>通知受影响的用户</li>
-                <li>通知内容将包括：事件基本情况、可能影响、已采取的补救措施、建议的防范措施等</li>
+                <li><strong>知情权：</strong>了解我们如何收集、使用您的个人信息</li>
+                <li><strong>决定权：</strong>限制或拒绝我们处理您的个人信息</li>
+                <li><strong>查阅权：</strong>查阅我们持有的您的个人信息</li>
+                <li><strong>更正权：</strong>要求更正不准确的个人信息</li>
+                <li><strong>删除权：</strong>要求删除您的个人信息（声音数据）</li>
+                <li><strong>投诉权：</strong>向有关主管部门投诉或举报</li>
               </ul>
-              
-              <h3 className="font-semibold text-gray-800">3. 补救措施</h3>
-              <p>我们将立即采取以下措施：</p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>阻断未授权访问，防止数据进一步泄露</li>
-                <li>评估并实施数据恢复措施</li>
-                <li>加强安全防护措施</li>
-                <li>配合主管部门进行调查</li>
-              </ul>
+              <p>如需行使上述权利，请联系：<a href="mailto:haimozhouqiu@outlook.com" className="text-primary-orange hover:underline">haimozhouqiu@outlook.com</a></p>
             </div>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>✏️</span> 数据删除
-            </h2>
-            <div className="space-y-4 text-gray-600 leading-relaxed">
-              <h3 className="font-semibold text-gray-800">1. 自助删除</h3>
-              <p>您可以通过以下方式自行删除您的数据：</p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>登录账户后，在"照片管理"中删除已上传的照片</li>
-                <li>通过"账户设置"中的"注销账户"功能删除所有账户数据</li>
-              </ul>
-              
-              <h3 className="font-semibold text-gray-800">2. 联系我们删除</h3>
-              <p>您也可以联系我们协助删除数据：</p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>发送邮件至：haimozhouqiu@outlook.com</li>
-                <li>添加微信：txd027</li>
-                <li>邮件主题请注明"个人信息删除申请"</li>
-              </ul>
-              
-              <h3 className="font-semibold text-gray-800">3. 响应时间</h3>
-              <p>我们承诺在<strong>15个工作日内</strong>完成数据删除请求的核查和处理。删除后，相关数据将无法恢复。</p>
-              
-              <p className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 mt-4">
-                <strong>⚠️ 注意：</strong>根据法律法规要求，部分数据（如订单记录）需要在一定期限内保留。如需删除此类数据，请提供合理说明，我们将根据具体情况处理。
-              </p>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>⚙️</span> 您的权利
-            </h2>
-            <p className="text-gray-600 leading-relaxed mb-4">
-              根据适用法律，您享有以下权利：
-            </p>
-            <ul className="list-disc list-inside space-y-2 text-gray-600 ml-4">
-              <li><strong>知情权：</strong>了解我们如何收集、使用您的个人信息</li>
-              <li><strong>访问权：</strong>查阅我们持有的您的个人信息</li>
-              <li><strong>更正权：</strong>更正不准确或不完整的个人信息</li>
-              <li><strong>删除权：</strong>要求删除您的个人信息</li>
-              <li><strong>撤回同意：</strong>撤回您之前给予的同意（不影响撤回前已进行的处理）</li>
-              <li><strong>数据可携带权：</strong>获取您的个人数据的副本</li>
-              <li><strong>投诉权：</strong>向有关主管部门投诉</li>
-            </ul>
-            <p className="text-gray-600 leading-relaxed mt-4">
-              如需行使上述任何权利，请通过本政策末尾的联系方式联系我们。我们将在15个工作日内响应您的请求。
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>🔗</span> 第三方服务
-            </h2>
-            <p className="text-gray-600 leading-relaxed">
-              我们的服务可能包含指向第三方网站的链接。我们不对第三方网站的隐私实践负责。建议您查看这些第三方的隐私政策。
-            </p>
-            <p className="text-gray-600 leading-relaxed mt-4">
-              我们的服务使用多个第三方服务商（如上表所示）。我们确保这些服务商采取适当的安全措施来保护您的个人信息。
-            </p>
           </section>
 
           <section>
@@ -385,30 +253,18 @@ export default function PrivacyPage() {
               <span>📮</span> 联系我们
             </h2>
             <p className="text-gray-600 leading-relaxed mb-4">
-              如您对本隐私政策有任何疑问，请通过以下方式联系我们：
+              如您对本隐私政策有任何疑问、意见或建议，请通过以下方式联系我们：
             </p>
-            <div className="mt-4 p-4 bg-gray-50 rounded-xl">
+            <div className="p-4 bg-gray-50 rounded-xl">
               <p className="text-gray-600">
-                <strong>邮箱：</strong> haimozhouqiu@outlook.com
+                <strong>邮箱：</strong> <a href="mailto:haimozhouqiu@outlook.com" className="text-primary-orange hover:underline">haimozhouqiu@outlook.com</a>
               </p>
               <p className="text-gray-600">
-                <strong>微信号：</strong> txd027
+                <strong>微信：</strong> txd027
               </p>
             </div>
             <p className="text-gray-600 leading-relaxed mt-4">
               我们将在收到您的反馈后15个工作日内予以回复。
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span>🔄</span> 政策更新
-            </h2>
-            <p className="text-gray-600 leading-relaxed">
-              我们可能会不时更新本隐私政策。重大变更将在网站上公布并更新"最后更新日期"。建议您定期查阅本政策。
-            </p>
-            <p className="text-gray-600 leading-relaxed mt-4">
-              如本政策发生重大变更（如涉及收集目的、方式、范围的变化，或您的权利的变化），我们将通过网站公告、弹窗通知或邮件等方式提前通知您。
             </p>
           </section>
         </div>

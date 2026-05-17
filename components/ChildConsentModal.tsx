@@ -58,13 +58,13 @@ export default function ChildConsentModal({
           <div className="space-y-4 text-gray-600 text-xs sm:text-sm leading-relaxed">
             <div>
               <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <span>🔒</span> 照片安全
+                <span>🎤</span> 声音录制说明
               </h3>
               <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>您上传的照片仅用于生成绘本插图</li>
-                <li>照片将安全存储，不会被公开或分享</li>
-                <li>您可以随时登录账户删除照片</li>
-                <li className="font-medium text-red-600">您须确保拥有照片的合法使用权及照片中人物（尤其是未成年人）的肖像权授权，因上传照片导致的侵权由您自行承担全部责任</li>
+                <li>本服务的声音录制功能<strong>仅限家长使用</strong></li>
+                <li>儿童不会直接参与声音录制</li>
+                <li>声音数据仅用于生成睡前故事</li>
+                <li>声音数据采用加密存储，可随时删除</li>
               </ul>
             </div>
 
@@ -73,9 +73,10 @@ export default function ChildConsentModal({
                 <span>👨‍👩‍👧</span> 家长监护
               </h3>
               <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>本服务面向3-12岁儿童</li>
+                <li>本服务面向3-12岁儿童的家长</li>
                 <li>建议在家长陪同下使用</li>
                 <li>AI生成内容仅供参考，需家长审核</li>
+                <li>故事中可使用昵称代替真实姓名</li>
                 <li>详情请阅读<a href="/children-privacy" className="text-primary-orange hover:underline font-medium">《儿童隐私政策》</a></li>
               </ul>
             </div>
@@ -90,6 +91,18 @@ export default function ChildConsentModal({
                 <li>发现违规请立即联系我们</li>
               </ul>
             </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <span>🔒</span> 隐私保护承诺
+              </h3>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li><strong>我们不收集儿童照片</strong></li>
+                <li><strong>我们不收集儿童面部信息</strong></li>
+                <li>故事中可使用昵称代替真实姓名</li>
+                <li>可随时联系客服删除相关信息</li>
+              </ul>
+            </div>
           </div>
 
           {/* 复选框 - 移动端优化 */}
@@ -101,7 +114,7 @@ export default function ChildConsentModal({
               className="mt-0.5 w-5 h-5 rounded border-gray-300 text-primary-orange focus:ring-primary-orange flex-shrink-0"
             />
             <span className="text-xs sm:text-sm text-gray-700 leading-snug">
-              我已阅读并理解上述声明，作为监护人，我同意我的孩子使用此服务，并确认上传的照片仅用于生成个人绘本。
+              我已阅读并理解上述声明，作为监护人，我同意我的孩子使用此服务。我理解声音录制由家长完成，且我们不收集儿童照片。
             </span>
           </label>
         </div>
