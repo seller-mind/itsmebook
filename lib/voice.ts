@@ -15,7 +15,7 @@ export const DEFAULT_PROMPT = RECORDING_PROMPTS[0];
 
 // 录制配置
 export const RECORDING_CONFIG = {
-  maxDuration: 30, // 最大录制30秒
+  maxDuration: 20, // 最大录制20秒（推荐10-20秒）
   minDuration: 5,  // 最小录制5秒
   sampleRate: 16000,
   format: "webm", // 使用webm格式（浏览器原生支持）

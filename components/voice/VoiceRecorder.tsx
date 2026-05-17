@@ -267,7 +267,7 @@ export default function VoiceRecorder({ onRecordingComplete, onCloning }: VoiceR
       <div className="text-center space-y-2 px-4">
         <p className="text-gray-700 font-medium text-base">🎤 {currentPrompt}</p>
         <p className="text-gray-400 text-xs">
-          请用正常语速朗读，保持安静环境，录制约30秒
+          请用正常语速朗读，保持安静环境，录制10-20秒即可
         </p>
       </div>
 
