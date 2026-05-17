@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "隐私政策",
-  description: "是我呀隐私政策，了解我们如何保护您的个人信息",
+  description: "睡前魔法书隐私政策，了解我们如何保护您的个人信息",
 };
 
 export default function PrivacyPage() {
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
               <span>📋</span> 概述
             </h2>
             <p className="text-gray-600 leading-relaxed">
-              "是我呀"（以下简称"我们"）非常重视用户的隐私和个人信息保护。本隐私政策旨在向您说明我们如何收集、使用、存储和保护您的个人信息，以及您享有的相关权利。请您在使用我们的服务前，仔细阅读并了解本隐私政策。
+              "睡前魔法书"（以下简称"我们"）非常重视用户的隐私和个人信息保护。本隐私政策旨在向您说明我们如何收集、使用、存储和保护您的个人信息，以及您享有的相关权利。请您在使用我们的服务前，仔细阅读并了解本隐私政策。
             </p>
             <p className="text-gray-600 leading-relaxed mt-4">
               <strong>特别提示：</strong>本产品面向家长使用，仅收集您的声音用于故事生成。<strong>我们不收集儿童照片、不收集儿童个人信息、不收集儿童生物识别数据</strong>。产品不会主动与儿童发生交互，所有操作均由家长完成。

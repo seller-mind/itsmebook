@@ -31,6 +31,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-noto-sans)", "system-ui", "sans-serif"],
         display: ["var(--font-noto-serif)", "serif"],
+        wenkai: ['"LXGW WenKai"', "serif"],
       },
       animation: {
         "fade-in": "fadeIn 0.5s ease-in-out",

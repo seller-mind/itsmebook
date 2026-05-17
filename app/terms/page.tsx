@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "用户协议",
-  description: "是我呀用户服务协议，使用条款和条件",
+  description: "睡前魔法书用户服务协议，使用条款和条件",
 };
 
 export default function TermsPage() {
@@ -22,7 +22,7 @@ export default function TermsPage() {
               <span>📋</span> 概述
             </h2>
             <p className="text-gray-600 leading-relaxed">
-              欢迎使用"是我呀"服务！本协议是您与"是我呀"之间关于使用我们服务产生的权利义务关系的法律协议。在使用我们的服务之前，请仔细阅读本协议的全部内容。如果您不同意本协议的任何内容，请不要注册或使用我们的服务。
+              欢迎使用"睡前魔法书"服务！本协议是您与"睡前魔法书"之间关于使用我们服务产生的权利义务关系的法律协议。在使用我们的服务之前，请仔细阅读本协议的全部内容。如果您不同意本协议的任何内容，请不要注册或使用我们的服务。
             </p>
           </section>
 
@@ -48,7 +48,7 @@ export default function TermsPage() {
               <span>✅</span> 服务说明
             </h2>
             <div className="space-y-4 text-gray-600 leading-relaxed">
-              <p>"是我呀"提供服务包括：</p>
+              <p>"睡前魔法书"提供服务包括：</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>AI声音克隆服务 — 录制您的声音样本用于故事生成</li>
                 <li>AI故事生成服务 — 根据主题和孩子信息生成定制睡前故事</li>
@@ -122,7 +122,7 @@ export default function TermsPage() {
 
               <h3 className="font-semibold text-gray-800">3. 内容声明</h3>
               <p>
-                AI生成的内容均标注"AI生成"标识，<strong>仅供参考娱乐使用，不代表任何真实事件或观点，不构成教育建议</strong>。AI生成内容可能存在不准确之处，"是我呀"不对AI生成内容的准确性、完整性或适用性作出任何保证。
+                AI生成的内容均标注"AI生成"标识，<strong>仅供参考娱乐使用，不代表任何真实事件或观点，不构成教育建议</strong>。AI生成内容可能存在不准确之处，"睡前魔法书"不对AI生成内容的准确性、完整性或适用性作出任何保证。
               </p>
 
               <p className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
@@ -142,7 +142,7 @@ export default function TermsPage() {
               
               <h3 className="font-semibold text-gray-800">1. AI模型说明</h3>
               <p>
-                "是我呀"服务使用的AI生成模型由<strong>火山引擎（字节跳动旗下）</strong>提供。我们与火山引擎合作，使用其先进的语音合成和图像生成技术为您提供服务。
+                "睡前魔法书"服务使用的AI生成模型由<strong>火山引擎（字节跳动旗下）</strong>提供。我们与火山引擎合作，使用其先进的语音合成和图像生成技术为您提供服务。
               </p>
 
               <h3 className="font-semibold text-gray-800">2. 生成内容说明</h3>
@@ -196,7 +196,7 @@ export default function TermsPage() {
               <h3 className="font-semibold text-gray-800">2. 平台内容与权利</h3>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>网站界面设计、排版、图标等受著作权法保护</li>
-                <li>"是我呀"商标、品牌名称受法律保护</li>
+                <li>"睡前魔法书"商标、品牌名称受法律保护</li>
                 <li>用户不得复制、修改或商业使用平台内容</li>
               </ul>
             </div>
@@ -237,7 +237,7 @@ export default function TermsPage() {
             </h2>
             <div className="space-y-4 text-gray-600 leading-relaxed">
               <p className="bg-red-50 p-4 rounded-xl border border-red-200">
-                <strong>重要：</strong>在适用法律允许的最大范围内，"是我呀"不对以下情况承担责任：
+                <strong>重要：</strong>在适用法律允许的最大范围内，"睡前魔法书"不对以下情况承担责任：
               </p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>因用户自身原因造成的服务中断或数据丢失</li>

@@ -132,7 +132,7 @@ export default function SharePoster({ bookData, referralCode, onClose }: SharePo
         ctx.fillStyle = "#333333";
         ctx.font = "bold 52px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("✨ 我在「是我呀」", width / 2, 1020);
+        ctx.fillText("✨ 我在「睡前魔法书」", width / 2, 1020);
         
         ctx.font = "bold 48px sans-serif";
         ctx.fillText("为宝贝做了专属绘本", width / 2, 1090);
@@ -192,7 +192,7 @@ export default function SharePoster({ bookData, referralCode, onClose }: SharePo
         ctx.fillStyle = "#999999";
         ctx.font = "24px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("是我呀 AI绘本 | itsmebook.com", width / 2, height - 60);
+        ctx.fillText("睡前魔法书 AI绘本 | itsmebook.com", width / 2, height - 60);
 
         setIsGenerating(false);
       } catch (err) {
@@ -219,7 +219,7 @@ export default function SharePoster({ bookData, referralCode, onClose }: SharePo
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
-          link.download = `是我呀绘本_${bookData.childName}_${Date.now()}.png`;
+          link.download = `睡前魔法书绘本_${bookData.childName}_${Date.now()}.png`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);

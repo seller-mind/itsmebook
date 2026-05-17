@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "退款政策",
-  description: "是我呀退款政策，了解退款条件和流程",
+  description: "睡前魔法书退款政策，了解退款条件和流程",
 };
 
 export default function RefundPage() {
@@ -22,7 +22,7 @@ export default function RefundPage() {
               <span>📋</span> 政策说明
             </h2>
             <p className="text-gray-600 leading-relaxed">
-              "是我呀"（以下简称"我们"）承诺为用户提供优质的服务体验。本退款政策依据《中华人民共和国消费者权益保护法》第二十五条以及《网络交易监督管理办法》（2021年5月1日施行）的相关规定制定，旨在保障您的合法权益。
+              "睡前魔法书"（以下简称"我们"）承诺为用户提供优质的服务体验。本退款政策依据《中华人民共和国消费者权益保护法》第二十五条以及《网络交易监督管理办法》（2021年5月1日施行）的相关规定制定，旨在保障您的合法权益。
             </p>
             <p className="text-gray-600 leading-relaxed mt-4">
               <strong>特别说明：</strong>由于AI绘本生成属于数字化商品/服务（虚拟商品），根据相关法律法规，部分情形下可能不适用无理由退货。请您仔细阅读以下退款政策。

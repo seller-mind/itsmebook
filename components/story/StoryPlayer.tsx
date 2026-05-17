@@ -34,7 +34,9 @@ export default function StoryPlayer({
   const [showBedtimeSet, setShowBedtimeSet] = useState(false);
   const [sleepTimer, setSleepTimer] = useState<NodeJS.Timeout | null>(null);
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
+  const [showStoryEnd, setShowStoryEnd] = useState(false);
 
+  // Web Speech API 使用音量
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const whiteNoiseRef = useRef<HTMLAudioElement | null>(null);
   const totalPages = pages.length;
@@ -60,15 +62,11 @@ export default function StoryPlayer({
   // 初始化音频
   useEffect(() => {
     if (typeof window !== "undefined") {
-      audioRef.current = new Audio();
       whiteNoiseRef.current = new Audio();
       whiteNoiseRef.current.loop = true;
     }
     return () => {
       cleanupSpeech();
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
       if (whiteNoiseRef.current) {
         whiteNoiseRef.current.pause();
       }
@@ -119,9 +117,9 @@ export default function StoryPlayer({
           speakText(pages[nextPage].text, nextPage);
         }, 800); // 停顿一下再翻页
       } else if (pageIndex >= totalPages - 1) {
-        // 最后一页读完了
+        // 最后一页读完了，显示"故事讲完了，晚安"
         setIsPlaying(false);
-        // 显示"故事讲完了，晚安"
+        setShowStoryEnd(true);
       }
     };
 
@@ -140,48 +138,23 @@ export default function StoryPlayer({
     setIsPlaying(false);
   }, [cleanupSpeech]);
 
-  // 播放/暂停
+  // 播放/暂停 - 统一使用Web Speech API朗读故事文字
   const togglePlay = () => {
-    if (!audioRef.current) return;
-
     if (isPlaying) {
-      // 停止播放
-      if (voiceAudioUrl && audioRef.current.src === voiceAudioUrl) {
-        audioRef.current.pause();
-      }
-      // 同时停止 Web Speech API
+      // 暂停朗读
       stopSpeaking();
     } else {
-      // 开始播放
-      if (voiceAudioUrl) {
-        // 如果有语音克隆URL，优先使用
-        audioRef.current.src = voiceAudioUrl;
-        audioRef.current.volume = volume;
-        audioRef.current.play().catch(() => {
-          // 如果克隆声音播放失败，降级到 Web Speech API
-          speakText(pages[currentPage].text, currentPage);
-        });
-        // 监听音频播放结束
-        audioRef.current.onended = () => {
-          setIsPlaying(false);
-          // 自动翻页
-          if (currentPage < totalPages - 1) {
-            setTimeout(() => {
-              setCurrentPage(prev => prev + 1);
-            }, 500);
-          }
-        };
-      } else {
-        // 没有克隆声音，使用 Web Speech API
-        speakText(pages[currentPage].text, currentPage);
-      }
-      setIsPlaying(true);
+      // 开始朗读当前页
+      speakText(pages[currentPage].text, currentPage);
     }
   };
 
   // 翻页
   const goToPage = (page: number) => {
-    setCurrentPage(Math.max(0, Math.min(page, totalPages - 1)));
+    const newPage = Math.max(0, Math.min(page, totalPages - 1));
+    setCurrentPage(newPage);
+    // 翻页时重置故事结束状态
+    setShowStoryEnd(false);
   };
 
   // 睡前模式
@@ -318,9 +291,18 @@ export default function StoryPlayer({
 
         {/* 文字内容 */}
         <div className="w-full max-w-lg bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-md">
-          <p className="text-gray-700 leading-relaxed text-base text-center font-serif">
-            {currentPageData.text}
-          </p>
+          {showStoryEnd ? (
+            <div className="text-center py-4">
+              <p className="text-2xl mb-2">🌙</p>
+              <p className="text-gray-700 leading-relaxed text-base text-center font-wenkai">
+                故事讲完了，晚安🌙
+              </p>
+            </div>
+          ) : (
+            <p className="text-gray-700 leading-relaxed text-base text-center font-wenkai">
+              {currentPageData.text}
+            </p>
+          )}
         </div>
 
         {/* 播放控制 */}
@@ -373,9 +355,7 @@ export default function StoryPlayer({
             step="0.05"
             value={volume}
             onChange={(e) => {
-              const v = parseFloat(e.target.value);
-              setVolume(v);
-              if (audioRef.current) audioRef.current.volume = v;
+              setVolume(parseFloat(e.target.value));
             }}
             className="flex-1 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-primary-orange"
           />

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "儿童隐私保护",
-  description: "是我呀关于儿童隐私保护的说明",
+  description: "睡前魔法书关于儿童隐私保护的说明",
 };
 
 export default function ChildrenPrivacyPage() {

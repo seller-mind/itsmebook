@@ -98,6 +98,9 @@ export default function RootLayout({
           <meta name="msapplication-TileColor" content="#FF8C42" />
           <meta name="msapplication-tap-highlight" content="no" />
           
+          {/* 霞鹜文楷字体 - 儿童绘本专用 */}
+          <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai&display=swap" rel="stylesheet" />
+          
           {/* 百度统计 */}
           <BaiduAnalytics />
         </head>
@@ -146,7 +149,7 @@ export default function RootLayout({
                     录30秒，让故事替你说晚安。
                   </p>
                   <p className="text-sm text-gray-400">
-                    © 2026 是我呀 All Rights Reserved.
+                    © 2026 睡前魔法书 All Rights Reserved.
                   </p>
                 </div>
                 
@@ -225,7 +228,7 @@ export default function RootLayout({
                   <p className="text-sm text-gray-400 text-center">
                     {/* ICP备案号：待域名备案完成后填写，例如：京ICP备XXXXXXXX号 */}
                     {/* 公安联网备案：待公安联网备案完成后填写 */}
-                    © 2026 是我呀 All Rights Reserved.
+                    © 2026 睡前魔法书 All Rights Reserved.
                   </p>
                 </div>
               </div>
