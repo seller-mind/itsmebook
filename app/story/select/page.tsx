@@ -39,23 +39,48 @@ export default function StorySelectPage() {
     setError("");
 
     try {
-      // 经典故事已有预生成的配图，直接使用
-      setStatus("正在准备故事...");
-      setProgress(50);
+      // 检查是否所有页面都有预生成图片
+      const allPreGenerated = story.pages.every(p => p.imageUrl);
       
-      const pagesWithImages = story.pages.map((page) => {
-        return {
+      let pagesWithImages;
+      
+      if (allPreGenerated) {
+        // 全部有预生成图片，秒开
+        setStatus("正在准备故事...");
+        setProgress(50);
+        pagesWithImages = story.pages.map((page) => ({
           pageNumber: page.pageNumber,
           text: page.text,
-          imageUrl: page.imageUrl || getPlaceholderImage(page.pageNumber - 1),
-        };
-        })
-      );
+          imageUrl: page.imageUrl!,
+        }));
+      } else {
+        // 部分缺图，需要API生成缺的
+        setStatus("正在生成配图...");
+        setProgress(10);
+        pagesWithImages = await Promise.all(
+          story.pages.map(async (page, index) => {
+            setProgress(10 + Math.round((index / story.pages.length) * 80));
+            if (page.imageUrl) {
+              return { pageNumber: page.pageNumber, text: page.text, imageUrl: page.imageUrl };
+            }
+            try {
+              const imageRes = await fetch("/api/image/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ imagePrompt: page.imagePrompt, style: "watercolor", index }),
+              });
+              const imageData = await imageRes.json();
+              return { pageNumber: page.pageNumber, text: page.text, imageUrl: imageData.success ? imageData.imageUrl : getPlaceholderImage(index) };
+            } catch {
+              return { pageNumber: page.pageNumber, text: page.text, imageUrl: getPlaceholderImage(index) };
+            }
+          })
+        );
+      }
 
       setProgress(95);
       setStatus("正在完成...");
 
-      // 保存故事数据到sessionStorage
       const storyData = {
         title: story.title,
         childName: name,
@@ -63,15 +88,13 @@ export default function StorySelectPage() {
         voiceUrl: sessionStorage.getItem("bedtime_voice_url") || "",
         voiceId: sessionStorage.getItem("bedtime_voice_id") || "",
         createdAt: new Date().toISOString(),
-        isClassic: true, // 标记为经典故事
+        isClassic: true,
       };
 
       sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
-
       setProgress(100);
       setStatus("完成！");
 
-      // 跳转到播放器
       setTimeout(() => {
         router.push("/story/player");
       }, 500);
