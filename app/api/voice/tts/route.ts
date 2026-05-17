@@ -2,6 +2,10 @@
  * 百炼CosyVoice TTS API - 睡前魔法书
  * POST /api/voice/tts
  * 使用阿里云百炼CosyVoice语音合成，将文本转为MP3音频
+ * 
+ * API文档: https://help.aliyun.com/zh/model-studio/non-realtime-cosyvoice-api/
+ * 端点: POST https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer
+ * 返回: JSON { output: { audio: { url: "..." } } } — 音频URL有效期24h
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -11,7 +15,7 @@ export const maxDuration = 60; // 允许60秒执行时间
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { text } = body;
+    const { text, voice } = body;
 
     if (!text || text.trim().length === 0) {
       return NextResponse.json(
@@ -30,6 +34,7 @@ export async function POST(request: NextRequest) {
 
     // 如果没有配置API key，返回降级标记
     if (!apiKey) {
+      console.warn("[TTS] DASHSCOPE_API_KEY not configured, returning fallback");
       return NextResponse.json({
         success: false,
         fallback: true,
@@ -37,10 +42,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 调用百炼CosyVoice TTS
-    // API文档: https://help.aliyun.com/zh/model-studio/non-realtime-cosyvoice-api
+    // 调用百炼CosyVoice TTS (非流式)
+    // 所有参数都在 input 对象内，不在 parameters 里
+    const ttsVoice = voice || "longxiaoxia"; // 默认用龙小夏：女声，活泼可爱，适合儿童内容
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     let response: Response;
     try {
@@ -53,16 +60,15 @@ export async function POST(request: NextRequest) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "cosyvoice-v3-flash", // 使用最新的flash模型，支持中文
+            model: "cosyvoice-v3-flash",
             input: {
               text: truncatedText,
-            },
-            parameters: {
-              voice: "longxiaochun", // 温柔中文女声，非常适合讲故事
-              format: "mp3", // 返回MP3格式
-              sample_rate: 24000, // 标准采样率
-              rate: 1.0, // 正常语速
-              pitch: 1.0, // 正常音高
+              voice: ttsVoice,
+              format: "mp3",
+              sample_rate: 24000,
+              rate: 0.9, // 稍慢语速，适合讲故事
+              volume: 50,
+              language_hints: ["zh"], // 中文
             },
           }),
           signal: controller.signal,
@@ -84,9 +90,8 @@ export async function POST(request: NextRequest) {
     // 检查响应状态
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("CosyVoice TTS API error:", response.status, errorText);
+      console.error("[TTS] CosyVoice API error:", response.status, errorText.substring(0, 500));
       
-      // 如果是配额不足或服务不可用，返回降级标记
       if (response.status === 429 || response.status === 503) {
         return NextResponse.json({
           success: false,
@@ -102,41 +107,66 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // CosyVoice TTS API 返回的是音频二进制数据
-    // Content-Type: audio/mpeg
-    const contentType = response.headers.get("Content-Type");
-    if (!contentType || !contentType.includes("audio")) {
-      const responseText = await response.text();
-      console.error("TTS返回非音频格式:", contentType, responseText.substring(0, 200));
-      return NextResponse.json({
-        success: false,
-        fallback: true,
-        message: "TTS返回格式异常",
-      });
-    }
-
-    // 获取音频二进制数据
-    const audioBuffer = await response.arrayBuffer();
+    // CosyVoice非流式API返回JSON，包含output.audio.url
+    const result = await response.json();
     
-    if (audioBuffer.byteLength === 0) {
+    const audioUrl = result?.output?.audio?.url;
+    
+    if (!audioUrl) {
+      console.error("[TTS] No audio URL in response:", JSON.stringify(result).substring(0, 500));
       return NextResponse.json({
         success: false,
         fallback: true,
-        message: "TTS返回空音频",
+        message: "TTS未返回音频",
       });
     }
 
-    // 转换为base64
-    const audioBase64 = Buffer.from(audioBuffer).toString("base64");
-    const dataUrl = `data:audio/mpeg;base64,${audioBase64}`;
+    // 从URL下载音频数据，转为base64 data URL
+    // 这样做是因为前端直接访问百炼URL可能有CORS问题
+    try {
+      const audioResponse = await fetch(audioUrl, {
+        signal: AbortSignal.timeout(15000), // 15秒下载超时
+      });
+      
+      if (!audioResponse.ok) {
+        console.error("[TTS] Failed to download audio:", audioResponse.status);
+        // 降级：直接返回URL让前端尝试
+        return NextResponse.json({
+          success: true,
+          audioUrl: audioUrl,
+          isDirectUrl: true,
+        });
+      }
+      
+      const audioBuffer = await audioResponse.arrayBuffer();
+      
+      if (audioBuffer.byteLength === 0) {
+        return NextResponse.json({
+          success: false,
+          fallback: true,
+          message: "TTS返回空音频",
+        });
+      }
 
-    return NextResponse.json({
-      success: true,
-      audioUrl: dataUrl,
-      duration: Math.round(audioBuffer.byteLength / 16000), // 估算时长（粗略）
-    });
+      const audioBase64 = Buffer.from(audioBuffer).toString("base64");
+      const dataUrl = `data:audio/mpeg;base64,${audioBase64}`;
+
+      return NextResponse.json({
+        success: true,
+        audioUrl: dataUrl,
+        duration: Math.round(audioBuffer.byteLength / 4000), // MP3粗略估算时长
+      });
+    } catch (downloadError: any) {
+      console.error("[TTS] Audio download failed:", downloadError.message);
+      // 降级：直接返回URL
+      return NextResponse.json({
+        success: true,
+        audioUrl: audioUrl,
+        isDirectUrl: true,
+      });
+    }
   } catch (error: any) {
-    console.error("TTS处理失败:", error);
+    console.error("[TTS] 处理失败:", error);
     return NextResponse.json({
       success: false,
       fallback: true,
