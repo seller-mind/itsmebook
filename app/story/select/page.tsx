@@ -27,9 +27,20 @@ export default function StorySelectPage() {
 
     try {
       setStatus("正在生成故事文本...");
-      setProgress(10);
+      setProgress(5);
 
-      // 调用故事生成API（流式）
+      // 启动模拟进度：从5%缓慢爬到25%，每2秒+1%
+      const progressTimer = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 25) {
+            clearInterval(progressTimer);
+            return 25;
+          }
+          return prev + 1;
+        });
+      }, 2000);
+
+      // 调用故事生成API
       const response = await fetch("/api/story/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -41,45 +52,63 @@ export default function StorySelectPage() {
         }),
       });
 
-      setProgress(30);
+      // 检查是否是流式响应
+      const contentType = response.headers.get("content-type") || "";
+      const isStreaming = contentType.includes("text/event-stream");
 
-      // 处理流式响应
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let fullData = "";
+      let data;
 
-      if (!reader) {
-        throw new Error("无法读取响应流");
-      }
+      if (!isStreaming) {
+        // 非流式响应（demo模式），直接解析JSON
+        clearInterval(progressTimer);
+        setProgress(30);
+        data = await response.json();
+      } else {
+        // 流式响应
+        clearInterval(progressTimer);
+        setProgress(30);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        // 处理流式响应
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let fullData = "";
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
+        if (!reader) {
+          throw new Error("无法读取响应流");
+        }
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6).trim();
-            if (data && data !== "[DONE]") {
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.success === false) {
-                  throw new Error(parsed.message || "故事生成失败");
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          // 流式读取时渐进进度：30→55%
+          setProgress(prev => Math.min(prev + 1, 55));
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const lineData = line.slice(6).trim();
+              if (lineData && lineData !== "[DONE]") {
+                try {
+                  const parsed = JSON.parse(lineData);
+                  if (parsed.success === false) {
+                    throw new Error(parsed.message || "故事生成失败");
+                  }
+                  if (parsed.story) {
+                    fullData = JSON.stringify(parsed);
+                  }
+                } catch {
+                  // 忽略解析错误，继续接收
                 }
-                if (parsed.story) {
-                  fullData = JSON.stringify(parsed);
-                }
-              } catch {
-                // 忽略解析错误，继续接收
               }
             }
           }
         }
-      }
 
-      const data = JSON.parse(fullData);
+        data = JSON.parse(fullData);
+      }
 
       if (!data.success) {
         throw new Error(data.message || "故事生成失败");
@@ -91,7 +120,8 @@ export default function StorySelectPage() {
       setStatus("正在生成配图...");
       const pagesWithImages = await Promise.all(
         story.pages.map(async (page: any, index: number) => {
-          setProgress(30 + Math.round((index / story.pages.length) * 50));
+          // 配图生成进度：55%→85%
+          setProgress(55 + Math.round((index / story.pages.length) * 30));
 
           try {
             const imageRes = await fetch("/api/image/generate", {
@@ -138,7 +168,7 @@ export default function StorySelectPage() {
 
       // 跳转到播放器
       setTimeout(() => {
-        router.push("/story/player/demo");
+        router.push("/story/player");
       }, 500);
     } catch (err: any) {
       setError(err.message || "生成失败，请重试");

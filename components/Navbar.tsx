@@ -81,12 +81,12 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo */}
+          {/* Logo - 手机端简化显示 */}
           <Link href="/" className="flex items-center gap-2 group">
             <span className="text-2xl md:text-3xl transition-transform group-hover:scale-110">
               🌙
             </span>
-            <span className="text-xl md:text-2xl font-bold text-gray-900">
+            <span className="hidden sm:inline text-base sm:text-lg md:text-xl font-bold text-gray-900">
               睡前魔法书
             </span>
           </Link>
@@ -172,13 +172,13 @@ export default function Navbar() {
               <>
                 <Link
                   href="/sign-in"
-                  className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
+                  className="hidden sm:inline text-gray-600 hover:text-primary-orange transition-colors font-medium text-sm"
                 >
                   登录
                 </Link>
                 <Link
                   href="/sign-in"
-                  className="btn-primary text-sm"
+                  className="btn-primary text-xs px-3 py-1.5"
                 >
                   注册
                 </Link>
