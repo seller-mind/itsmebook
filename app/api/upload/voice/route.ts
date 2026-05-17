@@ -1,12 +1,11 @@
 /**
  * 声音文件上传API - 睡前魔法书
  * POST /api/upload/voice
- * 接收并存储录音文件
+ * 接收录音文件，转存到Supabase Storage（Vercel不支持本地文件写入）
+ * 如果Supabase不可用，返回base64编码供后续使用
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,24 +24,53 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
     const fileName = `voice_${userId || "guest"}_${timestamp}_${randomStr}.webm`;
-    const filePath = path.join(process.cwd(), "public", "uploads", "voices");
 
-    // 确保目录存在
-    await mkdir(filePath, { recursive: true });
+    // 方案1: 尝试上传到Supabase Storage
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    // 保存文件
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const arrayBuffer = await audioFile.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        const uploadResponse = await fetch(
+          `${supabaseUrl}/storage/v1/object/voice-recordings/${fileName}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${supabaseKey}`,
+              "Content-Type": "audio/webm",
+              upsert: "true",
+            },
+            body: buffer,
+          }
+        );
+
+        if (uploadResponse.ok) {
+          const audioUrl = `${supabaseUrl}/storage/v1/object/public/voice-recordings/${fileName}`;
+          return NextResponse.json({
+            success: true,
+            audioUrl,
+            fileName,
+            storage: "supabase",
+          });
+        }
+      } catch (uploadError) {
+        console.error("Supabase上传失败，回退到base64:", uploadError);
+      }
+    }
+
+    // 方案2: 回退到base64编码（内存中处理，不写本地文件）
     const arrayBuffer = await audioFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const fullPath = path.join(filePath, fileName);
-    await writeFile(fullPath, buffer);
-
-    // 返回可访问的URL
-    const audioUrl = `/uploads/voices/${fileName}`;
+    const base64Audio = Buffer.from(arrayBuffer).toString("base64");
 
     return NextResponse.json({
       success: true,
-      audioUrl,
+      audioUrl: `data:audio/webm;base64,${base64Audio}`,
       fileName,
+      storage: "base64",
+      audioBase64: base64Audio,
     });
   } catch (error: any) {
     console.error("声音上传失败:", error);

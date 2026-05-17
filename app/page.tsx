@@ -71,14 +71,14 @@ export default function HomePage() {
 
         {/* 主标题 */}
         <div className="relative z-10">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4 leading-tight">
             <span className="text-gradient">你的声音</span>
             <br />
-            <span>是孩子最好的睡前魔法</span>
+            <span className="text-xl sm:text-3xl md:text-5xl">是孩子最好的睡前魔法</span>
           </h1>
 
           {/* 副标题 */}
-          <p className="text-sm sm:text-base md:text-lg text-gray-600 mb-10 max-w-md mx-auto leading-relaxed">
+          <p className="text-xs sm:text-base md:text-lg text-gray-600 mb-8 max-w-xs sm:max-w-md mx-auto leading-relaxed">
             孩子缠着讲故事，但累得不想开口？
             <br />
             录30秒，让你的声音替你讲
