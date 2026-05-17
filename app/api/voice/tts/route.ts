@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // 调用百炼CosyVoice TTS (非流式)
     // 所有参数都在 input 对象内，不在 parameters 里
-    const ttsVoice = voice || "longxiaoxia"; // 默认用龙小夏：女声，活泼可爱，适合儿童内容
+    const ttsVoice = voice || "longhuhu_v3"; // 默认用龙呼呼：天真烂漫女童(6-10岁)，最适合讲儿童睡前故事
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
