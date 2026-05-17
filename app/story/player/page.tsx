@@ -208,7 +208,7 @@ export default function StoryPlayerPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900 text-lg">魔法时刻视频</h3>
+              <h3 className="font-bold text-gray-900 text-lg">保存故事卡片</h3>
               <button
                 onClick={() => setShowVideo(false)}
                 className="p-2 hover:bg-gray-100 rounded-full"
