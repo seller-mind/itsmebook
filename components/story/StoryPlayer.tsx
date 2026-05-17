@@ -36,6 +36,8 @@ export default function StoryPlayer({
   const [sleepTimer, setSleepTimer] = useState<NodeJS.Timeout | null>(null);
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
   const [showStoryEnd, setShowStoryEnd] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [controlsTimer, setControlsTimer] = useState<NodeJS.Timeout | null>(null);
 
   // TTS音频URL缓存：pageIndex -> audioUrl
   const audioCacheRef = useRef<Record<number, string>>({});
@@ -439,247 +441,172 @@ export default function StoryPlayer({
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  // 点击屏幕切换控制条
+  const toggleControls = useCallback(() => {
+    setShowControls(prev => {
+      if (!prev) {
+        // 显示控制条，3秒后自动隐藏
+        if (controlsTimer) clearTimeout(controlsTimer);
+        const t = setTimeout(() => setShowControls(false), 3000);
+        setControlsTimer(t);
+      } else {
+        if (controlsTimer) clearTimeout(controlsTimer);
+      }
+      return !prev;
+    });
+  }, [controlsTimer]);
+
+  // 播放时自动隐藏控制条
+  useEffect(() => {
+    if (isPlaying && showControls) {
+      if (controlsTimer) clearTimeout(controlsTimer);
+      const t = setTimeout(() => setShowControls(false), 3000);
+      setControlsTimer(t);
+    }
+    return () => {
+      if (controlsTimer) clearTimeout(controlsTimer);
+    };
+  }, [isPlaying]);
+
   const currentPageData = pages[currentPage];
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-50 to-purple-50">
-      {/* 顶部导航 */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div
+      className="fixed inset-0 z-50 bg-black select-none"
+      onClick={toggleControls}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* 全屏绘本画面 */}
+      <img
+        src={currentPageData.imageUrl}
+        alt={`第${currentPage + 1}页`}
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        draggable={false}
+        onError={(e) => {
+          const img = e.target as HTMLImageElement;
+          if (!img.dataset.fallbackUsed) {
+            img.dataset.fallbackUsed = "true";
+            const colors = [
+              ["#2c1810", "#1a1a2e", "#0f3460"],
+              ["#1a1a2e", "#16213e", "#0f3460"],
+              ["#0f3460", "#1a1a2e", "#2c1810"],
+              ["#16213e", "#0f3460", "#1a1a2e"],
+              ["#2c1810", "#0f3460", "#16213e"],
+            ];
+            const c = colors[currentPage % colors.length];
+            const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1080' height='1920'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='${c[0]}'/><stop offset='50%25' stop-color='${c[1]}'/><stop offset='100%25' stop-color='${c[2]}'/></linearGradient></defs><rect width='1080' height='1920' fill='url(#g)'/><text x='540' y='960' font-size='200' text-anchor='middle' dominant-baseline='middle'>🌙</text></svg>`;
+            img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+          }
+        }}
+      />
+
+      {/* 底部渐变遮罩（文字区域） */}
+      <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{
+        background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.2) 70%, transparent 100%)",
+        height: "55%",
+      }} />
+
+      {/* 页码指示器 */}
+      <div className={`absolute left-0 right-0 flex items-center justify-center gap-1.5 transition-all duration-300 ${showControls ? "bottom-[280px]" : "bottom-[200px]"}`} style={{ pointerEvents: "auto" }}>
+        {pages.map((_, i) => (
           <button
-            onClick={() => history.back()}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="font-bold text-gray-900 text-base">{title}</h1>
-            <p className="text-xs text-gray-500">第 {currentPage + 1} / {totalPages} 页</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onShare}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            title="分享"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-          </button>
-        </div>
+            key={i}
+            onClick={(e) => { e.stopPropagation(); goToPage(i); }}
+            className={`h-1 rounded-full transition-all duration-300 ${
+              i === currentPage ? "w-5 bg-white" : i < currentPage ? "w-2.5 bg-white/50" : "w-2.5 bg-white/25"
+            }`}
+          />
+        ))}
       </div>
 
-      {/* 绘本区域 - 支持滑动翻页 */}
-      <div className="flex-1 flex flex-col items-center px-4 py-6 gap-4">
-        {/* 绘本画面 - 添加touch事件 */}
-        <div
-          className="w-full max-w-lg aspect-square rounded-2xl overflow-hidden shadow-xl bg-white select-none touch-pan-y"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          style={{ touchAction: "pan-y" }}
-        >
-          <img
-            src={currentPageData.imageUrl}
-            alt={`第${currentPage + 1}页`}
-            className="w-full h-full object-cover pointer-events-none"
-            draggable={false}
-            onError={(e) => {
-              const img = e.target as HTMLImageElement;
-              if (!img.dataset.fallbackUsed) {
-                img.dataset.fallbackUsed = "true";
-                const gradients = [
-                  ["#FFB6C1", "#FFC0CB", "#FF69B4"],
-                  ["#87CEEB", "#ADD8E6", "#B0E0E6"],
-                  ["#DDA0DD", "#EE82EE", "#DA70D6"],
-                  ["#98FB98", "#90EE90", "#7CFC00"],
-                  ["#F0E68C", "#EEE8AA", "#BDB76B"],
-                ];
-                const colors = gradients[currentPage % gradients.length];
-                const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='800' height='800'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='${colors[0]}'/><stop offset='50%25' stop-color='${colors[1]}'/><stop offset='100%25' stop-color='${colors[2]}'/></linearGradient></defs><rect width='800' height='800' fill='url(#g)' rx='40'/><text x='400' y='420' font-size='180' text-anchor='middle' dominant-baseline='middle'>📖</text></svg>`;
-                img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
-              }
-            }}
-          />
-        </div>
-
-        {/* 页码指示器 */}
-        <div className="flex items-center gap-1.5">
-          {pages.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => goToPage(i)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === currentPage
-                  ? "w-6 bg-primary-orange"
-                  : i < currentPage
-                  ? "w-3 bg-orange-300"
-                  : "w-3 bg-gray-300"
-              }`}
-            />
-          ))}
-        </div>
-
-        {/* 文字内容 */}
-        <div className="w-full max-w-lg bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-md">
-          {isAudioLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <svg className="w-6 h-6 animate-spin text-primary-orange mr-2" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7 7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span className="text-gray-500 text-sm">正在生成语音...</span>
-            </div>
-          ) : showStoryEnd ? (
-            <div className="text-center py-4">
-              <p className="text-2xl mb-2">🌙</p>
-              <p className="text-gray-700 leading-relaxed text-base text-center font-wenkai">
-                故事讲完了，晚安🌙
-              </p>
-            </div>
-          ) : (
-            <p className="text-gray-700 leading-relaxed text-base text-center font-wenkai">
-              {currentPageData.text}
-            </p>
-          )}
-        </div>
-
-        {/* 播放控制 */}
-        <div className="w-full max-w-lg flex items-center justify-center gap-6">
-          <button
-            onClick={() => goToPage(currentPage - 1)}
-            disabled={currentPage === 0}
-            className="p-3 rounded-full bg-white shadow-md hover:shadow-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-          >
-            <svg className="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+      {/* 故事文字 */}
+      <div className={`absolute left-0 right-0 px-6 transition-all duration-300 ${showControls ? "bottom-[200px]" : "bottom-[120px]"}`}>
+        {isAudioLoading ? (
+          <div className="flex items-center justify-center py-2">
+            <svg className="w-5 h-5 animate-spin text-white/70 mr-2" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-          </button>
+            <span className="text-white/70 text-sm">正在生成语音...</span>
+          </div>
+        ) : showStoryEnd ? (
+          <div className="text-center py-2">
+            <p className="text-3xl mb-2">🌙</p>
+            <p className="text-white/90 leading-relaxed text-lg text-center font-wenkai">故事讲完了，晚安🌙</p>
+          </div>
+        ) : (
+          <p className="text-white/95 leading-relaxed text-lg text-center font-wenkai" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>
+            {currentPageData.text}
+          </p>
+        )}
+      </div>
 
-          <button
-            onClick={togglePlay}
-            className="p-5 rounded-full bg-gradient-to-br from-primary-orange to-primary-dark shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95"
-          >
+      {/* 控制条（自动隐藏） */}
+      <div
+        className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent pt-10 pb-6 px-6 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0 pointer-events-none"}`}
+        onClick={(e) => e.stopPropagation()}
+        style={{ pointerEvents: showControls ? "auto" : "none" }}
+      >
+        {/* 播放控制 */}
+        <div className="flex items-center justify-center gap-8 mb-4">
+          <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 0} className="p-2 rounded-full disabled:opacity-30 transition-all">
+            <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+          </button>
+          <button onClick={togglePlay} className="p-4 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 transition-all active:scale-95">
             {isAudioLoading ? (
               <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             ) : isPlaying ? (
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-              </svg>
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
             ) : (
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
             )}
           </button>
-
-          <button
-            onClick={() => goToPage(currentPage + 1)}
-            disabled={currentPage === totalPages - 1}
-            className="p-3 rounded-full bg-white shadow-md hover:shadow-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-          >
-            <svg className="w-6 h-6 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-            </svg>
+          <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages - 1} className="p-2 rounded-full disabled:opacity-30 transition-all">
+            <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
           </button>
         </div>
 
-        {/* 音量控制 */}
-        <div className="w-full max-w-lg flex items-center gap-3 px-2">
-          <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-          </svg>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={volume}
-            onChange={(e) => {
-              setVolume(parseFloat(e.target.value));
-              if (currentAudioRef.current) {
-                currentAudioRef.current.volume = parseFloat(e.target.value);
-              }
-            }}
-            className="flex-1 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-primary-orange"
-          />
-          <span className="text-xs text-gray-500 w-8">{Math.round(volume * 100)}%</span>
-        </div>
-      </div>
-
-      {/* 睡前模式区域 */}
-      <div className="sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-gray-100 px-4 py-4 space-y-3">
+        {/* 底部功能行 */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🌙</span>
-            <div>
-              <p className="font-medium text-gray-900 text-sm">睡前模式</p>
-              {bedtimeMode && remainingTime !== null && (
-                <p className="text-xs text-primary-orange">
-                  剩余 {formatTime(remainingTime)}
-                </p>
-              )}
+          <button onClick={() => history.back()} className="flex items-center gap-1 text-white/60 hover:text-white/90 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            <span className="text-xs">返回</span>
+          </button>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-white/60" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" /></svg>
+              <input type="range" min="0" max="1" step="0.05" value={volume} onChange={(e) => { setVolume(parseFloat(e.target.value)); if (currentAudioRef.current) currentAudioRef.current.volume = parseFloat(e.target.value); }} className="w-16 h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-white" />
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {bedtimeMode ? (
-              <button
-                onClick={stopBedtimeMode}
-                className="text-xs text-gray-500 hover:text-red-500 transition-colors"
-              >
-                关闭
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowBedtimeSet(!showBedtimeSet)}
-                className="text-xs text-primary-orange hover:text-primary-dark transition-colors"
-              >
-                开启
-              </button>
-            )}
+            <button onClick={() => bedtimeMode ? stopBedtimeMode() : setShowBedtimeSet(!showBedtimeSet)} className="text-xs text-white/60 hover:text-white/90 transition-colors">
+              {bedtimeMode ? `🌙 ${formatTime(remainingTime || 0)}` : "🌙 睡前"}
+            </button>
+            <button onClick={onShare} className="text-xs text-white/60 hover:text-white/90 transition-colors">分享</button>
           </div>
         </div>
 
+        {/* 睡前模式时间选择 */}
         {showBedtimeSet && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 mt-3">
             {[5, 10, 15, 30].map((min) => (
-              <button
-                key={min}
-                onClick={() => startBedtimeMode(min)}
-                className="flex-1 py-2 rounded-full border border-primary-orange text-primary-orange text-sm hover:bg-primary-orange hover:text-white transition-colors"
-              >
-                {min}分钟
-              </button>
+              <button key={min} onClick={() => startBedtimeMode(min)} className="flex-1 py-2 rounded-full border border-white/30 text-white/80 text-xs hover:bg-white/10 transition-colors">{min}分钟</button>
             ))}
           </div>
         )}
+      </div>
 
-        <div className="flex gap-3 pt-1">
-          <button
-            onClick={onGenerateVideo}
-            className="flex-1 btn-secondary py-3 text-sm flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            生成分享视频
-          </button>
-          <button
-            onClick={onShare}
-            className="flex-1 btn-outline py-3 text-sm flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-            分享故事
-          </button>
+      {/* 顶部信息条（自动隐藏） */}
+      <div className={`absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent pb-6 px-4 pt-3 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0 pointer-events-none"}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-white/80 font-medium text-sm">{title}</span>
+            <span className="text-white/50 text-xs">第 {currentPage + 1} / {totalPages} 页</span>
+          </div>
+          <button onClick={onGenerateVideo} className="text-white/60 hover:text-white/90 text-xs transition-colors">📷 卡片</button>
         </div>
       </div>
     </div>
   );
-}
