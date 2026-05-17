@@ -87,10 +87,16 @@ export default function StoryPlayer({
     if (!audioUrl) {
       setIsAudioLoading(true);
       try {
+        // 从sessionStorage读取自定义voice_id
+        const customVoiceId = sessionStorage.getItem("bedtime_voice_id");
+        
         const res = await fetch("/api/voice/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: pageText }),
+          body: JSON.stringify({ 
+            text: pageText,
+            voice: customVoiceId || undefined, // 优先使用克隆的声音
+          }),
         });
         const data = await res.json();
         
