@@ -86,6 +86,22 @@ export default function RecordingPage() {
           </p>
         </div>
 
+        {/* 跳过录音，直接体验 */}
+        {!cloned && (
+          <div className="mb-4 text-center">
+            <button
+              onClick={handleContinue}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-amber-100 text-amber-700 text-sm font-medium hover:bg-amber-200 transition-all border border-amber-200"
+            >
+              <span>📖</span>
+              <span>先听故事，稍后再录声音</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* 录音组件 */}
         <div className="bg-white rounded-3xl shadow-lg p-6 mb-6">
           <VoiceRecorder
@@ -144,17 +160,7 @@ export default function RecordingPage() {
           </div>
         )}
 
-        {/* 跳过 */}
-        {!cloned && (
-          <div className="mt-6 text-center">
-            <button
-              onClick={handleContinue}
-              className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              先跳过，直接体验故事
-            </button>
-          </div>
-        )}
+
       </div>
     </div>
   );
