@@ -158,12 +158,25 @@ export async function POST(request: NextRequest) {
         const errorText = await cloneResponse.text();
         console.error("[Clone] 百炼API错误:", cloneResponse.status, errorText);
         
-        // 如果是400错误，可能是格式不支持
+        // 如果是400错误，根据具体原因给出友好提示
         if (cloneResponse.status === 400) {
+          let userMessage = "录音无法使用，请重新录制";
+          
+          // 解析百炼错误信息，匹配常见原因
+          const lowerText = errorText.toLowerCase();
+          if (lowerText.includes("duration") || lowerText.includes("too short") || lowerText.includes("长度") || lowerText.includes("过短") || lowerText.includes("时间")) {
+            userMessage = "录音时间太短，请至少录制5秒以上";
+          } else if (lowerText.includes("format") || lowerText.includes("unsupported") || lowerText.includes("格式")) {
+            userMessage = "录音格式不支持，请重新录制";
+          } else if (lowerText.includes("quality") || lowerText.includes("noise") || lowerText.includes("质量") || lowerText.includes("噪声")) {
+            userMessage = "录音质量不佳，请在安静环境下重新录制";
+          } else if (lowerText.includes("silence") || lowerText.includes("静音") || lowerText.includes("无人声")) {
+            userMessage = "未检测到有效人声，请对着麦克风说话重新录制";
+          }
+          
           return NextResponse.json({
             success: false,
-            message: "录音格式不支持，请使用WAV或MP3格式重新录制",
-            detail: errorText,
+            message: userMessage,
           });
         }
         

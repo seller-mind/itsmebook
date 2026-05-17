@@ -28,6 +28,7 @@ export default function VoiceRecorder({ onRecordingComplete, onCloning }: VoiceR
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
 
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -109,6 +110,7 @@ export default function VoiceRecorder({ onRecordingComplete, onCloning }: VoiceR
 
       setState("recording");
       setRecordingTime(0);
+      recordingStartTimeRef.current = Date.now();
 
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
@@ -135,6 +137,17 @@ export default function VoiceRecorder({ onRecordingComplete, onCloning }: VoiceR
     const samples = recordedSamplesRef.current;
     if (samples.length === 0) {
       cleanup();
+      return;
+    }
+
+    // 检查录音时长是否过短（用ref避免闭包旧值问题）
+    const actualDuration = recordingStartTimeRef.current > 0
+      ? Math.floor((Date.now() - recordingStartTimeRef.current) / 1000)
+      : 0;
+    if (actualDuration < RECORDING_CONFIG.minDuration) {
+      setError(`录音时间太短，请至少录制${RECORDING_CONFIG.minDuration}秒`);
+      cleanup();
+      setState("idle");
       return;
     }
 

@@ -82,7 +82,7 @@ export default function RecordingPage() {
             用你的声音，给孩子讲今晚的故事
           </h1>
           <p className="text-sm text-gray-500">
-            录30秒，我们就能克隆你的声音
+            录10-20秒，我们就能克隆你的声音
           </p>
         </div>
 
