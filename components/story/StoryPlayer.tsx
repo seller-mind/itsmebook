@@ -28,6 +28,7 @@ export default function StoryPlayer({
 }: StoryPlayerProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [bedtimeMode, setBedtimeMode] = useState(false);
   const [bedtimeMinutes, setBedtimeMinutes] = useState(15);
@@ -36,37 +37,32 @@ export default function StoryPlayer({
   const [remainingTime, setRemainingTime] = useState<number | null>(null);
   const [showStoryEnd, setShowStoryEnd] = useState(false);
 
-  // Web Speech API 使用音量
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // TTS音频缓存
+  const audioCacheRef = useRef<Record<number, string>>({});
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const whiteNoiseRef = useRef<HTMLAudioElement | null>(null);
   const totalPages = pages.length;
-  
-  // Web Speech API 相关
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const speechTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
   // 清理函数
-  const cleanupSpeech = useCallback(() => {
+  const cleanupAudio = useCallback(() => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
-    if (speechTimerRef.current) {
-      clearTimeout(speechTimerRef.current);
-      speechTimerRef.current = null;
-    }
-    speechRef.current = null;
-    setIsSpeaking(false);
   }, []);
 
-  // 初始化音频
+  // 初始化
   useEffect(() => {
     if (typeof window !== "undefined") {
       whiteNoiseRef.current = new Audio();
       whiteNoiseRef.current.loop = true;
     }
     return () => {
-      cleanupSpeech();
+      cleanupAudio();
       if (whiteNoiseRef.current) {
         whiteNoiseRef.current.pause();
       }
@@ -74,123 +70,185 @@ export default function StoryPlayer({
         clearTimeout(sleepTimer);
       }
     };
-  }, [sleepTimer, cleanupSpeech]);
+  }, [sleepTimer, cleanupAudio]);
 
-  // Web Speech API 朗读函数
-  const speakText = useCallback((text: string, pageIndex: number) => {
-    if (typeof window === "undefined" || !window.speechSynthesis) {
+  // 播放指定页的TTS音频
+  const playPageAudio = useCallback(async (pageIndex: number) => {
+    if (pageIndex < 0 || pageIndex >= totalPages) return;
+    
+    const pageText = pages[pageIndex].text;
+    
+    // 先停止当前音频
+    cleanupAudio();
+    
+    // 检查缓存
+    let audioUrl = audioCacheRef.current[pageIndex];
+    
+    if (!audioUrl) {
+      setIsAudioLoading(true);
+      try {
+        const res = await fetch("/api/voice/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: pageText }),
+        });
+        const data = await res.json();
+        
+        if (data.success && data.audioUrl) {
+          audioUrl = data.audioUrl;
+          audioCacheRef.current[pageIndex] = audioUrl;
+        } else {
+          // 降级到Web Speech API
+          setIsAudioLoading(false);
+          playWithWebSpeech(pageText, pageIndex);
+          return;
+        }
+      } catch {
+        setIsAudioLoading(false);
+        playWithWebSpeech(pageText, pageIndex);
+        return;
+      }
+      setIsAudioLoading(false);
+    }
+    
+    if (!audioUrl) {
+      playWithWebSpeech(pageText, pageIndex);
       return;
     }
-
-    // 清理之前的朗读
-    cleanupSpeech();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "zh-CN";
-    utterance.rate = 0.8; // 慢一点，适合睡前
-    utterance.pitch = 1.1; // 稍微柔和
-    utterance.volume = volume;
-
-    // 尝试选择中文语音
-    const voices = window.speechSynthesis.getVoices();
-    const chineseVoice = voices.find(v => v.lang.includes("zh") && v.lang.includes("CN")) ||
-                          voices.find(v => v.lang.includes("zh")) ||
-                          voices[0];
-    if (chineseVoice) {
-      utterance.voice = chineseVoice;
-    }
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setIsPlaying(true);
+    
+    // 创建并播放音频
+    const audio = new Audio(audioUrl);
+    audio.volume = volume;
+    currentAudioRef.current = audio;
+    
+    audio.oncanplay = () => {
+      try {
+        audio.play().catch(() => {
+          // 自动播放被阻止，降级到Web Speech
+          cleanupAudio();
+          playWithWebSpeech(pageText, pageIndex);
+        });
+      } catch {
+        playWithWebSpeech(pageText, pageIndex);
+      }
     };
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      
-      // 朗读完毕，自动翻到下一页
+    
+    audio.onended = () => {
       if (isPlaying && pageIndex < totalPages - 1) {
-        speechTimerRef.current = setTimeout(() => {
-          const nextPage = pageIndex + 1;
-          setCurrentPage(nextPage);
-          // 继续朗读下一页
-          speakText(pages[nextPage].text, nextPage);
-        }, 800); // 停顿一下再翻页
+        // 自动翻到下一页
+        setTimeout(() => {
+          const next = pageIndex + 1;
+          setCurrentPage(next);
+        }, 800);
       } else if (pageIndex >= totalPages - 1) {
-        // 最后一页读完了，显示"故事讲完了，晚安"
         setIsPlaying(false);
         setShowStoryEnd(true);
       }
     };
+    
+    audio.onerror = () => {
+      cleanupAudio();
+      playWithWebSpeech(pageText, pageIndex);
+    };
+  }, [pages, totalPages, volume, isPlaying, cleanupAudio]);
 
+  // Web Speech API降级方案
+  const playWithWebSpeech = useCallback((text: string, pageIndex: number) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      console.warn("浏览器不支持语音合成");
+      setIsPlaying(false);
+      return;
+    }
+    
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "zh-CN";
+    utterance.rate = 0.8;
+    utterance.pitch = 1.1;
+    utterance.volume = volume;
+    
+    // 选择中文语音
+    const voices = window.speechSynthesis.getVoices();
+    const zhVoice = voices.find(v => v.lang.includes("zh"));
+    if (zhVoice) utterance.voice = zhVoice;
+    
+    utterance.onstart = () => {
+      setIsPlaying(true);
+    };
+    
+    utterance.onend = () => {
+      if (isPlaying && pageIndex < totalPages - 1) {
+        setTimeout(() => {
+          const next = pageIndex + 1;
+          setCurrentPage(next);
+        }, 800);
+      } else if (pageIndex >= totalPages - 1) {
+        setIsPlaying(false);
+        setShowStoryEnd(true);
+      }
+    };
+    
     utterance.onerror = () => {
-      setIsSpeaking(false);
       setIsPlaying(false);
     };
-
-    speechRef.current = utterance;
+    
     window.speechSynthesis.speak(utterance);
-  }, [volume, isPlaying, totalPages, pages, cleanupSpeech]);
+  }, [volume, isPlaying, totalPages]);
 
-  // 停止朗读
-  const stopSpeaking = useCallback(() => {
-    cleanupSpeech();
-    setIsPlaying(false);
-  }, [cleanupSpeech]);
-
-  // 播放/暂停 - 统一使用Web Speech API朗读故事文字
-  const togglePlay = () => {
+  // 播放/暂停
+  const togglePlay = useCallback(() => {
     if (isPlaying) {
-      // 暂停朗读
-      stopSpeaking();
+      cleanupAudio();
+      setIsPlaying(false);
     } else {
-      // 开始朗读当前页
-      speakText(pages[currentPage].text, currentPage);
+      setShowStoryEnd(false);
+      setIsPlaying(true);
+      playPageAudio(currentPage);
     }
-  };
+  }, [isPlaying, currentPage, cleanupAudio, playPageAudio]);
 
-  // 翻页
-  const goToPage = (page: number) => {
+  // 翻页 - 翻页时自动停止当前音频
+  const goToPage = useCallback((page: number) => {
+    cleanupAudio();
     const newPage = Math.max(0, Math.min(page, totalPages - 1));
     setCurrentPage(newPage);
-    // 翻页时重置故事结束状态
     setShowStoryEnd(false);
-  };
+    
+    // 如果正在播放，翻页后自动读新页
+    if (isPlaying) {
+      playPageAudio(newPage);
+    }
+  }, [totalPages, isPlaying, cleanupAudio, playPageAudio]);
 
   // 睡前模式
-  const startBedtimeMode = useCallback(
-    (minutes: number) => {
-      setBedtimeMode(true);
-      setBedtimeMinutes(minutes);
-      setShowBedtimeSet(false);
-      setRemainingTime(minutes * 60);
+  const startBedtimeMode = useCallback((minutes: number) => {
+    setBedtimeMode(true);
+    setBedtimeMinutes(minutes);
+    setShowBedtimeSet(false);
+    setRemainingTime(minutes * 60);
 
-      // 播放白噪音（轻柔雨声）
-      if (whiteNoiseRef.current) {
-        whiteNoiseRef.current.src = "/sounds/rain.mp3";
-        whiteNoiseRef.current.volume = 0.3;
-        whiteNoiseRef.current.play().catch(() => {});
-      }
+    if (whiteNoiseRef.current) {
+      whiteNoiseRef.current.src = "/sounds/rain.mp3";
+      whiteNoiseRef.current.volume = 0.3;
+      whiteNoiseRef.current.play().catch(() => {});
+    }
 
-      // 定时关闭
-      const timer = setTimeout(() => {
-        stopBedtimeMode();
-      }, minutes * 60 * 1000);
-      setSleepTimer(timer);
+    const timer = setTimeout(() => {
+      stopBedtimeMode();
+    }, minutes * 60 * 1000);
+    setSleepTimer(timer);
 
-      // 倒计时
-      const interval = setInterval(() => {
-        setRemainingTime((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(interval);
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    },
-    []
-  );
+    const interval = setInterval(() => {
+      setRemainingTime((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
 
   const stopBedtimeMode = () => {
     setBedtimeMode(false);
@@ -252,11 +310,9 @@ export default function StoryPlayer({
             alt={`第${currentPage + 1}页`}
             className="w-full h-full object-cover"
             onError={(e) => {
-              // 图片加载失败时，显示主题色渐变背景而不是随机风景图
               const img = e.target as HTMLImageElement;
               if (!img.dataset.fallbackUsed) {
                 img.dataset.fallbackUsed = "true";
-                // 使用与页码相关的主题色渐变
                 const gradients = [
                   ["#FFB6C1", "#FFC0CB", "#FF69B4"],
                   ["#87CEEB", "#ADD8E6", "#B0E0E6"],
@@ -291,7 +347,15 @@ export default function StoryPlayer({
 
         {/* 文字内容 */}
         <div className="w-full max-w-lg bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-md">
-          {showStoryEnd ? (
+          {isAudioLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <svg className="w-6 h-6 animate-spin text-primary-orange mr-2" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span className="text-gray-500 text-sm">正在生成语音...</span>
+            </div>
+          ) : showStoryEnd ? (
             <div className="text-center py-4">
               <p className="text-2xl mb-2">🌙</p>
               <p className="text-gray-700 leading-relaxed text-base text-center font-wenkai">
@@ -319,9 +383,15 @@ export default function StoryPlayer({
 
           <button
             onClick={togglePlay}
-            className="p-5 rounded-full bg-gradient-to-br from-primary-orange to-primary-dark shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95"
+            disabled={isAudioLoading}
+            className="p-5 rounded-full bg-gradient-to-br from-primary-orange to-primary-dark shadow-xl hover:shadow-2xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isPlaying ? (
+            {isAudioLoading ? (
+              <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : isPlaying ? (
               <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
               </svg>
@@ -356,6 +426,9 @@ export default function StoryPlayer({
             value={volume}
             onChange={(e) => {
               setVolume(parseFloat(e.target.value));
+              if (currentAudioRef.current) {
+                currentAudioRef.current.volume = parseFloat(e.target.value);
+              }
             }}
             className="flex-1 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-primary-orange"
           />
@@ -365,7 +438,6 @@ export default function StoryPlayer({
 
       {/* 睡前模式区域 */}
       <div className="sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-gray-100 px-4 py-4 space-y-3">
-        {/* 睡前模式开关 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl">🌙</span>
@@ -397,7 +469,6 @@ export default function StoryPlayer({
           </div>
         </div>
 
-        {/* 定时选择 */}
         {showBedtimeSet && (
           <div className="flex gap-2">
             {[5, 10, 15, 30].map((min) => (
@@ -412,7 +483,6 @@ export default function StoryPlayer({
           </div>
         )}
 
-        {/* 底部按钮 */}
         <div className="flex gap-3 pt-1">
           <button
             onClick={onGenerateVideo}

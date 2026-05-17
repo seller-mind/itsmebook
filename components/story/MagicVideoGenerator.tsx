@@ -23,22 +23,64 @@ export default function MagicVideoGenerator({
   >("idle");
   const [progress, setProgress] = useState(0);
   const [videoUrl, setVideoUrl] = useState<string>("");
+  const [audioUrl, setAudioUrl] = useState<string>("");
+  const [combinedVideoUrl, setCombinedVideoUrl] = useState<string>("");
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [error, setError] = useState<string>("");
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
+  // 生成视频和音频
   const generateVideo = useCallback(async () => {
     if (typeof window === "undefined") return;
 
     setStatus("generating");
     setProgress(0);
     setError("");
+    setAudioUrl("");
+    setCombinedVideoUrl("");
     chunksRef.current = [];
 
     try {
-      // 创建Canvas (9:16竖版)
+      // 步骤1: 先批量生成所有页的TTS音频
+      setProgress(5);
+      const pageAudioUrls: string[] = [];
+      
+      for (let i = 0; i < Math.min(pages.length, 8); i++) {
+        try {
+          const res = await fetch("/api/voice/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: pages[i].text }),
+          });
+          const data = await res.json();
+          if (data.success && data.audioUrl) {
+            pageAudioUrls.push(data.audioUrl);
+          } else {
+            pageAudioUrls.push("");
+          }
+        } catch {
+          pageAudioUrls.push("");
+        }
+      }
+
+      // 合并所有音频
+      if (pageAudioUrls.some(url => url)) {
+        setProgress(10);
+        try {
+          const combinedAudio = await combineAudioFiles(pageAudioUrls.filter(Boolean));
+          setAudioUrl(combinedAudio);
+        } catch {
+          console.warn("音频合并失败");
+        }
+      }
+
+      // 步骤2: 创建Canvas录制
+      setProgress(15);
       const canvas = document.createElement("canvas");
       canvas.width = 1080;
       canvas.height = 1920;
@@ -47,10 +89,7 @@ export default function MagicVideoGenerator({
 
       // 创建MediaRecorder
       const stream = canvas.captureStream(30);
-      // 注意：音频需要通过Web Audio API来处理混音，MediaRecorder只能录制Canvas的视频轨道
-      const combinedStream = new MediaStream([
-        ...stream.getVideoTracks(),
-      ]);
+      const combinedStream = new MediaStream([...stream.getVideoTracks()]);
 
       const recorder = new MediaRecorder(combinedStream, {
         mimeType: "video/webm;codecs=vp9",
@@ -67,7 +106,14 @@ export default function MagicVideoGenerator({
         const blob = new Blob(chunksRef.current, { type: "video/webm" });
         const url = URL.createObjectURL(blob);
         setVideoUrl(url);
+        
+        // 尝试合并视频和音频
+        if (audioUrl) {
+          tryCombineVideoAudio(blob, audioUrl);
+        }
+        
         setStatus("done");
+        setProgress(100);
         if (onVideoGenerated) {
           onVideoGenerated(blob, url);
         }
@@ -75,22 +121,21 @@ export default function MagicVideoGenerator({
 
       recorder.start();
 
-      // 渲染每一页
-      const totalPages = Math.min(pages.length, 8); // 最多8页
-      const pageDuration = 2500; // 每页2.5秒
-      const fadeDuration = 500; // 淡入淡出0.5秒
+      // 步骤3: 渲染每一页
+      const totalPages = Math.min(pages.length, 8);
+      const pageDuration = 2500;
+      const fadeDuration = 500;
 
       for (let i = 0; i < totalPages; i++) {
-        setProgress(Math.round(((i + 0.5) / totalPages) * 80));
+        setProgress(15 + Math.round((i / totalPages) * 75));
 
         // 加载图片
         const img = new Image();
         img.crossOrigin = "anonymous";
         await new Promise<void>((resolve) => {
           img.onload = () => resolve();
-          img.onerror = () => resolve(); // 图片加载失败用背景色
+          img.onerror = () => resolve();
           img.src = pages[i].imageUrl;
-          // 超时处理
           setTimeout(resolve, 5000);
         });
 
@@ -110,20 +155,177 @@ export default function MagicVideoGenerator({
       }
 
       // 结尾页
-      setProgress(85);
+      setProgress(92);
       await renderEnding(ctx, canvas, title, childName);
 
       // 停止录制
-      setProgress(95);
-
-      // 确保录制足够时间
+      setProgress(97);
       await new Promise((r) => setTimeout(r, 1000));
       recorder.stop();
     } catch (err: any) {
       setError(err.message || "视频生成失败");
       setStatus("error");
     }
-  }, [pages, voiceAudioUrl, title, childName, onVideoGenerated]);
+  }, [pages, voiceAudioUrl, title, childName, onVideoGenerated, audioUrl]);
+
+  // 合并多个音频文件
+  const combineAudioFiles = async (audioDataUrls: string[]): Promise<string> => {
+    if (audioDataUrls.length === 0) throw new Error("没有音频");
+    
+    // 创建AudioContext
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioBuffers: AudioBuffer[] = [];
+    
+    // 加载每个音频文件
+    for (const dataUrl of audioDataUrls) {
+      try {
+        const response = await fetch(dataUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        audioBuffers.push(audioBuffer);
+      } catch {
+        console.warn("音频加载失败");
+      }
+    }
+    
+    if (audioBuffers.length === 0) throw new Error("没有有效音频");
+    
+    // 计算总时长
+    let totalLength = 0;
+    for (const buffer of audioBuffers) {
+      totalLength += buffer.length;
+    }
+    
+    // 创建合并后的buffer
+    const mergedBuffer = audioContext.createBuffer(
+      audioBuffers[0].numberOfChannels,
+      totalLength + 22050, // 留2秒间隔
+      audioBuffers[0].sampleRate
+    );
+    
+    let offset = 0;
+    for (const buffer of audioBuffers) {
+      // 复制数据
+      if (mergedBuffer.numberOfChannels === 1 && buffer.numberOfChannels > 1) {
+        // 单声道处理
+        const channelData = mergedBuffer.getChannelData(0);
+        const sourceData = buffer.getChannelData(0);
+        for (let i = 0; i < buffer.length; i++) {
+          channelData[offset + i] = sourceData[i];
+        }
+      } else {
+        for (let c = 0; c < mergedBuffer.numberOfChannels; c++) {
+          const channelData = mergedBuffer.getChannelData(c);
+          const sourceData = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1));
+          for (let i = 0; i < buffer.length; i++) {
+            channelData[offset + i] = sourceData[i];
+          }
+        }
+      }
+      offset += buffer.length;
+      // 添加1秒静音作为间隔
+      offset += audioBuffers[0].sampleRate;
+    }
+    
+    // 转换为WAV
+    const wavBlob = audioBufferToWav(mergedBuffer);
+    return URL.createObjectURL(wavBlob);
+  };
+
+  // 将AudioBuffer转换为WAV Blob
+  const audioBufferToWav = (buffer: AudioBuffer): Blob => {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    
+    const dataLength = buffer.length * blockAlign;
+    const bufferLength = 44 + dataLength;
+    
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+    
+    // WAV header
+    writeString(view, 0, "RIFF");
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(view, 8, "WAVE");
+    writeString(view, 12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(view, 36, "data");
+    view.setUint32(40, dataLength, true);
+    
+    // Write audio data
+    const channels: Float32Array[] = [];
+    for (let i = 0; i < numChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+    
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let c = 0; c < numChannels; c++) {
+        const sample = Math.max(-1, Math.min(1, channels[c][i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+    
+    return new Blob([arrayBuffer], { type: "audio/wav" });
+  };
+
+  const writeString = (view: DataView, offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+
+  // 尝试合并视频和音频（使用Video + 音频分开播放的方式）
+  const tryCombineVideoAudio = async (videoBlob: Blob, audioDataUrl: string) => {
+    // 由于浏览器限制，我们无法真正合并音视频
+    // 但我们可以提供同步播放的功能
+    setAudioUrl(audioDataUrl);
+  };
+
+  // 同步播放视频和音频
+  const playWithAudio = () => {
+    if (!videoRef.current || !audioRef.current) return;
+    
+    // 尝试同步播放
+    videoRef.current.currentTime = 0;
+    audioRef.current.currentTime = 0;
+    
+    Promise.all([
+      videoRef.current.play(),
+      audioRef.current.play()
+    ]).then(() => {
+      setIsAudioPlaying(true);
+    }).catch(() => {
+      // 如果同步播放失败，只播放视频
+      videoRef.current?.play();
+      setIsAudioPlaying(true);
+    });
+  };
+
+  // 停止播放
+  const stopPlayback = () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsAudioPlaying(false);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -148,7 +350,7 @@ export default function MagicVideoGenerator({
           <div>
             <h3 className="font-bold text-gray-900">生成魔法时刻视频</h3>
             <p className="text-sm text-gray-500 mt-1">
-              15秒绘本翻页动画，配合你的声音朗读
+              15秒绘本翻页动画，配合故事朗读
             </p>
           </div>
           <button
@@ -198,7 +400,7 @@ export default function MagicVideoGenerator({
           <div>
             <p className="font-medium text-gray-900">正在生成魔法时刻...</p>
             <p className="text-sm text-gray-500 mt-1">
-              渲染绘本画面，配合你的声音
+              {progress < 15 ? "正在生成朗读音频..." : progress < 20 ? "音频生成完成" : "正在渲染绘本画面..."}
             </p>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -230,21 +432,55 @@ export default function MagicVideoGenerator({
               </svg>
             </div>
             <h3 className="font-bold text-gray-900">魔法时刻已生成！</h3>
-            <p className="text-sm text-gray-500 mt-1">15秒 · 绘本翻页 · 你的声音</p>
+            <p className="text-sm text-gray-500 mt-1">15秒 · 绘本翻页 · 故事朗读</p>
           </div>
 
           {/* 视频预览 */}
           <div className="rounded-2xl overflow-hidden bg-black">
             <video
+              ref={videoRef}
               src={videoUrl}
-              controls
               className="w-full aspect-[9/16] max-h-80 mx-auto"
               poster={pages[0]?.imageUrl}
             />
           </div>
 
-          {/* 声音提示 */}
-          {!voiceAudioUrl && (
+          {/* 隐藏的音频元素 */}
+          {audioUrl && (
+            <audio
+              ref={audioRef}
+              src={audioUrl}
+              preload="auto"
+            />
+          )}
+
+          {/* 音频控制 */}
+          {audioUrl && (
+            <div className="bg-gradient-to-r from-primary-orange/10 to-primary-yellow/10 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary-orange flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">故事朗读音频</p>
+                    <p className="text-xs text-gray-500">配合视频一起播放</p>
+                  </div>
+                </div>
+                <button
+                  onClick={isAudioPlaying ? stopPlayback : playWithAudio}
+                  className="px-4 py-2 rounded-full bg-primary-orange text-white text-sm font-medium hover:bg-primary-dark transition-colors"
+                >
+                  {isAudioPlaying ? "停止" : "播放音频"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 没有音频时的提示 */}
+          {!audioUrl && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-700">
               <div className="flex items-start gap-2">
                 <span className="text-lg">💡</span>
@@ -269,6 +505,8 @@ export default function MagicVideoGenerator({
               onClick={() => {
                 setStatus("idle");
                 setVideoUrl("");
+                setAudioUrl("");
+                setCombinedVideoUrl("");
                 setProgress(0);
               }}
               className="flex-1 btn-outline py-3 text-sm"
@@ -351,7 +589,24 @@ async function renderPage(
   const h = img.height * scale;
   const x = (canvas.width - w) / 2;
   const y = (canvas.height - h) / 2;
-  ctx.drawImage(img, x, y, w, h);
+  
+  if (img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, x, y, w, h);
+  } else {
+    // 图片加载失败时绘制渐变背景
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    const colors = [
+      ["#FFB6C1", "#FFC0CB"],
+      ["#87CEEB", "#ADD8E6"],
+      ["#DDA0DD", "#EE82EE"],
+      ["#98FB98", "#90EE90"],
+    ];
+    const color = colors[index % colors.length];
+    gradient.addColorStop(0, color[0]);
+    gradient.addColorStop(1, color[1]);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   // 底部渐变遮罩
   const gradient = ctx.createLinearGradient(0, canvas.height - 400, 0, canvas.height);
@@ -363,7 +618,7 @@ async function renderPage(
   // 故事文字
   ctx.globalAlpha = 1;
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 52px 'Noto Serif SC', serif";
+  ctx.font = "bold 52px 'Noto Serif SC', 'Source Han Serif CN', serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
 
@@ -373,7 +628,6 @@ async function renderPage(
   const lines = wrapText(ctx, page.text, maxWidth);
   const textY = canvas.height - 200 - (lines.length - 1) * lineHeight;
   lines.forEach((line, i) => {
-    // 文字阴影
     ctx.shadowColor = "rgba(0,0,0,0.5)";
     ctx.shadowBlur = 8;
     ctx.shadowOffsetX = 2;
@@ -423,7 +677,7 @@ async function renderEnding(
 
   // 主标题
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 64px 'Noto Serif SC', serif";
+  ctx.font = "bold 64px 'Noto Serif SC', 'Source Han Serif CN', serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(255, 200, 100, 0.5)";
@@ -431,7 +685,7 @@ async function renderEnding(
   ctx.fillText("晚安", canvas.width / 2, canvas.height / 2 - 120);
 
   // 孩子名字
-  ctx.font = "48px 'Noto Serif SC', serif";
+  ctx.font = "48px 'Noto Serif SC', 'Source Han Serif CN', serif";
   ctx.fillStyle = "#FFD93D";
   ctx.shadowBlur = 10;
   ctx.fillText(childName, canvas.width / 2, canvas.height / 2 - 40);

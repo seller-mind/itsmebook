@@ -6,6 +6,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+// 允许60秒执行时间（万相API可能需要15-30秒）
+export const maxDuration = 60;
+
 // 风格配置映射
 const STYLE_CONFIGS: Record<string, { chinesePrompt: string }> = {
   watercolor: {
