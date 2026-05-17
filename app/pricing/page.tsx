@@ -5,213 +5,291 @@ import { useRouter } from "next/navigation";
 
 const PLANS = [
   {
-    id: "trial",
-    name: "体验版",
-    price: "¥9.9",
-    period: "/本",
-    description: "首次体验优选",
+    id: "free",
+    name: "免费体验",
+    price: "¥0",
+    period: "",
+    description: "试试看，觉得好再买",
+    color: "from-gray-100 to-gray-200",
+    ringColor: "",
     features: [
-      "1本绘本",
-      "20页内容",
-      "标准图片质量",
-      "在线预览",
+      "1个故事",
+      "6页预览",
+      "1次视频",
+      "无睡前模式",
+      "无声音克隆",
     ],
-    buttonText: "立即体验",
-    popular: false,
+    included: [false, false, false, false, false],
+    buttonText: "免费体验",
+    buttonStyle: "outline" as const,
     badge: null,
-  },
-  {
-    id: "standard",
-    name: "标准版",
-    price: "¥19.9",
-    period: "/本",
-    description: "最受欢迎",
-    features: [
-      "1本绘本",
-      "20页内容",
-      "标准图片质量",
-      "在线预览",
-      "下载保存",
-    ],
-    buttonText: "立即购买",
-    popular: true,
-    badge: null,
-  },
-  {
-    id: "premium",
-    name: "精制版",
-    price: "¥29.9",
-    period: "/本",
-    description: "追求最佳画质",
-    features: [
-      "1本绘本",
-      "20页内容",
-      "高清Pro图片质量",
-      "在线预览",
-      "下载保存",
-    ],
-    buttonText: "立即购买",
-    popular: false,
-    badge: "Pro画质",
   },
   {
     id: "monthly",
     name: "月卡",
-    price: "¥59.9",
+    price: "¥99",
     period: "/月",
-    description: "高频用户首选",
+    description: "每天一个故事，每晚一份陪伴",
+    color: "from-primary-orange to-primary-dark",
+    ringColor: "ring-primary-orange",
     features: [
-      "每月4本绘本",
-      "20页/本",
-      "标准图片质量",
-      "在线预览",
-      "下载保存",
+      "无限故事",
+      "12页完整",
+      "无限视频",
+      "睡前模式",
+      "声音克隆",
     ],
-    buttonText: "开通月卡",
-    popular: false,
-    badge: "省40%",
+    included: [true, true, true, true, true],
+    buttonText: "立即订阅",
+    buttonStyle: "primary" as const,
+    badge: "推荐",
+  },
+  {
+    id: "yearly",
+    name: "年卡",
+    price: "¥699",
+    period: "/年",
+    description: "每天仅¥1.9，省¥489",
+    color: "from-green-100 to-green-200",
+    ringColor: "",
+    features: [
+      "无限故事",
+      "12页完整",
+      "无限视频",
+      "睡前模式",
+      "声音克隆",
+    ],
+    included: [true, true, true, true, true],
+    buttonText: "省40%",
+    buttonStyle: "outline" as const,
+    badge: "划算",
   },
 ];
 
 export default function PricingPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState<string | null>(null);
 
-  const handlePlanClick = (planId: string) => {
-    // 付费功能暂未开放
-    alert("支付功能即将上线，敬请期待！");
+  const handleSelectPlan = async (planId: string) => {
+    if (planId === "free") {
+      router.push("/recording");
+      return;
+    }
+
+    setLoading(planId);
+
+    // 调用支付API
+    try {
+      const res = await fetch("/api/payment/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId }),
+      });
+      const data = await res.json();
+
+      if (data.payUrl) {
+        window.location.href = data.payUrl;
+      } else {
+        // 演示模式
+        alert(`${planId === "monthly" ? "月卡" : "年卡"}支付功能正在配置中，敬请期待！`);
+      }
+    } catch {
+      alert("支付功能正在配置中，敬请期待！");
+    }
+
+    setLoading(null);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
-      {/* Hero */}
-      <section className="py-16 bg-gradient-to-b from-white to-gray-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <span className="text-primary-orange font-medium mb-4 block">
-            💎 简单透明定价
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
-            选择适合您的方案
-          </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            按需选择，无隐藏费用
-            <br />
-            随时购买，随时使用
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-purple-50">
+      {/* 导航栏 */}
+      <div className="px-4 py-4 flex items-center justify-between max-w-3xl mx-auto">
+        <button
+          onClick={() => router.push("/")}
+          className="flex items-center gap-1 text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="text-sm">返回</span>
+        </button>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xl">💫</span>
+          <span className="font-bold text-gray-900">解锁更多魔法</span>
         </div>
-      </section>
+        <div className="w-16" />
+      </div>
 
-      {/* Pricing Cards */}
-      <section className="py-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {PLANS.map((plan) => (
-              <div
-                key={plan.id}
-                className={`relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl flex flex-col ${
-                  plan.popular ? "ring-4 ring-primary-orange" : ""
-                }`}
-              >
-                {/* Popular Badge */}
-                {plan.popular && (
-                  <div className="bg-primary-orange text-white text-center py-2 font-medium">
-                    ⭐ 最受欢迎
-                  </div>
-                )}
+      {/* 标题 */}
+      <div className="px-4 pt-6 pb-10 text-center max-w-3xl mx-auto">
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+          解锁更多睡前魔法
+        </h1>
+        <p className="text-gray-500">
+          每天一个故事，每晚一份陪伴
+        </p>
+      </div>
 
-                {/* Badge */}
-                {plan.badge && (
-                  <div className="absolute top-4 right-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm px-3 py-1 rounded-full shadow-lg">
+      {/* 定价卡片 */}
+      <div className="px-4 pb-16 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {PLANS.map((plan) => (
+            <div
+              key={plan.id}
+              className={`relative bg-gradient-to-br ${plan.color} rounded-3xl p-6 flex flex-col ${
+                plan.ringColor ? `ring-2 ${plan.ringColor}` : ""
+              }`}
+            >
+              {/* 徽章 */}
+              {plan.badge && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="text-xs bg-primary-orange text-white px-3 py-1 rounded-full font-medium">
                     {plan.badge}
-                  </div>
-                )}
+                  </span>
+                </div>
+              )}
 
-                {/* Content */}
-                <div className={`p-6 flex-1 ${plan.popular ? "pt-4" : ""}`}>
-                  <h3 className="text-xl font-bold text-gray-900 mb-1">
-                    {plan.name}
-                  </h3>
-                  <p className="text-gray-500 text-sm mb-4">
-                    {plan.description}
-                  </p>
+              {/* 标题 */}
+              <div className="text-center mb-4">
+                <h3 className="font-bold text-gray-900 text-lg">{plan.name}</h3>
+                <div className="mt-2">
+                  <span className="text-3xl font-bold text-gray-900">{plan.price}</span>
+                  {plan.period && (
+                    <span className="text-gray-500 text-sm">{plan.period}</span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">{plan.description}</p>
+              </div>
 
-                  <div className="mb-6">
-                    <span className="text-4xl font-bold text-gray-900">
-                      {plan.price}
+              {/* 特性列表 */}
+              <div className="flex-1 space-y-2.5 mb-6">
+                {plan.features.map((feature, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    {plan.included[i] ? (
+                      <svg
+                        className="w-4 h-4 text-green-600 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-4 h-4 text-gray-400 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    )}
+                    <span
+                      className={`text-sm ${
+                        plan.included[i] ? "text-gray-700" : "text-gray-400"
+                      }`}
+                    >
+                      {feature}
                     </span>
-                    <span className="text-gray-500">{plan.period}</span>
                   </div>
-
-                  {/* Features */}
-                  <ul className="space-y-3 mb-6">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-green-500 mt-0.5">✓</span>
-                        <span className="text-gray-600 text-sm">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* CTA Button */}
-                <div className="p-6 pt-0">
-                  <button
-                    onClick={() => handlePlanClick(plan.id)}
-                    className={`w-full py-3 rounded-xl font-semibold transition-all ${
-                      plan.popular
-                        ? "bg-primary-orange text-white hover:bg-primary-dark shadow-lg"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {plan.buttonText}
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Disclaimer */}
-          <p className="text-center text-gray-400 text-sm mt-12">
-            所有绘本均为AI生成，仅供参考娱乐
-          </p>
+              {/* 按钮 */}
+              <button
+                onClick={() => handleSelectPlan(plan.id)}
+                disabled={loading !== null}
+                className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
+                  plan.buttonStyle === "primary"
+                    ? "bg-white text-primary-orange hover:bg-gray-100 shadow-lg"
+                    : "border-2 border-gray-300 text-gray-700 hover:border-gray-400"
+                } disabled:opacity-50`}
+              >
+                {loading === plan.id ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    处理中...
+                  </span>
+                ) : (
+                  plan.buttonText
+                )}
+              </button>
+            </div>
+          ))}
         </div>
-      </section>
 
-      {/* Trust Badges */}
-      <section className="py-12 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {[
-              { icon: "🔒", text: "安全加密" },
-              { icon: "💳", text: "支付宝支付" },
-              { icon: "📱", text: "移动端可用" },
-              { icon: "💬", text: "在线客服" },
-            ].map((badge, index) => (
-              <div key={index} className="flex flex-col items-center">
-                <span className="text-3xl mb-2">{badge.icon}</span>
-                <span className="text-gray-600 text-sm">{badge.text}</span>
-              </div>
-            ))}
+        {/* 节日限定 */}
+        <div className="mt-8 bg-gradient-to-r from-rose-50 to-pink-50 rounded-3xl p-6 border border-rose-100">
+          <h3 className="font-bold text-gray-900 text-base mb-3 flex items-center gap-2">
+            <span>🎂</span> 节日限定
+          </h3>
+          <div className="space-y-2 text-sm text-gray-700">
+            <p>生日特惠：购买月卡送1本定制生日故事书</p>
+            <p>圣诞特惠：年卡8折 + 专属圣诞故事</p>
           </div>
         </div>
-      </section>
 
-      {/* CTA */}
-      <section className="py-20 bg-gradient-to-r from-primary-orange to-secondary-blue">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
-            让孩子爱上阅读
-          </h2>
-          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-            AI打造专属绘本，开启奇妙故事之旅
-          </p>
-          <button
-            onClick={() => router.push("/create")}
-            className="bg-white text-primary-orange font-bold text-lg px-12 py-4 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all"
-          >
-            🚀 立即免费开始
-          </button>
+        {/* 支付方式 */}
+        <div className="mt-6 text-center">
+          <p className="text-xs text-gray-400 mb-2">支付方式</p>
+          <div className="flex items-center justify-center gap-4 text-gray-400">
+            <span className="text-lg">💳</span>
+            <span className="text-sm">微信支付</span>
+            <span>·</span>
+            <span className="text-lg">💰</span>
+            <span className="text-sm">支付宝</span>
+            <span>·</span>
+            <span className="text-lg">🍎</span>
+            <span className="text-sm">Apple Pay</span>
+          </div>
         </div>
-      </section>
+
+        {/* FAQ */}
+        <div className="mt-10 space-y-4">
+          <h3 className="font-bold text-gray-900 text-center">常见问题</h3>
+          {[
+            {
+              q: "订阅可以取消吗？",
+              a: "可以随时取消，取消后当前周期内仍可使用，到期后不再续费。",
+            },
+            {
+              q: "声音克隆安全吗？",
+              a: "你的声音数据仅用于生成你的故事，不会用于任何其他用途，也不会分享给第三方。",
+            },
+            {
+              q: "生成的绘本可以下载吗？",
+              a: "付费用户可以下载完整绘本和分享视频，免费用户可以预览前6页。",
+            },
+          ].map((item, i) => (
+            <details key={i} className="bg-white rounded-2xl p-4 shadow-sm group">
+              <summary className="font-medium text-gray-900 text-sm cursor-pointer list-none flex items-center justify-between">
+                {item.q}
+                <svg
+                  className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              <p className="text-sm text-gray-500 mt-2 pt-2 border-t border-gray-100">
+                {item.a}
+              </p>
+            </details>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

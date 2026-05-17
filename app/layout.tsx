@@ -3,6 +3,8 @@ import { Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import BaiduAnalytics from "@/components/BaiduAnalytics";
+import CookieConsent from "@/components/CookieConsent";
 
 // 配置中文字体
 const notoSans = Noto_Sans_SC({
@@ -21,42 +23,46 @@ const notoSerif = Noto_Serif_SC({
 // 网站元数据
 export const metadata: Metadata = {
   title: {
-    default: "是我呀 - AI儿童绘本 | 你的孩子就是绘本的主角",
-    template: "%s | 是我呀",
+    default: "睡前魔法书 | 用你的声音，给孩子讲最好的故事",
+    template: "%s | 睡前魔法书",
   },
   description:
-    "使用AI技术，为您的孩子创作独一无二的专属绘本。上传照片，选择风格，AI自动生成20页精美绘本故事。",
+    "用AI克隆你的声音，把任何故事变成专属的睡前哄睡音频。录30秒，让你的声音替孩子讲今夜的故事。孩子安心入睡，父母轻松自由。",
   keywords: [
+    "睡前故事",
+    "哄睡",
     "AI绘本",
     "儿童绘本",
+    "声音克隆",
+    "睡前魔法书",
     "AI生成",
     "定制绘本",
     "亲子",
-    "儿童故事",
-    "绘本创作",
+    "睡前故事生成",
+    "哄睡神器",
   ],
-  authors: [{ name: "是我呀" }],
-  creator: "是我呀",
+  authors: [{ name: "睡前魔法书" }],
+  creator: "睡前魔法书",
   openGraph: {
     type: "website",
     locale: "zh_CN",
     url: "https://itsmebook.com",
-    siteName: "是我呀",
-    title: "是我呀 - AI儿童绘本 | 你的孩子就是绘本的主角",
-    description: "使用AI技术，为您的孩子创作独一无二的专属绘本",
+    siteName: "睡前魔法书",
+    title: "睡前魔法书 | 你的声音，是孩子最好的睡前魔法",
+    description: "用AI克隆你的声音，把任何故事变成专属的睡前哄睡音频",
     images: [
       {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "是我呀",
+        alt: "睡前魔法书",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "是我呀 - AI儿童绘本",
-    description: "你的孩子就是绘本的主角",
+    title: "睡前魔法书 | 你的声音，是孩子最好的睡前魔法",
+    description: "用AI克隆你的声音，把任何故事变成专属的睡前哄睡音频",
   },
   robots: {
     index: true,
@@ -87,10 +93,13 @@ export default function RootLayout({
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-          <meta name="apple-mobile-web-app-title" content="是我呀" />
-          <meta name="application-name" content="是我呀" />
+          <meta name="apple-mobile-web-app-title" content="睡前魔法书" />
+          <meta name="application-name" content="睡前魔法书" />
           <meta name="msapplication-TileColor" content="#FF8C42" />
           <meta name="msapplication-tap-highlight" content="no" />
+          
+          {/* 百度统计 */}
+          <BaiduAnalytics />
         </head>
           <body className="min-h-screen flex flex-col">
             {/* 注册 Service Worker */}
@@ -118,6 +127,9 @@ export default function RootLayout({
           <main className="flex-1">
             {children}
           </main>
+          
+          {/* Cookie同意横幅 */}
+          <CookieConsent />
           
           {/* 页脚 */}
           <footer className="bg-gray-50 border-t border-gray-200">
@@ -162,6 +174,33 @@ export default function RootLayout({
                         用户协议
                       </a>
                     </li>
+                    <li>
+                      <a href="/children-privacy" className="hover:text-primary-orange transition-colors">
+                        儿童隐私政策
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+                
+                {/* 法律声明 */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-4">法律声明</h3>
+                  <ul className="space-y-2 text-gray-600">
+                    <li>
+                      <a href="/refund" className="hover:text-primary-orange transition-colors">
+                        退款政策
+                      </a>
+                    </li>
+                    <li>
+                      <a href="/cookie" className="hover:text-primary-orange transition-colors">
+                        Cookie政策
+                      </a>
+                    </li>
+                    <li>
+                      <a href="/children-privacy" className="hover:text-primary-orange transition-colors">
+                        儿童隐私政策
+                      </a>
+                    </li>
                   </ul>
                 </div>
                 
@@ -183,9 +222,22 @@ export default function RootLayout({
               
               {/* 底部声明 */}
               <div className="mt-8 pt-8 border-t border-gray-200">
-                <p className="text-sm text-gray-500 text-center">
-                  本网站所有AI生成内容仅供娱乐参考，不代表任何真实事件或观点。
-                </p>
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500 text-center">
+                    本网站所有AI生成内容仅供娱乐参考，不代表任何真实事件或观点。用户须确保上传照片拥有合法使用权，因上传内容导致的侵权由用户自行承担。
+                  </p>
+                  <p className="text-sm text-gray-500 text-center">
+                    本服务使用的AI模型由火山引擎提供 | AI生成内容可能存在不准确性，请理性看待
+                  </p>
+                  <p className="text-sm text-gray-500 text-center">
+                    📍 本网站数据存储于海外云服务平台（新加坡）
+                  </p>
+                  <p className="text-sm text-gray-400 text-center">
+                    {/* ICP备案号：待域名备案完成后填写，例如：京ICP备XXXXXXXX号 */}
+                    {/* 公安联网备案：待公安联网备案完成后填写 */}
+                    © 2026 是我呀 All Rights Reserved.
+                  </p>
+                </div>
               </div>
             </div>
           </footer>

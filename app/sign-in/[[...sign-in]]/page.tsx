@@ -14,6 +14,10 @@ interface LoginResponse {
       nickname: string;
       freeCount: number;
     };
+    referral?: {
+      code: string;
+      message: string;
+    };
   };
 }
 
@@ -31,7 +35,18 @@ export default function SignInPage() {
   const [sending, setSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState("");
+  const [showReferralToast, setShowReferralToast] = useState(false);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 获取URL中的ref参数
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    if (ref) {
+      localStorage.setItem('itsmebook_ref', ref);
+      console.log('存储推荐码:', ref);
+    }
+  }, []);
 
   // 清理倒计时
   useEffect(() => {
@@ -103,10 +118,13 @@ export default function SignInPage() {
     setLoading(true);
 
     try {
+      // 获取存储的推荐码
+      const ref = localStorage.getItem('itsmebook_ref');
+      
       const response = await fetch("/api/auth/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ phone, code, ref }),
       });
 
       const data: LoginResponse = await response.json();
@@ -121,6 +139,16 @@ export default function SignInPage() {
       localStorage.setItem("itsmebook_user", JSON.stringify(data.data!.user));
       // 写入cookie供Next.js中间件读取（7天过期，与JWT同步）
       document.cookie = `itsmebook_token=${data.data!.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+
+      // 清除推荐码（已处理）
+      localStorage.removeItem('itsmebook_ref');
+
+      // 检查是否有推荐奖励
+      if (data.data?.referral) {
+        setShowReferralToast(true);
+        // 3秒后自动关闭
+        setTimeout(() => setShowReferralToast(false), 3000);
+      }
 
       // 通知其他组件登录状态变化
       window.dispatchEvent(new Event("loginStateChange"));
@@ -244,6 +272,19 @@ export default function SignInPage() {
           还没有账号？手机号登录即自动注册
         </p>
       </div>
+
+      {/* 推荐奖励提示 */}
+      {showReferralToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3">
+            <span className="text-2xl">🎁</span>
+            <div>
+              <p className="font-bold">推荐奖励已到账！</p>
+              <p className="text-sm opacity-90">您和好友各获得1次免费体验</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

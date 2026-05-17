@@ -149,10 +149,99 @@ async function checkSmsVerifyCode(phone: string, code: string): Promise<{ succes
   }
 }
 
+// 通过推荐码查找推荐人ID
+async function findReferrerByCode(referralCode: string, supabase: SupabaseClient): Promise<string | null> {
+  try {
+    // 推荐码是用户ID前8位（不含横杠转大写）
+    // 需要找到匹配的用户
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id')
+      .limit(100);
+    
+    if (error || !users) return null;
+    
+    // 匹配推荐码
+    for (const user of users) {
+      const userCode = user.id.replace(/-/g, '').substring(0, 8).toUpperCase();
+      if (userCode === referralCode.toUpperCase()) {
+        return user.id;
+      }
+    }
+    
+    return null;
+  } catch (err) {
+    console.error('查找推荐人失败:', err);
+    return null;
+  }
+}
+
+// 创建推荐记录并发放奖励
+async function processReferral(referrerId: string, refereeId: string, supabase: SupabaseClient): Promise<boolean> {
+  try {
+    // 不能自己推荐自己
+    if (referrerId === refereeId) {
+      console.log('不能自己推荐自己');
+      return false;
+    }
+    
+    // 检查是否已存在推荐记录（防止重复）
+    const { data: existing } = await supabase
+      .from('referrals')
+      .select('id')
+      .eq('referrer_id', referrerId)
+      .eq('referee_id', refereeId)
+      .single();
+    
+    if (existing) {
+      console.log('推荐记录已存在');
+      return false;
+    }
+    
+    // 插入推荐记录
+    const { error: insertError } = await supabase
+      .from('referrals')
+      .insert({
+        referrer_id: referrerId,
+        referee_id: refereeId,
+        reward_claimed: false,
+      });
+    
+    if (insertError) {
+      console.error('创建推荐记录失败:', insertError);
+      return false;
+    }
+    
+    // 调用存储过程发放奖励
+    const { error: rewardError } = await supabase
+      .rpc('claim_referral_reward', {
+        p_referrer_id: referrerId,
+        p_referee_id: refereeId,
+      });
+    
+    if (rewardError) {
+      console.error('发放奖励失败:', rewardError);
+      // 不影响登录，只是奖励发放失败
+      return false;
+    }
+    
+    console.log('推荐奖励发放成功');
+    return true;
+  } catch (err) {
+    console.error('处理推荐失败:', err);
+    return false;
+  }
+}
+
+// 获取推荐码（用户ID前8位）
+function getReferralCode(userId: string): string {
+  return userId.replace(/-/g, '').substring(0, 8).toUpperCase();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phone, code } = body;
+    const { phone, code, ref } = body;
     
     // 1. 参数校验
     if (!phone) {
@@ -213,6 +302,7 @@ export async function POST(request: NextRequest) {
     }
     
     // 如果用户不存在，创建新用户
+    let isNewUser = false;
     if (!user) {
       const { data: newUser, error: createError } = await supabase
         .from('users')
@@ -233,6 +323,30 @@ export async function POST(request: NextRequest) {
       }
       
       user = newUser;
+      isNewUser = true;
+    }
+    
+    // 7. 处理推荐关系（新用户且有ref参数）
+    let referralProcessed = false;
+    let referralCode = null;
+    if (isNewUser && ref) {
+      const referrerId = await findReferrerByCode(ref, supabase);
+      if (referrerId) {
+        referralProcessed = await processReferral(referrerId, user.id, supabase);
+        if (referralProcessed) {
+          // 重新获取用户信息（因为free_count可能已经变化）
+          const { data: updatedUser } = await supabase
+            .from('users')
+            .select('free_count')
+            .eq('id', user.id)
+            .single();
+          
+          if (updatedUser) {
+            user.free_count = updatedUser.free_count;
+          }
+          referralCode = getReferralCode(referrerId);
+        }
+      }
     }
     
     // 5. 签发JWT Token
@@ -256,6 +370,10 @@ export async function POST(request: NextRequest) {
           avatarUrl: user.avatar_url,
           freeCount: user.free_count,
         },
+        referral: referralProcessed ? {
+          code: referralCode,
+          message: '推荐奖励已发放！您和好友各获得1次免费体验',
+        } : null,
       },
     });
     

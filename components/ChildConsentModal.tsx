@@ -64,6 +64,7 @@ export default function ChildConsentModal({
                 <li>您上传的照片仅用于生成绘本插图</li>
                 <li>照片将安全存储，不会被公开或分享</li>
                 <li>您可以随时登录账户删除照片</li>
+                <li className="font-medium text-red-600">您须确保拥有照片的合法使用权及照片中人物（尤其是未成年人）的肖像权授权，因上传照片导致的侵权由您自行承担全部责任</li>
               </ul>
             </div>
 
@@ -75,6 +76,7 @@ export default function ChildConsentModal({
                 <li>本服务面向3-12岁儿童</li>
                 <li>建议在家长陪同下使用</li>
                 <li>AI生成内容仅供参考，需家长审核</li>
+                <li>详情请阅读<a href="/children-privacy" className="text-primary-orange hover:underline font-medium">《儿童隐私政策》</a></li>
               </ul>
             </div>
 

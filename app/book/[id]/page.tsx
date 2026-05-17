@@ -401,6 +401,16 @@ export default function BookPage() {
         {/* AI免责声明 */}
         <AIDisclaimer />
 
+        {/* 内容举报入口 */}
+        <div className="mt-6 text-center">
+          <a
+            href="mailto:haimozhouqiu@outlook.com?subject=内容举报&body=您好，我举报「是我呀」生成的绘本存在以下问题："
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors underline"
+          >
+            如发现不当内容，请举报
+          </a>
+        </div>
+
         {/* 底部CTA */}
         <div className="mt-12 text-center">
           <p className="text-gray-600 mb-4">喜欢这本绘本吗？</p>
@@ -430,7 +440,7 @@ export default function BookPage() {
       <DownloadPromptModal
         isOpen={showDownloadPrompt}
         onClose={() => setShowDownloadPrompt(false)}
-        isSignedIn={isSignedIn}
+        isSignedIn={isSignedIn ?? false}
       />
     </div>
   );

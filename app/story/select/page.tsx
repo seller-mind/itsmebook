@@ -1,0 +1,315 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { STORY_THEMES } from "@/lib/story";
+
+export default function StorySelectPage() {
+  const router = useRouter();
+  const [selectedTheme, setSelectedTheme] = useState<string>("");
+  const [childName, setChildName] = useState("");
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+
+  const handleGenerate = async () => {
+    if (!selectedTheme && !customPrompt.trim()) {
+      setError("请选择一个故事主题或输入自定义故事");
+      return;
+    }
+
+    const name = childName.trim() || "小宝贝";
+    setIsGenerating(true);
+    setProgress(0);
+    setError("");
+
+    try {
+      setStatus("正在生成故事文本...");
+      setProgress(10);
+
+      // 调用故事生成API
+      const res = await fetch("/api/story/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childName: name,
+          themeId: selectedTheme || "custom",
+          styleId: "watercolor",
+          customPrompt: customPrompt.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      setProgress(30);
+
+      if (!data.success) {
+        throw new Error(data.message || "故事生成失败");
+      }
+
+      const story = data.story;
+
+      // 生成配图
+      setStatus("正在生成配图...");
+      const pagesWithImages = await Promise.all(
+        story.pages.map(async (page: any, index: number) => {
+          setProgress(30 + Math.round((index / story.pages.length) * 50));
+
+          try {
+            const imageRes = await fetch("/api/image/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                imagePrompt: page.imagePrompt,
+                style: "watercolor",
+                index,
+              }),
+            });
+
+            const imageData = await imageRes.json();
+            return {
+              ...page,
+              imageUrl: imageData.success ? imageData.imageUrl : imageData.imageUrl || getPlaceholderImage(index),
+            };
+          } catch {
+            return {
+              ...page,
+              imageUrl: getPlaceholderImage(index),
+            };
+          }
+        })
+      );
+
+      setProgress(85);
+      setStatus("正在完成...");
+
+      // 保存故事数据到sessionStorage
+      const storyData = {
+        title: story.title,
+        childName: name,
+        pages: pagesWithImages,
+        voiceUrl: sessionStorage.getItem("bedtime_voice_url") || "",
+        voiceId: sessionStorage.getItem("bedtime_voice_id") || "",
+        createdAt: new Date().toISOString(),
+      };
+
+      sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
+
+      setProgress(100);
+      setStatus("完成！");
+
+      // 跳转到播放器
+      setTimeout(() => {
+        router.push("/story/player/demo");
+      }, 500);
+    } catch (err: any) {
+      setError(err.message || "生成失败，请重试");
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-indigo-50">
+      {/* 顶部导航 */}
+      <div className="px-4 py-4 flex items-center justify-between max-w-lg mx-auto">
+        <button
+          onClick={() => router.push("/recording")}
+          className="flex items-center gap-1 text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="text-sm">声音录制</span>
+        </button>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xl">📖</span>
+          <span className="font-bold text-gray-900">选择故事</span>
+        </div>
+        <div className="w-16" />
+      </div>
+
+      {/* 进度指示 */}
+      <div className="max-w-lg mx-auto px-4 mb-6">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-1">
+            <div className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">
+              ✓
+            </div>
+            <div className="flex-1 h-1 bg-green-500 rounded-full" />
+            <div className="w-6 h-6 rounded-full bg-primary-orange text-white flex items-center justify-center text-xs font-bold">
+              2
+            </div>
+            <div className="flex-1 h-1 bg-gray-200 rounded-full" />
+            <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-xs font-bold">
+              3
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-between mt-1 text-xs text-gray-400">
+          <span>录声音</span>
+          <span>选故事</span>
+          <span>听故事</span>
+        </div>
+      </div>
+
+      {/* 生成中状态 */}
+      {isGenerating && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+            <div className="w-20 h-20 mx-auto mb-6 relative">
+              <svg className="w-full h-full animate-spin" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="#E5E7EB" strokeWidth="6" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  fill="none"
+                  stroke="url(#grad2)"
+                  strokeWidth="6"
+                  strokeDasharray={`${progress * 2.83} 283`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 50 50)"
+                />
+                <defs>
+                  <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#FF8C42" />
+                    <stop offset="100%" stopColor="#FFD93D" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-lg font-bold text-gray-700">{progress}%</span>
+              </div>
+            </div>
+            <h3 className="font-bold text-gray-900 text-lg mb-2">
+              正在生成你的专属故事
+            </h3>
+            <p className="text-sm text-gray-500 mb-2">{status}</p>
+            <p className="text-xs text-gray-400">
+              这可能需要1-2分钟，请耐心等待
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 主内容 */}
+      <div className="max-w-lg mx-auto px-4 pb-12">
+        {/* 标题 */}
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">选择今晚的故事类型</h1>
+          <p className="text-sm text-gray-500">
+            选一个孩子喜欢的，或者告诉我你想要的故事
+          </p>
+        </div>
+
+        {/* 孩子名字输入 */}
+        <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            孩子名字（可选）
+          </label>
+          <input
+            type="text"
+            value={childName}
+            onChange={(e) => setChildName(e.target.value)}
+            placeholder="输入名字，故事里会提到"
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-orange focus:outline-none transition-colors text-base"
+          />
+        </div>
+
+        {/* 故事主题选择 */}
+        <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
+          <h3 className="font-medium text-gray-900 text-sm mb-3">故事模板</h3>
+          <div className="grid grid-cols-3 gap-3">
+            {STORY_THEMES.map((theme) => (
+              <button
+                key={theme.id}
+                onClick={() => setSelectedTheme(theme.id)}
+                className={`p-4 rounded-xl text-center transition-all ${
+                  selectedTheme === theme.id
+                    ? "bg-gradient-to-br " + theme.color + " ring-2 ring-primary-orange shadow-md"
+                    : "bg-gray-50 hover:bg-gray-100"
+                }`}
+              >
+                <span className="text-2xl block mb-1">{theme.emoji}</span>
+                <p className="font-medium text-gray-900 text-xs">{theme.name}</p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-tight">{theme.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 自定义故事 */}
+        <div className="bg-white rounded-2xl shadow-md p-5 mb-6">
+          <h3 className="font-medium text-gray-900 text-sm mb-3">自定义故事</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            说一句话或关键词，我会帮你生成故事
+          </p>
+          <textarea
+            value={customPrompt}
+            onChange={(e) => {
+              setCustomPrompt(e.target.value);
+              if (e.target.value.trim()) setSelectedTheme("");
+            }}
+            placeholder='例如："小兔子今天去旅行了" 或者 "星星和月亮是好朋友"'
+            rows={3}
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-orange focus:outline-none transition-colors text-base resize-none"
+          />
+          <p className="text-xs text-gray-400 mt-2">
+            也可以说："讲一个关于勇敢的冒险故事"
+          </p>
+        </div>
+
+        {/* 错误提示 */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* 开始生成 */}
+        <button
+          onClick={handleGenerate}
+          disabled={isGenerating}
+          className="w-full btn-primary py-4 text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isGenerating ? (
+            <>
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              生成中...
+            </>
+          ) : (
+            <>
+              开始生成故事
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </>
+          )}
+        </button>
+
+        {/* 提示 */}
+        <p className="text-xs text-gray-400 text-center mt-4">
+          生成大约需要1-2分钟，配图会自动生成
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// 占位图
+function getPlaceholderImage(index: number): string {
+  const images = [
+    "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&h=800&fit=crop",
+    "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800&h=800&fit=crop",
+    "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&h=800&fit=crop",
+    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=800&fit=crop",
+    "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&h=800&fit=crop",
+    "https://images.unsplash.com/photo-1426604966848-d7adac402bff?w=800&h=800&fit=crop",
+    "https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=800&h=800&fit=crop",
+    "https://images.unsplash.com/photo-1440342359743-84fcb8c21f21?w=800&h=800&fit=crop",
+    "https://images.unsplash.com/photo-1465056836041-7f43ac27dcb5?w=800&h=800&fit=crop",
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=800&fit=crop",
+  ];
+  return images[index % images.length];
+}

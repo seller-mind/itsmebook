@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import ChildConsentModal from "@/components/ChildConsentModal";
 import PaymentDialog from "@/components/PaymentDialog";
 import { GenerationProgress } from "@/components/AIBadge";
+import SharePoster from "@/components/SharePoster";
 import { STYLE_CONFIGS, THEME_CONFIGS, STORY_PROMPT_TEMPLATE } from "@/lib/ai";
 
 interface User {
@@ -136,6 +137,28 @@ export default function CreatePage() {
     return () => window.removeEventListener("loginStateChange", handleLoginStateChange);
   }, []);
 
+  // 获取推荐信息
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchReferralInfo = async () => {
+      try {
+        const token = localStorage.getItem("itsmebook_token");
+        const response = await fetch("/api/referral/info", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (data.success && data.data.referralCode) {
+          setReferralCode(data.data.referralCode);
+        }
+      } catch (err) {
+        console.error("获取推荐信息失败:", err);
+      }
+    };
+
+    fetchReferralInfo();
+  }, [user]);
+
   // 步骤状态
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 6;
@@ -158,6 +181,11 @@ export default function CreatePage() {
   const [showConsent, setShowConsent] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showSharePoster, setShowSharePoster] = useState(false);
+
+  // 推荐信息状态
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [showInviteGuide, setShowInviteGuide] = useState(false);
 
   // 生成状态
   const [isGenerating, setIsGenerating] = useState(false);
@@ -1018,6 +1046,55 @@ export default function CreatePage() {
                   </div>
                 )}
 
+                {/* 邀请好友引导 - 免费次数为0时显示 */}
+                {user && user.freeCount <= 0 && (
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3 sm:p-4 text-center max-w-md mx-auto w-full">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <span className="text-2xl">🎁</span>
+                      <span className="text-green-800 font-bold text-sm sm:text-base">邀请好友，各得1次免费</span>
+                    </div>
+                    <p className="text-green-700 text-xs sm:text-sm mb-3">
+                      分享链接给朋友，好友注册后你们都能获得1次免费生成次数
+                    </p>
+                    <button
+                      onClick={() => {
+                        if (referralCode) {
+                          const shareLink = `https://www.itsmebook.com/?ref=${referralCode}`;
+                          navigator.clipboard.writeText(shareLink).then(() => {
+                            alert('分享链接已复制到剪贴板！');
+                          }).catch(() => {
+                            prompt('复制分享链接:', shareLink);
+                          });
+                        } else {
+                          // 如果没有推荐码，生成一个临时的
+                          const userId = user.id.replace(/-/g, '').substring(0, 8).toUpperCase();
+                          const shareLink = `https://www.itsmebook.com/?ref=${userId}`;
+                          navigator.clipboard.writeText(shareLink).then(() => {
+                            alert('分享链接已复制到剪贴板！');
+                          }).catch(() => {
+                            prompt('复制分享链接:', shareLink);
+                          });
+                        }
+                      }}
+                      className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors"
+                    >
+                      🔗 复制邀请链接
+                    </button>
+                  </div>
+                )}
+
+                {/* 推荐信息提示 - 有推荐码时显示 */}
+                {user && referralCode && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 text-center max-w-md mx-auto w-full">
+                    <p className="text-blue-700 text-xs sm:text-sm">
+                      💡 您的专属邀请码：<span className="font-bold">{referralCode}</span>
+                    </p>
+                    <p className="text-blue-600 text-xs mt-1">
+                      分享链接给好友，好友注册后双方各得1次免费！
+                    </p>
+                  </div>
+                )}
+
                 {/* 套餐选择 */}
                 {user && (
                   <div className="mt-4 sm:mt-6">
@@ -1182,6 +1259,30 @@ export default function CreatePage() {
         }}
         initialPlan={selectedPlan}
       />
+
+      {/* 分享海报弹窗 */}
+      <SharePoster
+        bookData={{
+          coverImage: photoPreviews[0] || "",
+          childName: characterName || "宝贝",
+          styleName: STYLES.find(s => s.id === selectedStyle)?.name || "水彩风格",
+          bookTitle: `${characterName || "宝贝"}的奇妙故事`,
+        }}
+        referralCode={referralCode || undefined}
+        onClose={() => setShowSharePoster(false)}
+      />
+
+      {/* 账户注销入口 */}
+      {user && (
+        <div className="fixed bottom-20 right-4 z-40">
+          <a
+            href="mailto:haimozhouqiu@outlook.com?subject=账户注销申请&body=您好，我申请注销我的「是我呀」账户，并删除所有个人数据。请协助处理，谢谢。"
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors underline"
+          >
+            注销账户
+          </a>
+        </div>
+      )}
     </div>
   );
 }
