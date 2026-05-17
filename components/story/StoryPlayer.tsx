@@ -38,6 +38,24 @@ export default function StoryPlayer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const whiteNoiseRef = useRef<HTMLAudioElement | null>(null);
   const totalPages = pages.length;
+  
+  // Web Speech API 相关
+  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const speechTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // 清理函数
+  const cleanupSpeech = useCallback(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    if (speechTimerRef.current) {
+      clearTimeout(speechTimerRef.current);
+      speechTimerRef.current = null;
+    }
+    speechRef.current = null;
+    setIsSpeaking(false);
+  }, []);
 
   // 初始化音频
   useEffect(() => {
@@ -47,6 +65,7 @@ export default function StoryPlayer({
       whiteNoiseRef.current.loop = true;
     }
     return () => {
+      cleanupSpeech();
       if (audioRef.current) {
         audioRef.current.pause();
       }
@@ -57,21 +76,104 @@ export default function StoryPlayer({
         clearTimeout(sleepTimer);
       }
     };
-  }, []);
+  }, [sleepTimer, cleanupSpeech]);
+
+  // Web Speech API 朗读函数
+  const speakText = useCallback((text: string, pageIndex: number) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      return;
+    }
+
+    // 清理之前的朗读
+    cleanupSpeech();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "zh-CN";
+    utterance.rate = 0.8; // 慢一点，适合睡前
+    utterance.pitch = 1.1; // 稍微柔和
+    utterance.volume = volume;
+
+    // 尝试选择中文语音
+    const voices = window.speechSynthesis.getVoices();
+    const chineseVoice = voices.find(v => v.lang.includes("zh") && v.lang.includes("CN")) ||
+                          voices.find(v => v.lang.includes("zh")) ||
+                          voices[0];
+    if (chineseVoice) {
+      utterance.voice = chineseVoice;
+    }
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setIsPlaying(true);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      
+      // 朗读完毕，自动翻到下一页
+      if (isPlaying && pageIndex < totalPages - 1) {
+        speechTimerRef.current = setTimeout(() => {
+          const nextPage = pageIndex + 1;
+          setCurrentPage(nextPage);
+          // 继续朗读下一页
+          speakText(pages[nextPage].text, nextPage);
+        }, 800); // 停顿一下再翻页
+      } else if (pageIndex >= totalPages - 1) {
+        // 最后一页读完了
+        setIsPlaying(false);
+        // 显示"故事讲完了，晚安"
+      }
+    };
+
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setIsPlaying(false);
+    };
+
+    speechRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+  }, [volume, isPlaying, totalPages, pages, cleanupSpeech]);
+
+  // 停止朗读
+  const stopSpeaking = useCallback(() => {
+    cleanupSpeech();
+    setIsPlaying(false);
+  }, [cleanupSpeech]);
 
   // 播放/暂停
   const togglePlay = () => {
     if (!audioRef.current) return;
 
     if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
+      // 停止播放
+      if (voiceAudioUrl && audioRef.current.src === voiceAudioUrl) {
+        audioRef.current.pause();
+      }
+      // 同时停止 Web Speech API
+      stopSpeaking();
     } else {
-      // 如果有语音URL，播放语音
+      // 开始播放
       if (voiceAudioUrl) {
+        // 如果有语音克隆URL，优先使用
         audioRef.current.src = voiceAudioUrl;
         audioRef.current.volume = volume;
-        audioRef.current.play().catch(() => {});
+        audioRef.current.play().catch(() => {
+          // 如果克隆声音播放失败，降级到 Web Speech API
+          speakText(pages[currentPage].text, currentPage);
+        });
+        // 监听音频播放结束
+        audioRef.current.onended = () => {
+          setIsPlaying(false);
+          // 自动翻页
+          if (currentPage < totalPages - 1) {
+            setTimeout(() => {
+              setCurrentPage(prev => prev + 1);
+            }, 500);
+          }
+        };
+      } else {
+        // 没有克隆声音，使用 Web Speech API
+        speakText(pages[currentPage].text, currentPage);
       }
       setIsPlaying(true);
     }
@@ -177,8 +279,22 @@ export default function StoryPlayer({
             alt={`第${currentPage + 1}页`}
             className="w-full h-full object-cover"
             onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&h=800&fit=crop";
+              // 图片加载失败时，显示主题色渐变背景而不是随机风景图
+              const img = e.target as HTMLImageElement;
+              if (!img.dataset.fallbackUsed) {
+                img.dataset.fallbackUsed = "true";
+                // 使用与页码相关的主题色渐变
+                const gradients = [
+                  ["#FFB6C1", "#FFC0CB", "#FF69B4"],
+                  ["#87CEEB", "#ADD8E6", "#B0E0E6"],
+                  ["#DDA0DD", "#EE82EE", "#DA70D6"],
+                  ["#98FB98", "#90EE90", "#7CFC00"],
+                  ["#F0E68C", "#EEE8AA", "#BDB76B"],
+                ];
+                const colors = gradients[currentPage % gradients.length];
+                const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='800' height='800'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='${colors[0]}'/><stop offset='50%25' stop-color='${colors[1]}'/><stop offset='100%25' stop-color='${colors[2]}'/></linearGradient></defs><rect width='800' height='800' fill='url(#g)' rx='40'/><text x='400' y='420' font-size='180' text-anchor='middle' dominant-baseline='middle'>📖</text></svg>`;
+                img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+              }
             }}
           />
         </div>

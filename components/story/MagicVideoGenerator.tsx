@@ -243,6 +243,19 @@ export default function MagicVideoGenerator({
             />
           </div>
 
+          {/* 声音提示 */}
+          {!voiceAudioUrl && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-700">
+              <div className="flex items-start gap-2">
+                <span className="text-lg">💡</span>
+                <div>
+                  <p className="font-medium">建议配合录音一起分享</p>
+                  <p className="text-amber-600 text-xs mt-1">录制你的声音后，打开故事播放器一起播放，效果更棒！</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 下载/重新生成 */}
           <div className="flex gap-3">
             <a

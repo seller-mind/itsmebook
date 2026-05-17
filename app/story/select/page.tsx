@@ -382,19 +382,48 @@ export default function StorySelectPage() {
   );
 }
 
-// 占位图
+// 占位图 - 生成与故事主题相关的渐变SVG
 function getPlaceholderImage(index: number): string {
-  const images = [
-    "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1426604966848-d7adac402bff?w=800&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=800&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1440342359743-84fcb8c21f21?w=800&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1465056836041-7f43ac27dcb5?w=800&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=800&fit=crop",
+  // 主题色渐变配置，每页不同
+  const gradients = [
+    { colors: ["#FFB6C1", "#FFC0CB", "#FF69B4"], emoji: "🌙" },
+    { colors: ["#87CEEB", "#ADD8E6", "#B0E0E6"], emoji: "⭐" },
+    { colors: ["#DDA0DD", "#EE82EE", "#DA70D6"], emoji: "🌸" },
+    { colors: ["#98FB98", "#90EE90", "#7CFC00"], emoji: "🌿" },
+    { colors: ["#F0E68C", "#EEE8AA", "#BDB76B"], emoji: "🌻" },
+    { colors: ["#FFA07A", "#FA8072", "#FF7F50"], emoji: "🔥" },
+    { colors: ["#87CEFA", "#4169E1", "#6495ED"], emoji: "🌊" },
+    { colors: ["#D8BFD8", "#DDA0DD", "#EE82EE"], emoji: "🌺" },
+    { colors: ["#AFEEEE", "#40E0D0", "#48D1CC"], emoji: "🦋" },
+    { colors: ["#FFDAB9", "#FFE4B5", "#FFA500"], emoji: "🐻" },
   ];
-  return images[index % images.length];
+  
+  const gradient = gradients[index % gradients.length];
+  const [color1, color2, color3] = gradient.colors;
+  const emoji = gradient.emoji;
+  
+  // 生成 SVG 占位图
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
+          <stop offset="50%" style="stop-color:${color2};stop-opacity:1" />
+          <stop offset="100%" style="stop-color:${color3};stop-opacity:1" />
+        </linearGradient>
+        <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" style="stop-color:white;stop-opacity:0.3" />
+          <stop offset="100%" style="stop-color:white;stop-opacity:0" />
+        </radialGradient>
+      </defs>
+      <rect width="800" height="800" fill="url(#grad)" rx="40"/>
+      <circle cx="400" cy="400" r="300" fill="url(#glow)"/>
+      <text x="400" y="420" font-size="180" text-anchor="middle" dominant-baseline="middle">${emoji}</text>
+      <text x="400" y="650" font-size="32" text-anchor="middle" fill="white" opacity="0.8" font-family="sans-serif">第${index + 1}页</text>
+    </svg>
+  `.trim();
+  
+  // 将 SVG 转为 data URL
+  const base64 = btoa(unescape(encodeURIComponent(svg)));
+  return `data:image/svg+xml;base64,${base64}`;
 }
