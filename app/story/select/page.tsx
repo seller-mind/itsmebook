@@ -29,8 +29,8 @@ export default function StorySelectPage() {
       setStatus("正在生成故事文本...");
       setProgress(10);
 
-      // 调用故事生成API
-      const res = await fetch("/api/story/generate", {
+      // 调用故事生成API（流式）
+      const response = await fetch("/api/story/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -41,8 +41,45 @@ export default function StorySelectPage() {
         }),
       });
 
-      const data = await res.json();
       setProgress(30);
+
+      // 处理流式响应
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullData = "";
+
+      if (!reader) {
+        throw new Error("无法读取响应流");
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6).trim();
+            if (data && data !== "[DONE]") {
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.success === false) {
+                  throw new Error(parsed.message || "故事生成失败");
+                }
+                if (parsed.story) {
+                  fullData = JSON.stringify(parsed);
+                }
+              } catch {
+                // 忽略解析错误，继续接收
+              }
+            }
+          }
+        }
+      }
+
+      const data = JSON.parse(fullData);
 
       if (!data.success) {
         throw new Error(data.message || "故事生成失败");
@@ -245,19 +282,37 @@ export default function StorySelectPage() {
           <p className="text-xs text-gray-500 mb-3">
             说一句话或关键词，我会帮你生成故事
           </p>
+          {/* 示例标签 */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            {[
+              "小兔子今天去旅行了",
+              "星星和月亮是好朋友",
+              "讲一个关于勇敢的冒险故事",
+              "小熊想吃天上的云朵",
+              "彩虹桥的另一边有什么",
+            ].map((example) => (
+              <button
+                key={example}
+                onClick={() => {
+                  setCustomPrompt(example);
+                  setSelectedTheme("");
+                }}
+                className="px-3 py-1.5 rounded-full text-xs bg-gray-50 border border-gray-200 text-gray-600 hover:bg-primary-orange/10 hover:border-primary-orange/50 hover:text-primary-orange transition-colors"
+              >
+                {example}
+              </button>
+            ))}
+          </div>
           <textarea
             value={customPrompt}
             onChange={(e) => {
               setCustomPrompt(e.target.value);
               if (e.target.value.trim()) setSelectedTheme("");
             }}
-            placeholder='例如："小兔子今天去旅行了" 或者 "星星和月亮是好朋友"'
+            placeholder="写下你想要的故事情节..."
             rows={3}
             className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-orange focus:outline-none transition-colors text-base resize-none"
           />
-          <p className="text-xs text-gray-400 mt-2">
-            也可以说："讲一个关于勇敢的冒险故事"
-          </p>
         </div>
 
         {/* 错误提示 */}

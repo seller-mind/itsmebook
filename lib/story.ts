@@ -47,6 +47,48 @@ export const STORY_THEMES = [
     description: "探索宇宙的奇妙冒险",
     color: "from-slate-100 to-zinc-200",
   },
+  {
+    id: "ocean",
+    name: "海洋世界",
+    emoji: "🐬",
+    description: "海底小动物们的有趣故事",
+    color: "from-cyan-100 to-teal-200",
+  },
+  {
+    id: "dinosaur",
+    name: "恐龙时代",
+    emoji: "🦕",
+    description: "和恐龙做朋友的奇妙旅程",
+    color: "from-green-100 to-emerald-200",
+  },
+  {
+    id: "friendship",
+    name: "友谊故事",
+    emoji: "🤝",
+    description: "小伙伴之间的温暖故事",
+    color: "from-yellow-100 to-amber-200",
+  },
+  {
+    id: "bravery",
+    name: "勇敢成长",
+    emoji: "💪",
+    description: "鼓励孩子勇敢的小故事",
+    color: "from-red-100 to-orange-200",
+  },
+  {
+    id: "seasons",
+    name: "四季变化",
+    emoji: "🍂",
+    description: "感受春夏秋冬的美丽",
+    color: "from-lime-100 to-green-200",
+  },
+  {
+    id: "fairytale",
+    name: "梦幻童话",
+    emoji: "🏰",
+    description: "充满想象力的睡前故事",
+    color: "from-fuchsia-100 to-pink-200",
+  },
 ];
 
 // 故事生成Prompt模板

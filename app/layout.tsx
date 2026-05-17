@@ -123,8 +123,8 @@ export default function RootLayout({
             {/* 导航栏 */}
           <Navbar />
           
-          {/* 主内容区 */}
-          <main className="flex-1">
+          {/* 主内容区 - pt-16为fixed导航栏留出空间 */}
+          <main className="flex-1 pt-16">
             {children}
           </main>
           
@@ -214,7 +214,7 @@ export default function RootLayout({
               <div className="mt-8 pt-8 border-t border-gray-200">
                 <div className="space-y-3">
                   <p className="text-sm text-gray-500 text-center">
-                    本网站所有AI生成内容仅供娱乐参考，不代表任何真实事件或观点。用户须确保上传照片拥有合法使用权，因上传内容导致的侵权由用户自行承担。
+                    本网站所有AI生成内容仅供娱乐参考，不代表任何真实事件或观点。用户须确保上传的录音内容拥有合法使用权，因上传内容导致的侵权由用户自行承担。
                   </p>
                   <p className="text-sm text-gray-500 text-center">
                     本服务使用的AI模型由火山引擎提供 | AI生成内容可能存在不准确性，请理性看待

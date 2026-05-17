@@ -20,29 +20,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-purple-50">
-      {/* 导航栏 */}
-      <nav className="px-4 py-4 flex items-center justify-between max-w-5xl mx-auto">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🌙</span>
-          <span className="font-bold text-gray-900 text-lg">睡前魔法书</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/pricing")}
-            className="text-sm text-gray-600 hover:text-primary-orange transition-colors"
-          >
-            定价
-          </button>
-          <button
-            onClick={() => router.push("/account")}
-            className="text-sm text-gray-600 hover:text-primary-orange transition-colors"
-          >
-            我的
-          </button>
-        </div>
-      </nav>
-
-      {/* Hero区域 */}
+      {/* Hero区域 - pt-16为全局fixed导航栏留出空间 */}
       <section className="relative px-4 pt-8 pb-16 text-center max-w-5xl mx-auto overflow-hidden">
         {/* 装饰背景 */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">

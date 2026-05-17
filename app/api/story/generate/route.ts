@@ -1,7 +1,7 @@
 /**
  * 睡前故事生成API - 睡前魔法书
  * POST /api/story/generate
- * 生成故事文本和配图
+ * 生成故事文本和配图（使用流式响应避免Vercel 10秒超时）
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,6 +19,36 @@ const WAN_STYLE_MAP: Record<string, string> = {
   minimalist: "现代简约绘本风格，大胆几何造型，有限色彩，干净构图",
   nordic: "北欧经典绘本风格，简洁线条，柔和冷色调，温馨极简",
 };
+
+// 流式调用Doubao API并返回流式响应
+async function streamDoubaoStory(
+  prompt: string,
+  apiKey: string,
+  endpoint: string,
+  modelId: string
+): Promise<ReadableStream> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [{ role: "user", content: prompt }],
+      stream: true,
+      temperature: 0.8,
+      max_tokens: 4000,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`故事生成API错误: ${response.status}`);
+  }
+
+  // 返回原始流，让前端处理
+  return response.body!;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,66 +88,89 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    // 使用流式响应，避免Vercel 10秒超时
+    const stream = await streamDoubaoStory(prompt, apiKey, endpoint, modelId);
 
-    let response: Response;
-    try {
-      response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: modelId,
-          messages: [{ role: "user", content: prompt }],
-          stream: false,
-          temperature: 0.8,
-          max_tokens: 4000,
-        }),
-        signal: controller.signal,
-      });
-    } catch (apiError: any) {
-      clearTimeout(timeoutId);
-      throw new Error(
-        `故事生成失败: ${apiError.message?.substring(0, 100)}`
-      );
-    }
-    clearTimeout(timeoutId);
+    // 将Doubao的SSE流转换为Next.js的流式响应
+    const encoder = new TextEncoder();
+    
+    const readable = new ReadableStream({
+      async start(controller) {
+        const reader = stream.getReader();
+        let fullContent = "";
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`故事生成API错误: ${response.status}`);
-    }
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-    const result = await response.json();
-    const content = result.choices?.[0]?.message?.content;
+            const chunk = new TextDecoder().decode(value);
+            const lines = chunk.split("\n");
 
-    if (!content) {
-      throw new Error("故事生成返回为空");
-    }
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6).trim();
+                if (data === "[DONE]") {
+                  // 流结束，发送完整内容
+                  try {
+                    const jsonStr = fullContent
+                      .replace(/^```json\s*/g, "")
+                      .replace(/^```\s*/g, "")
+                      .replace(/\s*```$/g, "")
+                      .trim();
+                    
+                    const storyData = JSON.parse(jsonStr);
+                    
+                    if (!storyData.title) {
+                      storyData.title = `${childName}的睡前故事`;
+                    }
+                    if (!storyData.pages || storyData.pages.length === 0) {
+                      throw new Error("故事页数为空");
+                    }
+                    
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ success: true, story: storyData })}\n\n`)
+                    );
+                  } catch (parseError: any) {
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ success: false, message: "故事格式解析失败" })}\n\n`)
+                    );
+                  }
+                  controller.close();
+                  return;
+                }
 
-    // 解析JSON
-    const jsonStr = content
-      .replace(/^```json\s*/g, "")
-      .replace(/^```\s*/g, "")
-      .replace(/\s*```$/g, "")
-      .trim();
+                try {
+                  const parsed = JSON.parse(data);
+                  const delta = parsed.choices?.[0]?.delta?.content;
+                  if (delta) {
+                    fullContent += delta;
+                  }
+                } catch {
+                  // 忽略解析错误的行
+                }
+              }
+            }
+          }
+        } catch (error) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ success: false, message: "流式读取失败" })}\n\n`)
+          );
+          controller.close();
+        } finally {
+          reader.releaseLock();
+        }
+      },
+    });
 
-    const storyData = JSON.parse(jsonStr);
-
-    if (!storyData.title) storyData.title = `${childName}的睡前故事`;
-    if (!storyData.pages || storyData.pages.length === 0) {
-      throw new Error("故事页数为空");
-    }
-
-    return NextResponse.json({
-      success: true,
-      story: storyData,
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
     });
   } catch (error: any) {
-    console.error("故事生成失败:", error);
     return NextResponse.json(
       { success: false, message: error.message || "故事生成失败" },
       { status: 500 }
