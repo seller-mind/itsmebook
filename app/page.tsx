@@ -71,15 +71,15 @@ export default function HomePage() {
 
         {/* 主标题 */}
         <div className="relative z-10">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
             <span className="text-gradient">你的声音</span>
             <br />
             <span>是孩子最好的睡前魔法</span>
           </h1>
 
           {/* 副标题 */}
-          <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-10 max-w-xl mx-auto leading-relaxed">
-            孩子缠着讲故事，但你已经累得不想开口了？
+          <p className="text-sm sm:text-base md:text-lg text-gray-600 mb-10 max-w-md mx-auto leading-relaxed">
+            孩子缠着讲故事，但累得不想开口？
             <br />
             录30秒，让你的声音替你讲
           </p>
@@ -284,8 +284,8 @@ export default function HomePage() {
       {/* 底部CTA */}
       <section className="px-4 pb-20 max-w-5xl mx-auto text-center">
         <div className="bg-gradient-to-r from-primary-orange to-primary-dark rounded-3xl p-8 text-white">
-          <h2 className="text-2xl font-bold mb-3">现在就开始，今晚就见效</h2>
-          <p className="text-white/80 text-sm mb-6">录30秒，给孩子一个不一样的睡前体验</p>
+          <h2 className="text-2xl font-bold mb-3">今晚，让故事替你说晚安</h2>
+          <p className="text-white/80 text-sm mb-6">录30秒，你的声音就能讲一整本故事</p>
           <button
             onClick={handleStart}
             className="px-10 py-3.5 rounded-full bg-white text-primary-orange font-semibold hover:bg-gray-100 transition-colors text-base"

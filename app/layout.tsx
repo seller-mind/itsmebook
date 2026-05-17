@@ -138,12 +138,12 @@ export default function RootLayout({
                 {/* 品牌信息 */}
                 <div className="col-span-1 md:col-span-2">
                   <div className="flex items-center gap-2 mb-4">
-                    <span className="text-2xl">📚</span>
-                    <span className="text-xl font-bold text-gray-900">是我呀</span>
+                    <span className="text-2xl">🌙</span>
+                    <span className="text-xl font-bold text-gray-900">睡前魔法书</span>
                   </div>
                   <p className="text-gray-600 mb-4">
-                    你的孩子就是绘本的主角。<br />
-                    用AI为孩子创作独一无二的专属故事。
+                    你的声音，是孩子最好的睡前魔法。<br />
+                    录30秒，让故事替你说晚安。
                   </p>
                   <p className="text-sm text-gray-400">
                     © 2026 是我呀 All Rights Reserved.
@@ -155,8 +155,8 @@ export default function RootLayout({
                   <h3 className="font-semibold text-gray-900 mb-4">快速链接</h3>
                   <ul className="space-y-2 text-gray-600">
                     <li>
-                      <a href="/create" className="hover:text-primary-orange transition-colors">
-                        开始制作
+                      <a href="/recording" className="hover:text-primary-orange transition-colors">
+                        开始录制
                       </a>
                     </li>
                     <li>
