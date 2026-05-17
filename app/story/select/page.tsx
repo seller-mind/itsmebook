@@ -377,6 +377,7 @@ export default function StorySelectPage() {
           >
             <span>📚</span>
             <span>经典故事库</span>
+            <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full animate-pulse leading-none">更新中</span>
           </button>
           <button
             onClick={() => setActiveTab("custom")}
@@ -400,7 +401,7 @@ export default function StorySelectPage() {
                 <span className="text-lg">📚</span>
                 <span>精选 {CLASSIC_STORIES.length} 个公版经典故事，免去等待，即选即读</span>
               </p>
-              <p className="text-xs text-amber-600 mt-1 ml-7">故事库持续更新中</p>
+
             </div>
 
             {/* 分类展示 */}
