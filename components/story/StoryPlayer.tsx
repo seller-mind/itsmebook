@@ -139,12 +139,15 @@ export default function StoryPlayer({
     }
   }, [pages, totalPages]);
 
-  // 批量预加载所有页的音频
-  const preloadAllPages = useCallback(() => {
-    for (let i = 0; i < totalPages; i++) {
-      if (!audioCacheRef.current[i] && !preloadingRef.current.has(i)) {
-        preloadPageAudio(i);
-      }
+  // 只预加载当前页和下一页的音频（避免一次性请求8页浪费钱）
+  const preloadNextPages = useCallback((currentIndex: number) => {
+    // 当前页
+    if (!audioCacheRef.current[currentIndex] && !preloadingRef.current.has(currentIndex)) {
+      preloadPageAudio(currentIndex);
+    }
+    // 下一页
+    if (currentIndex + 1 < totalPages && !audioCacheRef.current[currentIndex + 1] && !preloadingRef.current.has(currentIndex + 1)) {
+      preloadPageAudio(currentIndex + 1);
     }
   }, [totalPages, preloadPageAudio]);
 
@@ -294,10 +297,10 @@ export default function StoryPlayer({
       setIsPlaying(true);
       // 立即播放当前页
       playPageAudio(currentPage);
-      // 同时预加载后续页
-      preloadAllPages();
+      // 预加载下一页
+      preloadNextPages(currentPage);
     }
-  }, [isPlaying, currentPage, cleanupAllAudio, playPageAudio, preloadAllPages]);
+  }, [isPlaying, currentPage, cleanupAllAudio, playPageAudio, preloadNextPages]);
 
   // 翻页
   const goToPage = useCallback((page: number) => {
@@ -308,6 +311,7 @@ export default function StoryPlayer({
 
     if (isPlayingRef.current) {
       playPageAudio(newPage);
+      preloadNextPages(newPage);
     }
   }, [totalPages, stopCurrentAudio, playPageAudio]);
 

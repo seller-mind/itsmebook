@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "cosyvoice-v3-flash",
+            model: "cosyvoice-v3.5-flash",
             input: {
               text: truncatedText,
               voice: ttsVoice,
@@ -121,50 +121,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 从URL下载音频数据，转为base64 data URL
-    // 这样做是因为前端直接访问百炼URL可能有CORS问题
-    try {
-      const audioResponse = await fetch(audioUrl, {
-        signal: AbortSignal.timeout(15000), // 15秒下载超时
-      });
-      
-      if (!audioResponse.ok) {
-        console.error("[TTS] Failed to download audio:", audioResponse.status);
-        // 降级：直接返回URL让前端尝试
-        return NextResponse.json({
-          success: true,
-          audioUrl: audioUrl,
-          isDirectUrl: true,
-        });
-      }
-      
-      const audioBuffer = await audioResponse.arrayBuffer();
-      
-      if (audioBuffer.byteLength === 0) {
-        return NextResponse.json({
-          success: false,
-          fallback: true,
-          message: "TTS返回空音频",
-        });
-      }
-
-      const audioBase64 = Buffer.from(audioBuffer).toString("base64");
-      const dataUrl = `data:audio/mpeg;base64,${audioBase64}`;
-
-      return NextResponse.json({
-        success: true,
-        audioUrl: dataUrl,
-        duration: Math.round(audioBuffer.byteLength / 4000), // MP3粗略估算时长
-      });
-    } catch (downloadError: any) {
-      console.error("[TTS] Audio download failed:", downloadError.message);
-      // 降级：直接返回URL
-      return NextResponse.json({
-        success: true,
-        audioUrl: audioUrl,
-        isDirectUrl: true,
-      });
-    }
+    // 直接返回百炼音频URL（有效期24h）
+    // 前端通过<audio>标签播放，不受CORS限制
+    // 不再在服务端下载转base64，节省Vercel函数运行时间
+    return NextResponse.json({
+      success: true,
+      audioUrl: audioUrl,
+    });
   } catch (error: any) {
     console.error("[TTS] 处理失败:", error);
     return NextResponse.json({

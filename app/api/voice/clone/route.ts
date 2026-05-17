@@ -9,7 +9,7 @@
  * - prefix只允许数字和英文字母，不超过10字符
  * - 音频只接受WAV/MP3/M4A格式（webm不行，需要转换）
  * - 音频要求：10-20秒推荐，≥16kHz，至少5秒连续清晰人声
- * - target_model必须与TTS模型一致（cosyvoice-v3-flash）
+ * - target_model必须与TTS模型一致（cosyvoice-v3.5-flash）
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
             model: "voice-enrollment",
             input: {
               action: "create_voice",
-              target_model: "cosyvoice-v3-flash",
+              target_model: "cosyvoice-v3.5-flash",
               prefix: voicePrefix,
               url: audioUrl,
               language_hints: ["zh"],

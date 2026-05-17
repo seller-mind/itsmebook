@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     const fullPrompt = `${imagePrompt}，${styleConfig.chinesePrompt}`;
 
     const requestBody = {
-      model: "wan2.7-image-pro",
+      model: "wan2.7-image",
       input: {
         messages: [
           {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         ],
       },
       parameters: {
-        size: "1024*1024",
+        size: "768*768",
         n: 1,
       },
     };
