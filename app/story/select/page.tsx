@@ -400,6 +400,7 @@ export default function StorySelectPage() {
                 <span className="text-lg">📚</span>
                 <span>精选 {CLASSIC_STORIES.length} 个公版经典故事，免去等待，即选即读</span>
               </p>
+              <p className="text-xs text-amber-600 mt-1 ml-7">故事库持续更新中</p>
             </div>
 
             {/* 分类展示 */}

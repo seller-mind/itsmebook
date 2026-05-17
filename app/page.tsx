@@ -57,9 +57,9 @@ export default function HomePage() {
 
           {/* 副标题 */}
           <p className="text-xs sm:text-base md:text-lg text-gray-600 mb-8 max-w-xs sm:max-w-md mx-auto leading-relaxed">
-            孩子缠着讲故事，但累得不想开口？
+            经典童话+AI专属故事，用你的声音讲给孩子听
             <br />
-            录30秒，让你的声音替你讲
+            录10秒，你的声音就能讲一整本
           </p>
 
           {/* CTA按钮 */}
@@ -168,8 +168,8 @@ export default function HomePage() {
               2
             </div>
             <h3 className="font-bold text-gray-900 mb-1">选故事</h3>
-            <p className="text-sm text-gray-500 mb-3">选择主题，输入名字</p>
-            <div className="text-xs text-gray-400">约1分钟</div>
+            <p className="text-sm text-gray-500 mb-3">经典童话或AI专属</p>
+            <div className="text-xs text-gray-400">20+经典 · 无限AI</div>
           </div>
 
           {/* 步骤3 */}
@@ -183,6 +183,67 @@ export default function HomePage() {
             <h3 className="font-bold text-gray-900 mb-1">听故事</h3>
             <p className="text-sm text-gray-500 mb-3">翻页浏览，睡前模式</p>
             <div className="text-xs text-gray-400">即刻享用</div>
+          </div>
+        </div>
+      </section>
+
+      {/* 故事库预览区 */}
+      <section className="px-4 pb-16 max-w-5xl mx-auto">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 text-center mb-2">
+          从经典到专属，总有孩子爱的故事
+        </h2>
+        <p className="text-center text-gray-500 text-sm mb-8">你的声音读经典，还是讲一个独一无二的故事？都行</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* 经典故事 */}
+          <div className="bg-white rounded-2xl p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={handleStart}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-200 flex items-center justify-center">
+                <span className="text-2xl">📚</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">经典故事库</h3>
+                <p className="text-xs text-primary-orange">故事库持续更新中</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {[
+                { emoji: "🇩🇰", name: "安徒生童话", examples: "丑小鸭、拇指姑娘、夜莺" },
+                { emoji: "🇨🇳", name: "中国经典", examples: "嫦娥奔月、神笔马良、九色鹿" },
+                { emoji: "🇩🇪", name: "格林童话", examples: "睡美人、青蛙王子" },
+              ].map((cat, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <span>{cat.emoji}</span>
+                  <span className="font-medium text-gray-800">{cat.name}</span>
+                  <span className="text-gray-400 text-xs">{cat.examples}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* AI专属故事 */}
+          <div className="bg-white rounded-2xl p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={handleStart}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-indigo-200 flex items-center justify-center">
+                <span className="text-2xl">✨</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">AI专属故事</h3>
+                <p className="text-xs text-purple-500">无限生成，独一无二</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {[
+                { emoji: "🌙", desc: "输入孩子名字，主角就是TA" },
+                { emoji: "🎨", desc: "选风格主题，每次都不一样" },
+                { emoji: "💡", desc: "融入你想教的道理和习惯" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <span>{item.emoji}</span>
+                  <span className="text-gray-600">{item.desc}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -263,7 +324,7 @@ export default function HomePage() {
       <section className="px-4 pb-20 max-w-5xl mx-auto text-center">
         <div className="bg-gradient-to-r from-primary-orange to-primary-dark rounded-3xl p-8 text-white">
           <h2 className="text-2xl font-bold mb-3">今晚，让故事替你说晚安</h2>
-          <p className="text-white/80 text-sm mb-6">录30秒，你的声音就能讲一整本故事</p>
+          <p className="text-white/80 text-sm mb-6">经典童话+AI专属，录10秒就能讲一整本</p>
           <button
             onClick={handleStart}
             className="px-10 py-3.5 rounded-full bg-white text-primary-orange font-semibold hover:bg-gray-100 transition-colors text-base"
