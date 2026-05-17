@@ -1,0 +1,239 @@
+{
+  "ugly-duckling": {
+    "title": "丑小鸭",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ugly-duckling/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ugly-duckling/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ugly-duckling/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ugly-duckling/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ugly-duckling/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ugly-duckling/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ugly-duckling/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ugly-duckling/page-8.png"
+    }
+  },
+  "thumbelina": {
+    "title": "拇指姑娘",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/thumbelina/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/thumbelina/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/thumbelina/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/thumbelina/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/thumbelina/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/thumbelina/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/thumbelina/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/thumbelina/page-8.png"
+    }
+  },
+  "flower-of-ida": {
+    "title": "小意达的花儿",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/flower-of-ida/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/flower-of-ida/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/flower-of-ida/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/flower-of-ida/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/flower-of-ida/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/flower-of-ida/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/flower-of-ida/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/flower-of-ida/page-8.png"
+    }
+  },
+  "nightingale": {
+    "title": "夜莺",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nightingale/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nightingale/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nightingale/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nightingale/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nightingale/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nightingale/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nightingale/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nightingale/page-8.png"
+    }
+  },
+  "princess-pea": {
+    "title": "豌豆公主",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/princess-pea/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/princess-pea/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/princess-pea/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/princess-pea/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/princess-pea/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/princess-pea/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/princess-pea/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/princess-pea/page-8.png"
+    }
+  },
+  "star-silver": {
+    "title": "星星银币",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/star-silver/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/star-silver/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/star-silver/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/star-silver/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/star-silver/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/star-silver/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/star-silver/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/star-silver/page-8.png"
+    }
+  },
+  "sleeping-beauty": {
+    "title": "睡美人",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/sleeping-beauty/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/sleeping-beauty/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/sleeping-beauty/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/sleeping-beauty/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/sleeping-beauty/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/sleeping-beauty/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/sleeping-beauty/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/sleeping-beauty/page-8.png"
+    }
+  },
+  "water-of-life": {
+    "title": "生命之水",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/water-of-life/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/water-of-life/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/water-of-life/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/water-of-life/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/water-of-life/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/water-of-life/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/water-of-life/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/water-of-life/page-8.png"
+    }
+  },
+  " Bremen-musicians": {
+    "title": "不莱梅的乐队",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ Bremen-musicians/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ Bremen-musicians/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ Bremen-musicians/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ Bremen-musicians/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ Bremen-musicians/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ Bremen-musicians/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ Bremen-musicians/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ Bremen-musicians/page-8.png"
+    }
+  },
+  "chang-e-flight": {
+    "title": "嫦娥奔月",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/chang-e-flight/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/chang-e-flight/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/chang-e-flight/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/chang-e-flight/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/chang-e-flight/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/chang-e-flight/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/chang-e-flight/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/chang-e-flight/page-8.png"
+    }
+  },
+  "cowherd-weaver": {
+    "title": "牛郎织女",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/cowherd-weaver/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/cowherd-weaver/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/cowherd-weaver/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/cowherd-weaver/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/cowherd-weaver/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/cowherd-weaver/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/cowherd-weaver/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/cowherd-weaver/page-8.png"
+    }
+  },
+  "monkey-moon": {
+    "title": "猴子捞月",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/monkey-moon/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/monkey-moon/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/monkey-moon/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/monkey-moon/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/monkey-moon/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/monkey-moon/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/monkey-moon/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/monkey-moon/page-8.png"
+    }
+  },
+  "pony-crossing": {
+    "title": "小马过河",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/pony-crossing/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/pony-crossing/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/pony-crossing/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/pony-crossing/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/pony-crossing/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/pony-crossing/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/pony-crossing/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/pony-crossing/page-8.png"
+    }
+  },
+  "magic-brush": {
+    "title": "神笔马良",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/magic-brush/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/magic-brush/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/magic-brush/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/magic-brush/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/magic-brush/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/magic-brush/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/magic-brush/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/magic-brush/page-8.png"
+    }
+  },
+  "nine-colored-deer": {
+    "title": "九色鹿",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nine-colored-deer/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nine-colored-deer/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nine-colored-deer/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nine-colored-deer/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nine-colored-deer/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nine-colored-deer/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nine-colored-deer/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/nine-colored-deer/page-8.png"
+    }
+  },
+  "tortoise-hare": {
+    "title": "龟兔赛跑",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/tortoise-hare/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/tortoise-hare/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/tortoise-hare/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/tortoise-hare/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/tortoise-hare/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/tortoise-hare/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/tortoise-hare/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/tortoise-hare/page-8.png"
+    }
+  },
+  "lion-mouse": {
+    "title": "狮子和老鼠",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/lion-mouse/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/lion-mouse/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/lion-mouse/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/lion-mouse/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/lion-mouse/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/lion-mouse/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/lion-mouse/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/lion-mouse/page-8.png"
+    }
+  },
+  "north-wind-sun": {
+    "title": "北风和太阳",
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-3.png"
+    }
+  },
+  "alaaddin": {
+    "title": "阿拉丁神灯",
+    "pages": {}
+  },
+  "ali-baba": {
+    "title": "阿里巴巴与四十大盗",
+    "pages": {}
+  }
+}
