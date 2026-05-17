@@ -225,15 +225,38 @@
     "pages": {
       "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-1.png",
       "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-2.png",
-      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-3.png"
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/north-wind-sun/page-8.png"
     }
   },
   "alaaddin": {
     "title": "阿拉丁神灯",
-    "pages": {}
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/alaaddin/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/alaaddin/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/alaaddin/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/alaaddin/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/alaaddin/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/alaaddin/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/alaaddin/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/alaaddin/page-8.png"
+    }
   },
   "ali-baba": {
     "title": "阿里巴巴与四十大盗",
-    "pages": {}
+    "pages": {
+      "page-1": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ali-baba/page-1.png",
+      "page-2": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ali-baba/page-2.png",
+      "page-3": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ali-baba/page-3.png",
+      "page-4": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ali-baba/page-4.png",
+      "page-5": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ali-baba/page-5.png",
+      "page-6": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ali-baba/page-6.png",
+      "page-7": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ali-baba/page-7.png",
+      "page-8": "https://lhxrauqvqvehhqbzvzjr.supabase.co/storage/v1/object/public/classic-stories/ali-baba/page-8.png"
+    }
   }
 }

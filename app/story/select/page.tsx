@@ -39,38 +39,16 @@ export default function StorySelectPage() {
     setError("");
 
     try {
-      // 经典故事不需要AI生成文本，直接开始生成图片
-      setStatus("正在生成配图...");
+      // 经典故事已有预生成的配图，直接使用
+      setStatus("正在准备故事...");
+      setProgress(50);
       
-      // 并发生成8张图片
-      const pagesWithImages = await Promise.all(
-        story.pages.map(async (page, index) => {
-          setProgress(Math.round((index / story.pages.length) * 90));
-          
-          try {
-            const imageRes = await fetch("/api/image/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                imagePrompt: page.imagePrompt,
-                style: "watercolor",
-                index,
-              }),
-            });
-
-            const imageData = await imageRes.json();
-            return {
-              pageNumber: page.pageNumber,
-              text: page.text,
-              imageUrl: imageData.success ? imageData.imageUrl : getPlaceholderImage(index),
-            };
-          } catch {
-            return {
-              pageNumber: page.pageNumber,
-              text: page.text,
-              imageUrl: getPlaceholderImage(index),
-            };
-          }
+      const pagesWithImages = story.pages.map((page) => {
+        return {
+          pageNumber: page.pageNumber,
+          text: page.text,
+          imageUrl: page.imageUrl || getPlaceholderImage(page.pageNumber - 1),
+        };
         })
       );
 
@@ -347,7 +325,7 @@ export default function StorySelectPage() {
             <p className="text-sm text-gray-500 mb-2">{status}</p>
             <p className="text-xs text-gray-400">
               {selectedClassicStory 
-                ? "经典故事无需等待文本生成，只需生成配图" 
+                ? "经典故事即选即读，马上就好" 
                 : "这可能需要1-2分钟，请耐心等待"
               }
             </p>
