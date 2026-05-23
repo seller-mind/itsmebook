@@ -16,6 +16,7 @@ interface StoryPlayerProps {
   voiceAudioUrl?: string;
   onShare?: () => void;
   onGenerateVideo?: () => void;
+  isFreeUser?: boolean; // 免费用户只看前2页配图
 }
 
 export default function StoryPlayer({
@@ -25,6 +26,7 @@ export default function StoryPlayer({
   voiceAudioUrl,
   onShare,
   onGenerateVideo,
+  isFreeUser = false,
 }: StoryPlayerProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -481,7 +483,7 @@ export default function StoryPlayer({
       <img
         src={currentPageData.imageUrl}
         alt={`第${currentPage + 1}页`}
-        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${isFreeUser && currentPage >= 2 ? "blur-md brightness-50" : ""}`}
         draggable={false}
         onError={(e) => {
           const img = e.target as HTMLImageElement;
@@ -506,6 +508,26 @@ export default function StoryPlayer({
         background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.2) 70%, transparent 100%)",
         height: "55%",
       }} />
+
+      {/* 免费用户锁定遮罩 - 第3页起 */}
+      {isFreeUser && currentPage >= 2 && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/95 rounded-3xl p-6 mx-8 text-center shadow-2xl max-w-xs">
+            <div className="text-4xl mb-3">🔒</div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">解锁完整绘本</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              前2页免费预览，解锁后可查看全部{pages.length}页精美插图+AI朗读
+            </p>
+            <button
+              onClick={() => { if (typeof window !== "undefined") window.location.href = "/pricing"; }}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-orange to-amber-500 text-white font-semibold text-base shadow-lg hover:shadow-xl transition-all"
+            >
+              立即解锁 ¥29.9
+            </button>
+            <p className="text-xs text-gray-400 mt-2">单本绘本 · 全风格+外观定制+AI朗读</p>
+          </div>
+        </div>
+      )}
 
       {/* 页码指示器 */}
       <div className={`absolute left-0 right-0 flex items-center justify-center gap-1.5 transition-all duration-300 ${showControls ? "bottom-[280px]" : "bottom-[200px]"}`} style={{ pointerEvents: "auto" }}>

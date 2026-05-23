@@ -33,8 +33,9 @@ export default function StorySelectPage() {
     Object.fromEntries(STORY_CATEGORIES.map(cat => [cat.name, true]))
   );
   const [selectedClassicStory, setSelectedClassicStory] = useState<ClassicStory | null>(null);
+  const [isFreeUser, setIsFreeUser] = useState(false);
 
-  // 读取孩子档案
+  // 读取孩子档案 + 判断免费用户
   useEffect(() => {
     const profileStr = sessionStorage.getItem("itsmebook_child_profile");
     if (profileStr) {
@@ -44,7 +45,6 @@ export default function StorySelectPage() {
           setChildName(profile.name);
         }
         if (profile.theme) {
-          // 检查theme是否匹配现有主题
           const matchedTheme = STORY_THEMES.find(t => t.id === profile.theme);
           if (matchedTheme) {
             setSelectedTheme(matchedTheme.id);
@@ -53,6 +53,19 @@ export default function StorySelectPage() {
       } catch (e) {
         console.error("解析孩子档案失败:", e);
       }
+    }
+
+    // 判断是否免费用户：免费次数<=0 且没有购买过套餐
+    const userStr = localStorage.getItem("itsmebook_user");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setIsFreeUser((user.freeCount || 0) <= 0);
+      } catch {
+        setIsFreeUser(true);
+      }
+    } else {
+      setIsFreeUser(true);
     }
   }, []);
 
@@ -91,11 +104,16 @@ export default function StorySelectPage() {
         // 部分缺图，需要API生成缺的
         setStatus("正在生成配图...");
         setProgress(10);
+        const maxImages = isFreeUser ? 2 : story.pages.length; // 免费用户只生成2张图
         pagesWithImages = await Promise.all(
           story.pages.map(async (page, index) => {
             setProgress(10 + Math.round((index / story.pages.length) * 80));
             if (page.imageUrl) {
               return { pageNumber: page.pageNumber, text: page.text, imageUrl: page.imageUrl };
+            }
+            // 免费用户只生成前2张
+            if (isFreeUser && index >= maxImages) {
+              return { pageNumber: page.pageNumber, text: page.text, imageUrl: getPlaceholderImage(index) };
             }
             try {
               const imageRes = await fetch("/api/image/generate", {
@@ -124,6 +142,7 @@ export default function StorySelectPage() {
         voiceId: "longhuhu_v3", // 使用默认AI声线
         createdAt: new Date().toISOString(),
         isClassic: true,
+        isFreeUser: isFreeUser,
       };
 
       sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
@@ -263,10 +282,19 @@ export default function StorySelectPage() {
 
       // 生成配图
       setStatus("正在生成配图...");
+      const maxImages = isFreeUser ? 2 : story.pages.length; // 免费用户只生成2张图
       const pagesWithImages = await Promise.all(
         story.pages.map(async (page: any, index: number) => {
           // 配图生成进度：55%→85%
           setProgress(55 + Math.round((index / story.pages.length) * 30));
+
+          // 免费用户只生成前2张，后续用占位图
+          if (isFreeUser && index >= maxImages) {
+            return {
+              ...page,
+              imageUrl: getPlaceholderImage(index),
+            };
+          }
 
           try {
             const imageRes = await fetch("/api/image/generate", {
@@ -305,6 +333,7 @@ export default function StorySelectPage() {
         voiceId: "longhuhu_v3", // 使用默认AI声线
         createdAt: new Date().toISOString(),
         isClassic: false,
+        isFreeUser: isFreeUser,
       };
 
       sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));

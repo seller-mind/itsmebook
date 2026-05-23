@@ -12,9 +12,11 @@ export default function StoryPlayerPage() {
     childName: string;
     pages: StoryPage[];
     voiceUrl: string;
+    isFreeUser?: boolean;
   } | null>(null);
   const [showShare, setShowShare] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [isFreeUser, setIsFreeUser] = useState(false);
 
   // 加载故事数据
   useEffect(() => {
@@ -26,6 +28,7 @@ export default function StoryPlayerPage() {
       try {
         const storyData = JSON.parse(storyStr);
         setStory(storyData);
+        setIsFreeUser(storyData.isFreeUser || false);
       } catch {
         // 加载演示数据
         loadDemoStory();
@@ -131,6 +134,7 @@ export default function StoryPlayerPage() {
         voiceAudioUrl={story.voiceUrl || undefined}
         onShare={handleShare}
         onGenerateVideo={handleGenerateVideo}
+        isFreeUser={isFreeUser}
       />
 
       {/* 分享弹窗 */}
