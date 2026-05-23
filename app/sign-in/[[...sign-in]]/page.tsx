@@ -38,6 +38,15 @@ export default function SignInPage() {
   const [showReferralToast, setShowReferralToast] = useState(false);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 已登录用户自动跳转
+  useEffect(() => {
+    const token = localStorage.getItem("itsmebook_token");
+    const userStr = localStorage.getItem("itsmebook_user");
+    if (token && userStr) {
+      router.replace("/create");
+    }
+  }, [router]);
+
   // 获取URL中的ref参数
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -153,8 +162,8 @@ export default function SignInPage() {
       // 通知其他组件登录状态变化
       window.dispatchEvent(new Event("loginStateChange"));
 
-      // 跳转到创建页面
-      router.push("/create");
+      // 跳转到创建页面（用location确保cookie生效，避免中间件拦截）
+      window.location.href = "/create";
     } catch (err) {
       setError("登录失败，请稍后重试");
     } finally {
