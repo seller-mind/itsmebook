@@ -113,38 +113,109 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 绘本示例区 */}
+      {/* 绘本示例区 - 3本示例绘本展示 */}
       <section className="px-4 pb-16 max-w-5xl mx-auto">
-        <div className="bg-gradient-to-br from-orange-100 via-amber-50 to-purple-100 rounded-3xl p-6 sm:p-8 text-center">
-          {/* 绘本预览封面 */}
-          <div className="max-w-sm mx-auto mb-6">
-            <div
-              className="aspect-[3/4] rounded-2xl bg-gradient-to-br from-orange-200 via-amber-100 to-purple-200 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden relative shadow-xl"
-              onClick={handleViewDemo}
-            >
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg hover:bg-white transition-colors">
-                  <svg className="w-7 h-7 text-primary-orange ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 text-center mb-2">
+          看看其他孩子的专属绘本
+        </h2>
+        <p className="text-center text-gray-500 text-sm mb-8">每本都是独一无二的故事</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {/* 示例1：小宇的小灯 */}
+          <div
+            className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all cursor-pointer overflow-hidden group"
+            onClick={handleStart}
+          >
+            <div className="aspect-[3/4] relative overflow-hidden">
+              <img
+                src="/sample-images/sample-1-cover.png"
+                alt="小宇的小灯"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                <p className="font-bold text-base">《小宇的小灯》</p>
+                <p className="text-xs text-white/80">主角：小宇 · 5岁 · 勇敢</p>
               </div>
-              {/* 假装绘本封面 */}
-              <div className="absolute bottom-0 left-0 right-0 bg-white/90 p-4 text-center">
-                <p className="text-lg font-bold text-gray-800">《小明的太空冒险》</p>
-                <p className="text-xs text-gray-500">主角：小明 · 5岁</p>
+            </div>
+            <div className="p-4">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-xs">💙蓝色</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-xs">🌳森林</span>
+                <span className="px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 text-xs">💪勇气</span>
               </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                怕黑的小宇去林子里采山枣，用手电筒照亮了每一步，发现自己比想象中勇敢得多。
+              </p>
             </div>
           </div>
 
-          {/* 用户反馈 */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-5 max-w-sm mx-auto">
-            <p className="text-gray-700 text-sm leading-relaxed italic">
-              "儿子看了自己的绘本，兴奋了一整晚！
-              <span className="text-primary-orange font-medium">故事里的小明就是他自己</span>"
-            </p>
-            <p className="text-xs text-gray-400 mt-2">—— 上海 · 宝爸小李</p>
+          {/* 示例2：朵朵的超能力 */}
+          <div
+            className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all cursor-pointer overflow-hidden group"
+            onClick={handleStart}
+          >
+            <div className="aspect-[3/4] relative overflow-hidden">
+              <img
+                src="/sample-images/sample-2-cover.png"
+                alt="朵朵的超能力"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                <p className="font-bold text-base">《朵朵的超能力》</p>
+                <p className="text-xs text-white/80">主角：朵朵 · 6岁 · 好奇</p>
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <span className="px-2 py-0.5 rounded-full bg-pink-50 text-pink-600 text-xs">🩷粉色</span>
+                <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 text-xs">🏰糖果王国</span>
+                <span className="px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-600 text-xs">🔍好奇</span>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                朵朵掉进糖果王国，用想象力修好了断掉的彩虹桥，拯救了所有小动物。
+              </p>
+            </div>
           </div>
+
+          {/* 示例3：阿宝的秋约 */}
+          <div
+            className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all cursor-pointer overflow-hidden group"
+            onClick={handleStart}
+          >
+            <div className="aspect-[3/4] relative overflow-hidden">
+              <img
+                src="/sample-images/sample-3-cover.png"
+                alt="阿宝的秋约"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                <p className="font-bold text-base">《阿宝的秋约》</p>
+                <p className="text-xs text-white/80">主角：阿宝 · 7岁 · 温柔</p>
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-xs">🍂秋色</span>
+                <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-600 text-xs">🌲后山</span>
+                <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 text-xs">🤗温柔</span>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                阿宝在秋天的后山迷了路，发现落叶下面藏着春天的约定——每片叶子都是新芽的被子。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 用户反馈 */}
+        <div className="mt-8 bg-white/70 backdrop-blur-sm rounded-2xl p-5 max-w-md mx-auto text-center">
+          <p className="text-gray-700 text-sm leading-relaxed italic">
+            "女儿听到故事里叫她的名字，兴奋地喊了三遍
+            <span className="text-primary-orange font-medium">是我呀！是我呀！是我呀！</span>"
+          </p>
+          <p className="text-xs text-gray-400 mt-2">—— 北京 · 职场妈妈小雨</p>
         </div>
       </section>
 
@@ -351,57 +422,45 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* 演示弹窗 - 绘本翻页效果 */}
+      {/* 演示弹窗 - 示例绘本预览 */}
       {showDemo && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setShowDemo(false)}
         >
           <div
-            className="bg-white rounded-3xl p-8 max-w-md w-full text-center"
+            className="bg-white rounded-3xl p-6 max-w-sm w-full text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-orange-100 to-purple-200 flex items-center justify-center">
-              <span className="text-3xl">📖</span>
+            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-gradient-to-br from-orange-100 to-purple-200 flex items-center justify-center">
+              <span className="text-2xl">📖</span>
             </div>
             <h3 className="font-bold text-gray-900 text-lg mb-2">看看这个魔法</h3>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-gray-500 mb-5">
               输入孩子名字和兴趣，60秒生成专属绘本
             </p>
             
-            {/* 绘本翻页效果展示 */}
-            <div className="relative mb-6">
-              <div className="bg-gradient-to-br from-orange-100 via-amber-50 to-purple-100 rounded-2xl p-6 shadow-lg">
-                {/* 假装绘本页面 */}
-                <div className="bg-white rounded-xl p-4 mb-3 shadow-inner">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">🚀</span>
-                    <span className="font-bold text-gray-800">《小明的太空冒险》</span>
-                  </div>
-                  <p className="text-sm text-gray-600 text-left leading-relaxed">
-                    在很远很远的外太空，有一个勇敢的小男孩叫<span className="text-primary-orange font-medium">小明</span>...
-                  </p>
-                </div>
-                {/* 翻页指示 */}
-                <div className="flex justify-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-primary-orange"></span>
-                  <span className="w-2 h-2 rounded-full bg-gray-300"></span>
-                  <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+            {/* 示例绘本封面 */}
+            <div className="space-y-3 mb-5">
+              <div className="flex items-center gap-3 bg-orange-50 rounded-xl p-3 text-left cursor-pointer hover:bg-orange-100 transition-colors" onClick={() => { setShowDemo(false); handleStart(); }}>
+                <img src="/sample-images/sample-1-cover.png" alt="小宇的小灯" className="w-12 h-16 rounded-lg object-cover shadow" />
+                <div>
+                  <p className="font-bold text-gray-800 text-sm">《小宇的小灯》</p>
+                  <p className="text-xs text-gray-500">小宇 · 5岁 · 勇敢 · 森林探险</p>
                 </div>
               </div>
-            </div>
-            
-            <div className="bg-orange-50 rounded-xl p-4 mb-6 text-left">
-              <div className="flex items-start gap-3">
-                <span className="text-xl">✨</span>
+              <div className="flex items-center gap-3 bg-pink-50 rounded-xl p-3 text-left cursor-pointer hover:bg-pink-100 transition-colors" onClick={() => { setShowDemo(false); handleStart(); }}>
+                <img src="/sample-images/sample-2-cover.png" alt="朵朵的超能力" className="w-12 h-16 rounded-lg object-cover shadow" />
                 <div>
-                  <p className="text-sm font-medium text-gray-800">专属定制内容</p>
-                  <ul className="text-xs text-gray-500 mt-1 space-y-1">
-                    <li>✓ 主角名字：小明</li>
-                    <li>✓ 外观特征：活泼可爱</li>
-                    <li>✓ 故事主题：太空冒险</li>
-                    <li>✓ 融入道理：勇敢探索</li>
-                  </ul>
+                  <p className="font-bold text-gray-800 text-sm">《朵朵的超能力》</p>
+                  <p className="text-xs text-gray-500">朵朵 · 6岁 · 好奇 · 糖果王国</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-amber-50 rounded-xl p-3 text-left cursor-pointer hover:bg-amber-100 transition-colors" onClick={() => { setShowDemo(false); handleStart(); }}>
+                <img src="/sample-images/sample-3-cover.png" alt="阿宝的秋约" className="w-12 h-16 rounded-lg object-cover shadow" />
+                <div>
+                  <p className="font-bold text-gray-800 text-sm">《阿宝的秋约》</p>
+                  <p className="text-xs text-gray-500">阿宝 · 7岁 · 温柔 · 秋天后山</p>
                 </div>
               </div>
             </div>
