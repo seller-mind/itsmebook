@@ -92,37 +92,20 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            <Link
-              href="/create"
-              className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
-            >
-              开始体验
-            </Link>
+          <div className="hidden md:flex items-center gap-6">
             <Link
               href="/pricing"
               className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
             >
               定价
             </Link>
-          </div>
 
-          {/* Auth Buttons */}
-          <div className="flex items-center gap-4">
             {/* 免费次数提示 */}
             {user && (
-              <div className="hidden sm:flex items-center gap-1 text-sm text-gray-600">
+              <div className="flex items-center gap-1 text-sm text-gray-600">
                 <span className="text-orange-500 font-medium">剩余 {user.freeCount} 次</span>
               </div>
             )}
-
-            {/* 开始制作 */}
-            <Link
-              href="/create"
-              className="hidden sm:inline-flex btn-primary text-sm"
-            >
-              立即体验
-            </Link>
 
             {user ? (
               /* 已登录 - 显示用户下拉菜单 */
@@ -168,22 +151,22 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              /* 未登录 - 显示登录按钮 */
-              <>
-                <Link
-                  href="/sign-in"
-                  className="hidden sm:inline text-gray-600 hover:text-primary-orange transition-colors font-medium text-sm"
-                >
-                  登录
-                </Link>
-                <Link
-                  href="/sign-in"
-                  className="btn-primary text-xs px-3 py-1.5"
-                >
-                  注册
-                </Link>
-              </>
+              /* 未登录 - 简洁按钮组 */
+              <Link
+                href="/sign-in"
+                className="text-gray-600 hover:text-primary-orange transition-colors font-medium text-sm"
+              >
+                登录
+              </Link>
             )}
+
+            {/* 开始制作 */}
+            <Link
+              href="/create"
+              className="btn-primary text-sm"
+            >
+              立即体验
+            </Link>
 
             {/* Mobile Menu Button */}
             <button
@@ -222,13 +205,6 @@ export default function Navbar() {
         <div className="md:hidden bg-white border-t border-gray-100 animate-fade-in">
           <div className="px-4 py-4 space-y-3">
             <Link
-              href="/create"
-              className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              开始体验
-            </Link>
-            <Link
               href="/pricing"
               className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -257,10 +233,10 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/sign-in"
-                className="block btn-primary text-center mt-4"
+                className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                登录 / 注册
+                登录
               </Link>
             )}
 

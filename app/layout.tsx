@@ -134,102 +134,74 @@ export default function RootLayout({
           <CookieConsent />
           
           {/* 页脚 */}
-          <footer className="bg-gray-50 border-t border-gray-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <footer className="bg-gray-900 text-gray-300">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10">
                 {/* 品牌信息 */}
-                <div className="col-span-1 md:col-span-2">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className="md:max-w-xs">
+                  <div className="flex items-center gap-2 mb-3">
                     <span className="text-2xl">🌙</span>
-                    <span className="text-xl font-bold text-gray-900">是我呀</span>
+                    <span className="text-xl font-bold text-white">是我呀</span>
                   </div>
-                  <p className="text-gray-600 mb-4">
-                    每个孩子都是自己故事的主角。<br />
-                    输入名字，60秒生成专属绘本。
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    每个孩子都是自己故事的主角。输入名字，60秒生成专属绘本。
                   </p>
-                  <p className="text-sm text-gray-400">
-                    © 2026 是我呀 All Rights Reserved.
-                  </p>
+                  <div className="flex items-center gap-4 mt-4 text-sm">
+                    <a href="mailto:haimozhouqiu@outlook.com" className="text-gray-400 hover:text-white transition-colors">
+                      📧 邮箱联系
+                    </a>
+                    <span className="text-gray-500">微信：txd027</span>
+                  </div>
                 </div>
-                
-                {/* 快速链接 */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-4">快速链接</h3>
-                  <ul className="space-y-2 text-gray-600">
-                    <li>
-                      <a href="/create" className="hover:text-primary-orange transition-colors">
-                        开始录制
-                      </a>
-                    </li>
-                    <li>
-                      <a href="/pricing" className="hover:text-primary-orange transition-colors">
-                        定价方案
-                      </a>
-                    </li>
-                    <li>
-                      <a href="/privacy" className="hover:text-primary-orange transition-colors">
-                        隐私政策
-                      </a>
-                    </li>
-                    <li>
-                      <a href="/terms" className="hover:text-primary-orange transition-colors">
-                        用户协议
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-                
-                {/* 法律声明 */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-4">法律声明</h3>
-                  <ul className="space-y-2 text-gray-600">
-                    <li>
-                      <a href="/refund" className="hover:text-primary-orange transition-colors">
-                        退款政策
-                      </a>
-                    </li>
-                    <li>
-                      <a href="/cookie" className="hover:text-primary-orange transition-colors">
-                        Cookie政策
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-                
-                {/* 联系方式 */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-4">联系我们</h3>
-                  <ul className="space-y-2 text-gray-600">
-                    <li className="flex items-center gap-2">
-                      <span>📧</span>
-                      <a href="mailto:haimozhouqiu@outlook.com" className="hover:text-primary-orange transition-colors">haimozhouqiu@outlook.com</a>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span>💬</span>
-                      <span>微信号：txd027</span>
-                    </li>
-                  </ul>
+
+                {/* 链接区 */}
+                <div className="flex gap-16">
+                  {/* 产品 */}
+                  <div>
+                    <h3 className="font-semibold text-white mb-3 text-sm">产品</h3>
+                    <ul className="space-y-2 text-sm">
+                      <li>
+                        <a href="/create" className="text-gray-400 hover:text-white transition-colors">
+                          开始体验
+                        </a>
+                      </li>
+                      <li>
+                        <a href="/pricing" className="text-gray-400 hover:text-white transition-colors">
+                          定价方案
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* 法律 */}
+                  <div>
+                    <h3 className="font-semibold text-white mb-3 text-sm">法律</h3>
+                    <ul className="space-y-2 text-sm">
+                      <li>
+                        <a href="/privacy" className="text-gray-400 hover:text-white transition-colors">
+                          隐私政策
+                        </a>
+                      </li>
+                      <li>
+                        <a href="/terms" className="text-gray-400 hover:text-white transition-colors">
+                          用户协议
+                        </a>
+                      </li>
+                      <li>
+                        <a href="/refund" className="text-gray-400 hover:text-white transition-colors">
+                          退款政策
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
-              
+
               {/* 底部声明 */}
-              <div className="mt-8 pt-8 border-t border-gray-200">
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-500 text-center">
-                    本网站所有AI生成内容仅供娱乐参考，不代表任何真实事件或观点。用户须确保上传的录音内容拥有合法使用权，因上传内容导致的侵权由用户自行承担。
-                  </p>
-                  <p className="text-sm text-gray-500 text-center">
-                    本服务使用的AI模型由火山引擎提供 | AI生成内容可能存在不准确性，请理性看待
-                  </p>
-                  <p className="text-sm text-gray-500 text-center">
-                    📍 本网站数据存储于海外云服务平台（新加坡）
-                  </p>
-                  <p className="text-sm text-gray-400 text-center">
-                    {/* ICP备案号：待域名备案完成后填写，例如：京ICP备XXXXXXXX号 */}
-                    {/* 公安联网备案：待公安联网备案完成后填写 */}
-                    © 2026 是我呀 All Rights Reserved.
-                  </p>
-                </div>
+              <div className="mt-10 pt-6 border-t border-gray-800">
+                <p className="text-xs text-gray-500 text-center leading-relaxed">
+                  AI生成内容仅供娱乐参考 · 数据存储于新加坡 · © 2026 是我呀
+                </p>
               </div>
             </div>
           </footer>
