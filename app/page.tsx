@@ -7,15 +7,10 @@ import { useRouter } from "next/navigation";
 export default function HomePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
 
   const handleStart = () => {
     setIsLoading(true);
     router.push("/create");
-  };
-
-  const handleViewDemo = () => {
-    setShowDemo(true);
   };
 
   return (
@@ -75,16 +70,7 @@ export default function HomePage() {
           </p>
 
           {/* CTA按钮 */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-            <button
-              onClick={handleViewDemo}
-              className="px-8 py-3.5 rounded-full border-2 border-gray-300 text-gray-700 font-medium hover:border-primary-orange hover:text-primary-orange transition-all flex items-center gap-2 text-base"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-              看看这个魔法
-            </button>
+          <div className="flex flex-col items-center justify-center gap-4 mb-8">
             <button
               onClick={handleStart}
               disabled={isLoading}
@@ -376,9 +362,9 @@ export default function HomePage() {
 
           <div className="grid grid-cols-3 gap-3">
             {[
-              { name: "免费体验", price: "¥0", desc: "1本/月·2种风格", color: "from-gray-100 to-gray-200" },
-              { name: "单本", price: "¥19.9", desc: "1本·全风格+外观", color: "from-primary-orange to-primary-dark", highlight: true },
-              { name: "月度", price: "¥39/月", desc: "3本/月·+睡前模式", color: "from-purple-100 to-indigo-200" },
+              { name: "免费体验", price: "¥0", desc: "首次1本·2种风格", color: "from-gray-100 to-gray-200" },
+              { name: "单本", price: "¥29.9", desc: "1本·全风格+外观", color: "from-primary-orange to-primary-dark", highlight: true },
+              { name: "月度", price: "¥49/月", desc: "4本/月·+睡前模式", color: "from-purple-100 to-indigo-200" },
             ].map((plan, i) => (
               <div
                 key={i}
@@ -422,58 +408,7 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* 演示弹窗 - 示例绘本预览 */}
-      {showDemo && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setShowDemo(false)}
-        >
-          <div
-            className="bg-white rounded-3xl p-6 max-w-sm w-full text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-gradient-to-br from-orange-100 to-purple-200 flex items-center justify-center">
-              <span className="text-2xl">📖</span>
-            </div>
-            <h3 className="font-bold text-gray-900 text-lg mb-2">看看这个魔法</h3>
-            <p className="text-sm text-gray-500 mb-5">
-              输入孩子名字和兴趣，60秒生成专属绘本
-            </p>
-            
-            {/* 示例绘本封面 */}
-            <div className="space-y-3 mb-5">
-              <div className="flex items-center gap-3 bg-orange-50 rounded-xl p-3 text-left cursor-pointer hover:bg-orange-100 transition-colors" onClick={() => { setShowDemo(false); handleStart(); }}>
-                <img src="/sample-images/sample-1-cover.png" alt="小宇的小灯" className="w-12 h-16 rounded-lg object-cover shadow" />
-                <div>
-                  <p className="font-bold text-gray-800 text-sm">《小宇的小灯》</p>
-                  <p className="text-xs text-gray-500">小宇 · 5岁 · 勇敢 · 森林探险</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-pink-50 rounded-xl p-3 text-left cursor-pointer hover:bg-pink-100 transition-colors" onClick={() => { setShowDemo(false); handleStart(); }}>
-                <img src="/sample-images/sample-2-cover.png" alt="朵朵的超能力" className="w-12 h-16 rounded-lg object-cover shadow" />
-                <div>
-                  <p className="font-bold text-gray-800 text-sm">《朵朵的超能力》</p>
-                  <p className="text-xs text-gray-500">朵朵 · 6岁 · 好奇 · 糖果王国</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-amber-50 rounded-xl p-3 text-left cursor-pointer hover:bg-amber-100 transition-colors" onClick={() => { setShowDemo(false); handleStart(); }}>
-                <img src="/sample-images/sample-3-cover.png" alt="阿宝的秋约" className="w-12 h-16 rounded-lg object-cover shadow" />
-                <div>
-                  <p className="font-bold text-gray-800 text-sm">《阿宝的秋约》</p>
-                  <p className="text-xs text-gray-500">阿宝 · 7岁 · 温柔 · 秋天后山</p>
-                </div>
-              </div>
-            </div>
-            
-            <button
-              onClick={() => setShowDemo(false)}
-              className="w-full py-3 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-sm"
-            >
-              关闭
-            </button>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

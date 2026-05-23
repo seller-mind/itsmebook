@@ -20,25 +20,25 @@ export const PLAN_CONFIGS: Record<string, PlanConfig> = {
   single: {
     id: 'single',
     name: '单本绘本',
-    price: '19.90',
-    priceDisplay: '¥19.9',
+    price: '29.90',
+    priceDisplay: '¥29.9',
     pages: 8,
     credits: 1,
     imageModel: 'wan2.7-image',
     imageSize: '1024*1024',
-    description: '1本专属绘本',
+    description: '1本专属绘本，全风格+外观',
     tag: null,
   },
   monthly: {
     id: 'monthly',
     name: '月度会员',
-    price: '39.00',
-    priceDisplay: '¥39/月',
+    price: '49.00',
+    priceDisplay: '¥49/月',
     pages: 8,
-    credits: 3, // 3本/月
+    credits: 4, // 4本/月
     imageModel: 'wan2.7-image',
     imageSize: '1024*1024',
-    description: '3本/月，比单本省35%',
+    description: '4本/月，比单本省59%',
     tag: '推荐',
   },
   yearly: {
@@ -50,7 +50,7 @@ export const PLAN_CONFIGS: Record<string, PlanConfig> = {
     credits: 48, // 4本/月 * 12月
     imageModel: 'wan2.7-image',
     imageSize: '1024*1024',
-    description: '4本/月，比单本省69%',
+    description: '4本/月+生日绘本，相当于¥24.9/月',
     tag: '省69%',
   },
 };
