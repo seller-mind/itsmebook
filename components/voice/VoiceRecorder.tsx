@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { DEFAULT_PROMPT, RECORDING_CONFIG } from "@/lib/voice";
+// V2: 声音克隆已移除，这些常量不再使用
+// import { DEFAULT_PROMPT, RECORDING_CONFIG } from "@/lib/voice";
+const DEFAULT_PROMPT = "从前有一只小兔子，它的耳朵长长的，每天晚上都会去森林里找妈妈讲故事……";
+const RECORDING_CONFIG = { maxDuration: 20, minDuration: 5, sampleRate: 16000, format: "webm" };
 
 interface VoiceRecorderProps {
   onRecordingComplete: (audioBlob: Blob, audioUrl: string) => void;
