@@ -146,20 +146,22 @@ export default function RootLayout({
                   <p className="text-sm text-gray-400 leading-relaxed">
                     每个孩子都是自己故事的主角。输入名字，60秒生成专属绘本。
                   </p>
-                  <div className="flex items-center gap-4 mt-4 text-sm">
-                    <a href="mailto:haimozhouqiu@outlook.com" className="text-gray-400 hover:text-white transition-colors">
-                      📧 邮箱联系
+                  <div className="mt-4 space-y-1.5 text-sm">
+                    <a href="mailto:haimozhouqiu@outlook.com" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                      <span>📧</span> haimozhouqiu@outlook.com
                     </a>
-                    <span className="text-gray-500">微信：txd027</span>
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <span>💬</span> 微信：txd027
+                    </div>
                   </div>
                 </div>
 
                 {/* 链接区 */}
-                <div className="flex gap-16">
+                <div className="flex gap-20">
                   {/* 产品 */}
                   <div>
                     <h3 className="font-semibold text-white mb-3 text-sm">产品</h3>
-                    <ul className="space-y-2 text-sm">
+                    <ul className="space-y-2.5 text-sm">
                       <li>
                         <a href="/create" className="text-gray-400 hover:text-white transition-colors">
                           开始体验
@@ -176,7 +178,7 @@ export default function RootLayout({
                   {/* 法律 */}
                   <div>
                     <h3 className="font-semibold text-white mb-3 text-sm">法律</h3>
-                    <ul className="space-y-2 text-sm">
+                    <ul className="space-y-2.5 text-sm">
                       <li>
                         <a href="/privacy" className="text-gray-400 hover:text-white transition-colors">
                           隐私政策
