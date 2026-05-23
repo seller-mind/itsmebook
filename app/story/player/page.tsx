@@ -99,9 +99,9 @@ export default function StoryPlayerPage() {
   // 分享文案
   const shareText = `用我的声音给孩子讲故事，太神奇了！
 
-孩子缠着讲故事，但我已经累得不想开口了。录30秒，让我的声音替我讲，孩子竟然超喜欢！
+故事里叫着孩子的名字，喜欢的动物变成了好朋友！孩子一听就知道"是我呀！"
 
-#睡前故事 #AI绘本 #育儿好物 #睡前魔法书`;
+#睡前故事 #AI绘本 #育儿好物 #是我呀`;
 
   const copyToClipboard = () => {
     if (navigator.clipboard) {

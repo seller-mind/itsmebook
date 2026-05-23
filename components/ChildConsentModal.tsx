@@ -51,7 +51,7 @@ export default function ChildConsentModal({
             <p className="text-yellow-800 text-xs sm:text-sm leading-relaxed">
               <strong>⚠️ 重要提示：</strong>
               <br />
-              感谢您信任"睡前魔法书"！在使用我们的服务前，请务必阅读以下重要信息。
+              感谢您信任"是我呀"！在使用我们的服务前，请务必阅读以下重要信息。
             </p>
           </div>
 

@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "隐私政策",
-  description: "睡前魔法书隐私政策，了解我们如何保护您的个人信息",
+  description: "是我呀隐私政策，了解我们如何保护您的个人信息",
 };
 
 export default function PrivacyPage() {
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
               <span>📋</span> 概述
             </h2>
             <p className="text-gray-600 leading-relaxed">
-              "睡前魔法书"（以下简称"我们"）非常重视用户的隐私和个人信息保护。本隐私政策旨在向您说明我们如何收集、使用、存储和保护您的个人信息，以及您享有的相关权利。请您在使用我们的服务前，仔细阅读并了解本隐私政策。
+              "是我呀"（以下简称"我们"）非常重视用户的隐私和个人信息保护。本隐私政策旨在向您说明我们如何收集、使用、存储和保护您的个人信息，以及您享有的相关权利。请您在使用我们的服务前，仔细阅读并了解本隐私政策。
             </p>
             <p className="text-gray-600 leading-relaxed mt-4">
               <strong>特别提示：</strong>本产品面向家长使用，仅收集您的声音用于故事生成。<strong>我们不收集儿童照片、不收集儿童个人信息、不收集儿童生物识别数据</strong>。产品不会主动与儿童发生交互，所有操作均由家长完成。
@@ -54,7 +54,7 @@ export default function PrivacyPage() {
             <div className="space-y-4 text-gray-600 leading-relaxed">
               <h3 className="font-semibold text-gray-800">1. 您主动提供的信息</h3>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li><strong>声音录音：</strong>您在录制页面录制的声音样本，用于AI声音克隆和故事生成。声音数据仅用于生成您的专属睡前故事，不会用于其他目的。</li>
+                <li><strong>声音录音：</strong>您在录制页面录制的声音样本，用于AI声音合成和故事生成。这些信息仅用于生成孩子的专属绘本故事，不会用于其他目的。</li>
                 <li>账户信息：注册时提供的邮箱、手机号等</li>
                 <li>故事偏好：选择的故事主题、孩子的名字等信息</li>
                 <li>反馈信息：您向我们提供的建议或反馈</li>
@@ -91,7 +91,7 @@ export default function PrivacyPage() {
                 <li><strong>本地优先：</strong>部分处理在本地设备完成，减少数据传输</li>
               </ul>
               <p className="bg-green-50 p-4 rounded-xl border border-green-200">
-                <strong>💡 您的权利：</strong>您拥有您声音数据的完全控制权，可以随时要求删除。删除后，我们将无法恢复您的声音克隆数据。
+                <strong>💡 您的权利：</strong>您拥有您孩子个性化数据的完全控制权，可以随时要求删除。删除后，我们将无法恢复您的声音合成数据。
               </p>
             </div>
           </section>
@@ -143,7 +143,7 @@ export default function PrivacyPage() {
                     </tr>
                     <tr className="bg-gray-50">
                       <td className="border border-gray-200 p-3 font-medium">火山引擎（豆包）</td>
-                      <td className="border border-gray-200 p-3">AI内容生成、声音克隆</td>
+                      <td className="border border-gray-200 p-3">AI内容生成、声音合成</td>
                       <td className="border border-gray-200 p-3">故事描述、声音数据（仅用于本次生成）</td>
                       <td className="border border-gray-200 p-3"><a href="https://www.volcengine.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-orange hover:underline">查看</a></td>
                     </tr>

@@ -1,7 +1,7 @@
 {
   "total": 160,
-  "success": 21,
-  "skipped": 139,
+  "success": 0,
+  "skipped": 160,
   "failed": 0,
-  "timestamp": "2026-05-17T14:28:25.933Z"
+  "timestamp": "2026-05-17T15:00:10.784Z"
 }

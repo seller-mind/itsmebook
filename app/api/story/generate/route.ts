@@ -1,11 +1,74 @@
 /**
- * 睡前故事生成API - 睡前魔法书
+ * AI专属儿童绘本生成API - 是我呀V2
  * POST /api/story/generate
  * 生成故事文本和配图（使用流式响应避免Vercel 10秒超时）
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { STORY_THEMES, STORY_GENERATION_PROMPT } from "@/lib/story";
+
+// ==================== 个性化参数映射（与story.ts保持一致） ====================
+
+// 年龄适配指令
+const AGE_INSTRUCTIONS: Record<string, string> = {
+  "2-3": "每页1-2句短句，大量拟声词（嗖——、吧嗒吧嗒），重复句式，简单直观的故事",
+  "4-6": "每页2-3句，简单情节+对话，有起承转合，可以有小悬念",
+  "7-9": "每页3-4句，更丰富的情感描写和内心独白，有挑战和成长",
+};
+
+// 动物名称映射
+const ANIMAL_NAMES: Record<string, string> = {
+  dog: "小狗",
+  cat: "小猫",
+  dinosaur: "小恐龙",
+  rabbit: "小兔子",
+  bear: "小熊",
+  dolphin: "小海豚",
+  unicorn: "独角兽",
+  monkey: "小猴子",
+};
+
+// 颜色名称映射
+const COLOR_NAMES: Record<string, string> = {
+  red: "红色",
+  orange: "橙色",
+  yellow: "黄色",
+  green: "绿色",
+  blue: "蓝色",
+  purple: "紫色",
+  pink: "粉色",
+};
+
+// 性格名称映射
+const PERSONALITY_NAMES: Record<string, string> = {
+  brave: "勇敢",
+  curious: "好奇",
+  shy: "害羞",
+  lively: "活泼",
+  gentle: "温柔",
+  stubborn: "倔强",
+};
+
+// 地点名称映射
+const LOCATION_NAMES: Record<string, string> = {
+  underwater: "海底",
+  space: "太空",
+  castle: "城堡",
+  volcano: "火山",
+  forest: "森林",
+  island: "岛屿",
+  circus: "马戏团",
+};
+
+// 生活经历映射
+const LIFE_EVENT_NAMES: Record<string, string> = {
+  kindergarten: "上幼儿园",
+  "new-friends": "交新朋友",
+  "fear-dark": "怕黑",
+  moving: "搬家",
+  "new-sibling": "有了弟弟妹妹",
+  "learning-bike": "学骑车",
+};
 
 // 万相风格映射
 const WAN_STYLE_MAP: Record<string, string> = {
@@ -53,7 +116,17 @@ async function streamDoubaoStory(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { childName, themeId, styleId = "watercolor" } = body;
+    const {
+      childName,
+      themeId,
+      styleId = "watercolor",
+      ageGroup,
+      favoriteAnimal,
+      favoriteColor,
+      personality,
+      location,
+      lifeEvent,
+    } = body;
 
     if (!childName || !themeId) {
       return NextResponse.json(
@@ -65,11 +138,52 @@ export async function POST(request: NextRequest) {
     const theme = STORY_THEMES.find((t) => t.id === themeId) || STORY_THEMES[0];
     const wanStyle = WAN_STYLE_MAP[styleId] || WAN_STYLE_MAP.watercolor;
 
+    // 解析个性化参数，使用映射表转换为中文
+    const resolvedAgeGroup = ageGroup || "4-6";
+    const ageInstruction = AGE_INSTRUCTIONS[resolvedAgeGroup] || AGE_INSTRUCTIONS["4-6"];
+
+    // 处理动物参数
+    let resolvedAnimal = favoriteAnimal || "";
+    if (resolvedAnimal && ANIMAL_NAMES[resolvedAnimal]) {
+      resolvedAnimal = ANIMAL_NAMES[resolvedAnimal];
+    }
+
+    // 处理颜色参数
+    let resolvedColor = favoriteColor || "";
+    if (resolvedColor && COLOR_NAMES[resolvedColor]) {
+      resolvedColor = COLOR_NAMES[resolvedColor];
+    }
+
+    // 处理性格参数
+    const personalityArr = personality || [];
+    const personalityList = personalityArr
+      .map((p: string) => PERSONALITY_NAMES[p] || p)
+      .filter(Boolean);
+    const resolvedPersonality = personalityList.length > 0 ? personalityList.join("、") : "可爱";
+
+    // 处理地点参数
+    let resolvedLocation = location || "";
+    if (resolvedLocation && LOCATION_NAMES[resolvedLocation]) {
+      resolvedLocation = LOCATION_NAMES[resolvedLocation];
+    }
+
+    // 处理生活经历参数
+    let resolvedLifeEvent = lifeEvent || "";
+    if (resolvedLifeEvent && LIFE_EVENT_NAMES[resolvedLifeEvent]) {
+      resolvedLifeEvent = LIFE_EVENT_NAMES[resolvedLifeEvent];
+    }
+
     const prompt = STORY_GENERATION_PROMPT
       .replace("{childName}", childName)
+      .replace("{ageGroup}", resolvedAgeGroup)
+      .replace("{favoriteAnimal}", resolvedAnimal || "可爱的小动物")
+      .replace("{favoriteColor}", resolvedColor || "温暖的色彩")
+      .replace("{personality}", resolvedPersonality)
       .replace("{themeName}", theme.name)
-      .replace("{themeDescription}", theme.description)
-      .replace("{wansStyle}", wanStyle);
+      .replace("{location}", resolvedLocation || "一个奇妙的地方")
+      .replace("{lifeEvent}", resolvedLifeEvent || "")
+      .replace("{ageInstruction}", ageInstruction)
+      .replace("{wanStyle}", wanStyle);
 
     // 调用Doubao故事生成
     const apiKey =
@@ -84,7 +198,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         isDemo: true,
-        story: getDemoStory(childName, theme),
+        story: getDemoStory(childName, theme, resolvedAgeGroup, favoriteAnimal, favoriteColor),
       });
     }
 
@@ -179,71 +293,72 @@ export async function POST(request: NextRequest) {
 }
 
 // 演示数据
-function getDemoStory(childName: string, theme: (typeof STORY_THEMES)[0]) {
+function getDemoStory(
+  childName: string,
+  theme: (typeof STORY_THEMES)[0],
+  ageGroup: string = "4-6",
+  favoriteAnimal?: string,
+  favoriteColor?: string
+) {
   const name = childName || "小宝贝";
+  const animalName = favoriteAnimal || "小兔子";
+  const colorName = favoriteColor || "粉色";
+
+  // 根据动物参数选择合适的角色
+  const animalEmoji: Record<string, string> = {
+    dog: "🐶 小狗",
+    cat: "🐱 小猫",
+    dinosaur: "🦕 小恐龙",
+    rabbit: "🐰 小兔子",
+    bear: "🐻 小熊",
+    dolphin: "🐬 小海豚",
+    unicorn: "🦄 独角兽",
+    monkey: "🐵 小猴子",
+  };
+  const animalDisplay = animalEmoji[favoriteAnimal || "rabbit"] || animalEmoji.rabbit;
+
   return {
-    title: `${name}的睡前故事`,
+    title: `${name}的奇幻之旅`,
     pages: [
       {
         pageNumber: 1,
-        text: `夜幕降临，月亮慢慢爬上了天空。${name}躺在床上，闭上眼睛，听妈妈讲今晚的故事。`,
-        imagePrompt:
-          "温馨儿童卧室，月光透过窗帘，小女孩躺在床上闭眼微笑，万相水彩绘本风格，柔和光线，温暖色调，专业儿童插画，手绘质感",
+        text: `${name}收到了一封神秘的来信，邀请她去参加一场特别的冒险。信封上画着可爱的${animalDisplay}，还有闪闪发光的星星。`,
+        imagePrompt: `温馨的儿童房间，${name}好奇地拆开信封，专业水彩绘本风格，柔和光线，温暖色调，专业儿童插画，手绘质感`,
       },
       {
         pageNumber: 2,
-        text: `从前，在一片美丽的大森林里，住着一只小${theme.name === "小动物" ? "兔子" : "熊"}。它的毛色${theme.name === "小动物" ? "雪白雪白的" : "金黄金黄的"}，眼睛亮晶晶的。`,
-        imagePrompt:
-          "美丽的大森林，金色阳光透过树叶，小动物在草丛中，万相水彩绘本风格，温暖柔和光线，专业儿童插画，手绘质感",
+        text: `${name}穿上了一件${colorName}的漂亮裙子，带上她最喜欢的小背包。"${animalDisplay}，我们一起去冒险吧！"她兴奋地说。`,
+        imagePrompt: `${name}穿着${colorName}裙子，背着小背包，专业水彩绘本风格，阳光明媚，专业儿童插画，手绘质感`,
       },
       {
         pageNumber: 3,
-        text: `小${theme.name === "小动物" ? "兔子" : "熊"}最喜欢的事情，就是在月亮升起的时候，去森林里找星星玩。`,
-        imagePrompt:
-          "夜晚森林小路，月亮高挂，星星闪烁，小动物抬头望天空，万相水彩绘本风格，梦幻柔和光线，专业儿童插画，手绘质感",
+        text: `${animalDisplay}从信中跳了出来，眼睛亮晶晶的："欢迎来到${theme.name}世界！我等了你好久啦！"${name}开心地拍了拍手。`,
+        imagePrompt: `${animalDisplay}从魔法信封中跳出来，专业水彩绘本风格，梦幻光效，专业儿童插画，手绘质感`,
       },
       {
         pageNumber: 4,
-        text: `"星星星星，你们今晚要去哪里玩呀？"小${theme.name === "小动物" ? "兔子" : "熊"}轻轻地问。`,
-        imagePrompt:
-          "小动物和小星星对话场景，夜空下森林草地上，万相水彩绘本风格，温馨浪漫氛围，专业儿童插画，手绘质感",
+        text: `他们一起踏上了彩虹桥。彩虹桥通向一个神奇的${theme.name}世界，那里有各种奇妙的事情等着他们去发现。`,
+        imagePrompt: `彩虹桥通向神奇的${theme.name}世界，专业水彩绘本风格，彩虹色光芒，专业儿童插画，手绘质感`,
       },
       {
         pageNumber: 5,
-        text: `星星们眨眨眼睛说："今晚我们一起去${name}的梦里玩，那里有好多好玩的！"`,
-
-        imagePrompt:
-          "星星飞向远方，夜空中流星划过，万相水彩绘本风格，梦幻童趣，专业儿童插画，手绘质感",
+        text: `${name}和${animalDisplay}在${theme.name}世界里遇到了许多新朋友。他们一起唱歌、跳舞，度过了最快乐的时光。`,
+        imagePrompt: `${name}和${animalDisplay}与新朋友们在${theme.name}世界玩耍，专业水彩绘本风格，欢乐氛围，专业儿童插画，手绘质感`,
       },
       {
         pageNumber: 6,
-        text: `小${theme.name === "小动物" ? "兔子" : "熊"}听了，好羡慕呀。它也想和${name}一起玩。`,
-        imagePrompt:
-          "小动物望向远方，眼中充满期待，夜空背景，万相水彩绘本风格，温馨期待氛围，专业儿童插画，手绘质感",
+        text: `太阳快要落山了，${animalDisplay}温柔地说："${name}，今天是最棒的冒险！明天我们还会再见面的哦。"`,
+        imagePrompt: `夕阳下的${theme.name}世界，${name}和${animalDisplay}道别，专业水彩绘本风格，温馨日落，专业儿童插画，手绘质感`,
       },
       {
         pageNumber: 7,
-        text: `就在这时，一阵温柔的风吹过，轻轻地对小${theme.name === "小动物" ? "兔子" : "熊"}说："${name}已经做好梦的准备了，你快去吧。"`,
-        imagePrompt:
-          "微风吹过的森林，小动物被风托起，夜空星光，万相水彩绘本风格，温柔梦幻，专业儿童插画，手绘质感",
+        text: `${name}轻轻地说："${animalDisplay}，谢谢你带我来到这么美好的地方。我会一直记得今天的！"${animalDisplay}开心地笑了。`,
+        imagePrompt: `${name}和${animalDisplay}拥抱道别，专业水彩绘本风格，温情时刻，专业儿童插画，手绘质感`,
       },
       {
         pageNumber: 8,
-        text: `小${theme.name === "小动物" ? "兔子" : "熊"}轻轻地走进了${name}的梦里，它们一起在云朵上跳舞，在星星间捉迷藏。`,
-        imagePrompt:
-          "云朵上的梦境，小女孩和小动物一起跳舞，星星闪烁，万相水彩绘本风格，梦幻快乐，专业儿童插画，手绘质感",
-      },
-      {
-        pageNumber: 9,
-        text: `${name}睡得好香好香，嘴角露出了甜甜的笑容。小${theme.name === "小动物" ? "兔子" : "熊"}轻轻地趴在${name}的枕头边，也闭上了眼睛。`,
-        imagePrompt:
-          "小女孩安睡，小动物陪伴在旁，月光温柔洒落，万相水彩绘本风格，宁静温馨，专业儿童插画，手绘质感",
-      },
-      {
-        pageNumber: 10,
-        text: `月亮轻轻地说："晚安${name}，晚安小${theme.name === "小动物" ? "兔子" : "熊"}。做个好梦，明天见。"`,
-        imagePrompt:
-          "月亮微笑，星星眨眼，温馨卧室，小女孩和小动物安睡，万相水彩绘本风格，宁静美好结尾，专业儿童插画，手绘质感",
+        text: `${name}回到了温暖的家，躺在床上，脸上带着甜甜的笑容。窗外，月亮和星星眨着眼睛，仿佛在说："晚安，${name}，做个好梦。"`,
+        imagePrompt: `${name}在家里温馨的床上安睡，月光洒进窗户，专业水彩绘本风格，宁静温馨，专业儿童插画，手绘质感`,
       },
     ],
   };

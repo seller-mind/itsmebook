@@ -180,7 +180,7 @@ export default function SignInPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <span className="text-5xl">📚</span>
-          <h1 className="text-3xl font-bold text-gray-900 mt-4">欢迎来到"睡前魔法书"</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mt-4">欢迎来到"是我呀"</h1>
           <p className="text-gray-600 mt-2">登录后开始创作专属绘本</p>
         </div>
 

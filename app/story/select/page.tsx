@@ -5,6 +5,18 @@ import { useRouter } from "next/navigation";
 import { STORY_THEMES } from "@/lib/story";
 import { CLASSIC_STORIES, STORY_CATEGORIES, ClassicStory } from "@/lib/classic-stories";
 
+// 孩子档案类型
+interface ChildProfile {
+  name?: string;
+  ageGroup?: string;
+  favoriteAnimal?: string;
+  favoriteColor?: string;
+  personality?: string;
+  theme?: string;
+  location?: string;
+  lifeEvent?: string;
+}
+
 export default function StorySelectPage() {
   const router = useRouter();
   const [selectedTheme, setSelectedTheme] = useState<string>("");
@@ -16,11 +28,33 @@ export default function StorySelectPage() {
   const [error, setError] = useState("");
   
   // 经典故事库 Tab状态
-  const [activeTab, setActiveTab] = useState<"classic" | "custom">("classic");
+  const [activeTab, setActiveTab] = useState<"classic" | "custom">("custom");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(
     Object.fromEntries(STORY_CATEGORIES.map(cat => [cat.name, true]))
   );
   const [selectedClassicStory, setSelectedClassicStory] = useState<ClassicStory | null>(null);
+
+  // 读取孩子档案
+  useEffect(() => {
+    const profileStr = sessionStorage.getItem("itsmebook_child_profile");
+    if (profileStr) {
+      try {
+        const profile: ChildProfile = JSON.parse(profileStr);
+        if (profile.name) {
+          setChildName(profile.name);
+        }
+        if (profile.theme) {
+          // 检查theme是否匹配现有主题
+          const matchedTheme = STORY_THEMES.find(t => t.id === profile.theme);
+          if (matchedTheme) {
+            setSelectedTheme(matchedTheme.id);
+          }
+        }
+      } catch (e) {
+        console.error("解析孩子档案失败:", e);
+      }
+    }
+  }, []);
 
   // 切换分类展开/收起
   const toggleCategory = (category: string) => {
@@ -81,12 +115,13 @@ export default function StorySelectPage() {
       setProgress(95);
       setStatus("正在完成...");
 
+      // 使用默认AI声音，不再依赖家长声音克隆
       const storyData = {
         title: story.title,
         childName: name,
         pages: pagesWithImages,
-        voiceUrl: sessionStorage.getItem("bedtime_voice_url") || "",
-        voiceId: sessionStorage.getItem("bedtime_voice_id") || "",
+        voiceUrl: "", // 不再使用克隆声音
+        voiceId: "longhuhu_v3", // 使用默认AI声线
         createdAt: new Date().toISOString(),
         isClassic: true,
       };
@@ -132,7 +167,18 @@ export default function StorySelectPage() {
         });
       }, 2000);
 
-      // 调用故事生成API
+      // 读取孩子档案参数
+      const profileStr = sessionStorage.getItem("itsmebook_child_profile");
+      let profile: ChildProfile = {};
+      if (profileStr) {
+        try {
+          profile = JSON.parse(profileStr);
+        } catch (e) {
+          console.error("解析孩子档案失败:", e);
+        }
+      }
+
+      // 调用故事生成API，传递孩子档案参数
       const response = await fetch("/api/story/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,6 +187,13 @@ export default function StorySelectPage() {
           themeId: selectedTheme || "custom",
           styleId: "watercolor",
           customPrompt: customPrompt.trim(),
+          // 新增孩子档案参数
+          ageGroup: profile.ageGroup || "",
+          favoriteAnimal: profile.favoriteAnimal || "",
+          favoriteColor: profile.favoriteColor || "",
+          personality: profile.personality || "",
+          location: profile.location || "",
+          lifeEvent: profile.lifeEvent || "",
         }),
       });
 
@@ -243,13 +296,13 @@ export default function StorySelectPage() {
       setProgress(85);
       setStatus("正在完成...");
 
-      // 保存故事数据到sessionStorage
+      // 使用默认AI声音，不再依赖家长声音克隆
       const storyData = {
         title: story.title,
         childName: name,
         pages: pagesWithImages,
-        voiceUrl: sessionStorage.getItem("bedtime_voice_url") || "",
-        voiceId: sessionStorage.getItem("bedtime_voice_id") || "",
+        voiceUrl: "", // 不再使用克隆声音
+        voiceId: "longhuhu_v3", // 使用默认AI声线
         createdAt: new Date().toISOString(),
         isClassic: false,
       };
@@ -274,13 +327,13 @@ export default function StorySelectPage() {
       {/* 顶部导航 */}
       <div className="px-4 py-4 flex items-center justify-between max-w-lg mx-auto">
         <button
-          onClick={() => router.push("/recording")}
+          onClick={() => router.push("/create")}
           className="flex items-center gap-1 text-gray-600 hover:text-gray-900 transition-colors"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          <span className="text-sm">声音录制</span>
+          <span className="text-sm">填写信息</span>
         </button>
         <div className="flex items-center gap-1.5">
           <span className="text-xl">📖</span>
@@ -307,9 +360,9 @@ export default function StorySelectPage() {
           </div>
         </div>
         <div className="flex justify-between mt-1 text-xs text-gray-400">
-          <span>录声音</span>
+          <span>填信息</span>
           <span>选故事</span>
-          <span>听故事</span>
+          <span>看绘本</span>
         </div>
       </div>
 
@@ -369,125 +422,46 @@ export default function StorySelectPage() {
         {/* Tab切换 */}
         <div className="bg-white rounded-2xl shadow-md p-1.5 mb-4 flex">
           <button
-            onClick={() => setActiveTab("classic")}
-            className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-              activeTab === "classic"
-                ? "bg-gradient-to-r from-primary-orange to-amber-400 text-white shadow-md"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <span>📚</span>
-            <span>经典故事库</span>
-            <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full animate-pulse leading-none">更新中</span>
-          </button>
-          <button
             onClick={() => setActiveTab("custom")}
             className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-              activeTab === "custom"
-                ? "bg-gradient-to-r from-primary-orange to-amber-400 text-white shadow-md"
-                : "text-gray-500 hover:text-gray-700"
+                activeTab === "custom"
+                  ? "bg-gradient-to-r from-primary-orange to-amber-400 text-white shadow-md"
+                  : "text-gray-500 hover:text-gray-700"
             }`}
           >
             <span>✨</span>
             <span>自定义故事</span>
           </button>
+          <button
+            onClick={() => setActiveTab("classic")}
+            className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                activeTab === "classic"
+                  ? "bg-gradient-to-r from-primary-orange to-amber-400 text-white shadow-md"
+                  : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span>📚</span>
+            <span>经典故事库</span>
+          </button>
         </div>
-
-        {/* 经典故事库 */}
-        {activeTab === "classic" && (
-          <div className="space-y-3">
-            {/* 故事数量提示 */}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-3 mb-4">
-              <p className="text-sm text-amber-800 flex items-center gap-2">
-                <span className="text-lg">📚</span>
-                <span>精选 {CLASSIC_STORIES.length} 个公版经典故事，免去等待，即选即读</span>
-              </p>
-
-            </div>
-
-            {/* 分类展示 */}
-            {STORY_CATEGORIES.map((category) => {
-              const categoryStories = CLASSIC_STORIES.filter(s => s.category === category.name);
-              const isExpanded = expandedCategories[category.name];
-              
-              return (
-                <div key={category.name} className="bg-white rounded-2xl shadow-md overflow-hidden">
-                  {/* 分类标题 */}
-                  <button
-                    onClick={() => toggleCategory(category.name)}
-                    className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{category.emoji}</span>
-                      <span className="font-medium text-gray-800">{category.name}</span>
-                      <span className="text-xs text-gray-500">({category.count})</span>
-                    </div>
-                    <svg
-                      className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-
-                  {/* 分类内容 */}
-                  {isExpanded && (
-                    <div className="p-3 space-y-2">
-                      {categoryStories.map((story) => (
-                        <button
-                          key={story.id}
-                          onClick={() => handleSelectClassicStory(story)}
-                          disabled={isGenerating}
-                          className="w-full p-3 rounded-xl border border-gray-100 hover:border-primary-orange/50 hover:bg-primary-orange/5 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-lg flex-shrink-0">
-                              {story.categoryEmoji}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <h4 className="font-medium text-gray-900 truncate">{story.title}</h4>
-                                <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full flex-shrink-0">
-                                  {story.ageRange}
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-500 line-clamp-1">{story.description}</p>
-                              <p className="text-xs text-primary-orange mt-1 flex items-center gap-1">
-                                <span>点击立即播放</span>
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
 
         {/* 自定义故事 */}
         {activeTab === "custom" && (
           <>
-            {/* 孩子名字输入 */}
-            <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                孩子名字（可选）
-              </label>
-              <input
-                type="text"
-                value={childName}
-                onChange={(e) => setChildName(e.target.value)}
-                placeholder="输入名字，故事里会提到"
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-orange focus:outline-none transition-colors text-base"
-              />
-            </div>
+            {/* 孩子名字输入 - 已从上一步带入 */}
+            {childName && (
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl shadow-md p-5 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-2xl">
+                    👧
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">孩子的名字</p>
+                    <p className="font-bold text-gray-900 text-lg">{childName}的专属故事</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 故事主题选择 */}
             <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
@@ -584,6 +558,85 @@ export default function StorySelectPage() {
             </p>
           </>
         )}
+
+        {/* 经典故事库 */}
+        {activeTab === "classic" && (
+          <div className="space-y-3">
+            {/* 故事数量提示 */}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-3 mb-4">
+              <p className="text-sm text-amber-800 flex items-center gap-2">
+                <span className="text-lg">📚</span>
+                <span>精选 {CLASSIC_STORIES.length} 个公版经典故事，免去等待，即选即读</span>
+              </p>
+
+            </div>
+
+            {/* 分类展示 */}
+            {STORY_CATEGORIES.map((category) => {
+              const categoryStories = CLASSIC_STORIES.filter(s => s.category === category.name);
+              const isExpanded = expandedCategories[category.name];
+              
+              return (
+                <div key={category.name} className="bg-white rounded-2xl shadow-md overflow-hidden">
+                  {/* 分类标题 */}
+                  <button
+                    onClick={() => toggleCategory(category.name)}
+                    className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{category.emoji}</span>
+                      <span className="font-medium text-gray-800">{category.name}</span>
+                      <span className="text-xs text-gray-500">({category.count})</span>
+                    </div>
+                    <svg
+                      className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* 分类内容 */}
+                  {isExpanded && (
+                    <div className="p-3 space-y-2">
+                      {categoryStories.map((story) => (
+                        <button
+                          key={story.id}
+                          onClick={() => handleSelectClassicStory(story)}
+                          disabled={isGenerating}
+                          className="w-full p-3 rounded-xl border border-gray-100 hover:border-primary-orange/50 hover:bg-primary-orange/5 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-lg flex-shrink-0">
+                              {story.categoryEmoji}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <h4 className="font-medium text-gray-900 truncate">{story.title}</h4>
+                                <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full flex-shrink-0">
+                                  {story.ageRange}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 line-clamp-1">{story.description}</p>
+                              <p className="text-xs text-primary-orange mt-1 flex items-center gap-1">
+                                <span>点击立即播放</span>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -597,40 +650,26 @@ function getPlaceholderImage(index: number): string {
     { colors: ["#87CEEB", "#ADD8E6", "#B0E0E6"], emoji: "⭐" },
     { colors: ["#DDA0DD", "#EE82EE", "#DA70D6"], emoji: "🌸" },
     { colors: ["#98FB98", "#90EE90", "#7CFC00"], emoji: "🌿" },
-    { colors: ["#F0E68C", "#EEE8AA", "#BDB76B"], emoji: "🌻" },
-    { colors: ["#FFA07A", "#FA8072", "#FF7F50"], emoji: "🔥" },
-    { colors: ["#87CEFA", "#4169E1", "#6495ED"], emoji: "🌊" },
-    { colors: ["#D8BFD8", "#DDA0DD", "#EE82EE"], emoji: "🌺" },
-    { colors: ["#AFEEEE", "#40E0D0", "#48D1CC"], emoji: "🦋" },
-    { colors: ["#FFDAB9", "#FFE4B5", "#FFA500"], emoji: "🐻" },
+    { colors: ["#FFD700", "#FFA500", "#FF8C00"], emoji: "🌻" },
+    { colors: ["#87CEFA", "#4682B4", "#5F9EA0"], emoji: "🐱" },
+    { colors: ["#F5DEB3", "#DEB887", "#D2B48C"], emoji: "🐶" },
+    { colors: ["#FFA07A", "#FA8072", "#E9967A"], emoji: "🦊" },
   ];
-  
-  const gradient = gradients[index % gradients.length];
-  const [color1, color2, color3] = gradient.colors;
-  const emoji = gradient.emoji;
-  
-  // 生成 SVG 占位图
+
+  const config = gradients[index % gradients.length];
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
       <defs>
-        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
-          <stop offset="50%" style="stop-color:${color2};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${color3};stop-opacity:1" />
+        <linearGradient id="grad${index}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:${config.colors[0]}"/>
+          <stop offset="50%" style="stop-color:${config.colors[1]}"/>
+          <stop offset="100%" style="stop-color:${config.colors[2]}"/>
         </linearGradient>
-        <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" style="stop-color:white;stop-opacity:0.3" />
-          <stop offset="100%" style="stop-color:white;stop-opacity:0" />
-        </radialGradient>
       </defs>
-      <rect width="800" height="800" fill="url(#grad)" rx="40"/>
-      <circle cx="400" cy="400" r="300" fill="url(#glow)"/>
-      <text x="400" y="420" font-size="180" text-anchor="middle" dominant-baseline="middle">${emoji}</text>
-      <text x="400" y="650" font-size="32" text-anchor="middle" fill="white" opacity="0.8" font-family="sans-serif">第${index + 1}页</text>
+      <rect width="800" height="800" fill="url(#grad${index})"/>
+      <text x="400" y="400" font-size="200" text-anchor="middle" dominant-baseline="middle">${config.emoji}</text>
     </svg>
-  `.trim();
-  
-  // 将 SVG 转为 data URL
-  const base64 = btoa(unescape(encodeURIComponent(svg)));
-  return `data:image/svg+xml;base64,${base64}`;
+  `;
+
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
 }

@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Cookie政策",
-  description: "睡前魔法书 Cookie政策，了解我们如何使用Cookie和类似技术",
+  description: "是我呀 Cookie政策，了解我们如何使用Cookie和类似技术",
 };
 
 export default function CookiePage() {
@@ -22,7 +22,7 @@ export default function CookiePage() {
               <span>📋</span> 政策说明
             </h2>
             <p className="text-gray-600 leading-relaxed">
-              "睡前魔法书"（以下简称"我们"）使用Cookie和类似技术来提升您的使用体验。本Cookie政策依据《中华人民共和国个人信息保护法》的相关规定制定，旨在向您说明我们使用Cookie的类型、用途以及您如何管理Cookie设置。
+              "是我呀"（以下简称"我们"）使用Cookie和类似技术来提升您的使用体验。本Cookie政策依据《中华人民共和国个人信息保护法》的相关规定制定，旨在向您说明我们使用Cookie的类型、用途以及您如何管理Cookie设置。
             </p>
             <p className="text-gray-600 leading-relaxed mt-4">
               <strong>什么是Cookie？</strong>Cookie是一种由网页浏览器存储在您设备上的小型文本文件，用于记住您的偏好设置、登录状态和其他信息。

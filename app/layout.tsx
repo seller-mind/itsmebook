@@ -23,46 +23,45 @@ const notoSerif = Noto_Serif_SC({
 // 网站元数据
 export const metadata: Metadata = {
   title: {
-    default: "睡前魔法书 | 用你的声音，给孩子讲最好的故事",
-    template: "%s | 睡前魔法书",
+    default: "是我呀 | 每个孩子都是自己故事的主角",
+    template: "%s | 是我呀",
   },
   description:
-    "用AI克隆你的声音，把任何故事变成专属的睡前哄睡音频。录30秒，让你的声音替孩子讲今夜的故事。孩子安心入睡，父母轻松自由。",
+    "输入孩子的名字、兴趣和特征，AI一键生成以孩子为主角的专属绘本故事，配AI朗读。60秒出绘本，零照片零声音克隆，隐私零风险。",
   keywords: [
-    "睡前故事",
-    "哄睡",
     "AI绘本",
     "儿童绘本",
-    "声音克隆",
-    "睡前魔法书",
+    "个性化绘本",
+    "是我呀",
     "AI生成",
     "定制绘本",
     "亲子",
-    "睡前故事生成",
-    "哄睡神器",
+    "专属故事",
+    "绘本生成",
+    "儿童故事",
   ],
-  authors: [{ name: "睡前魔法书" }],
-  creator: "睡前魔法书",
+  authors: [{ name: "是我呀" }],
+  creator: "是我呀",
   openGraph: {
     type: "website",
     locale: "zh_CN",
     url: "https://itsmebook.com",
-    siteName: "睡前魔法书",
-    title: "睡前魔法书 | 你的声音，是孩子最好的睡前魔法",
-    description: "用AI克隆你的声音，把任何故事变成专属的睡前哄睡音频",
+    siteName: "是我呀",
+    title: "是我呀 | 每个孩子都是自己故事的主角",
+    description: "输入孩子名字和兴趣，AI生成专属绘本，60秒出故事",
     images: [
       {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "睡前魔法书",
+        alt: "是我呀",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "睡前魔法书 | 你的声音，是孩子最好的睡前魔法",
-    description: "用AI克隆你的声音，把任何故事变成专属的睡前哄睡音频",
+    title: "是我呀 | 每个孩子都是自己故事的主角",
+    description: "输入孩子名字和兴趣，AI生成专属绘本，60秒出故事",
   },
   robots: {
     index: true,
@@ -93,8 +92,8 @@ export default function RootLayout({
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-          <meta name="apple-mobile-web-app-title" content="睡前魔法书" />
-          <meta name="application-name" content="睡前魔法书" />
+          <meta name="apple-mobile-web-app-title" content="是我呀" />
+          <meta name="application-name" content="是我呀" />
           <meta name="msapplication-TileColor" content="#FF8C42" />
           <meta name="msapplication-tap-highlight" content="no" />
           
@@ -142,14 +141,14 @@ export default function RootLayout({
                 <div className="col-span-1 md:col-span-2">
                   <div className="flex items-center gap-2 mb-4">
                     <span className="text-2xl">🌙</span>
-                    <span className="text-xl font-bold text-gray-900">睡前魔法书</span>
+                    <span className="text-xl font-bold text-gray-900">是我呀</span>
                   </div>
                   <p className="text-gray-600 mb-4">
-                    你的声音，是孩子最好的睡前魔法。<br />
-                    录30秒，让故事替你说晚安。
+                    每个孩子都是自己故事的主角。<br />
+                    输入名字，60秒生成专属绘本。
                   </p>
                   <p className="text-sm text-gray-400">
-                    © 2026 睡前魔法书 All Rights Reserved.
+                    © 2026 是我呀 All Rights Reserved.
                   </p>
                 </div>
                 
@@ -158,7 +157,7 @@ export default function RootLayout({
                   <h3 className="font-semibold text-gray-900 mb-4">快速链接</h3>
                   <ul className="space-y-2 text-gray-600">
                     <li>
-                      <a href="/recording" className="hover:text-primary-orange transition-colors">
+                      <a href="/create" className="hover:text-primary-orange transition-colors">
                         开始录制
                       </a>
                     </li>
@@ -228,7 +227,7 @@ export default function RootLayout({
                   <p className="text-sm text-gray-400 text-center">
                     {/* ICP备案号：待域名备案完成后填写，例如：京ICP备XXXXXXXX号 */}
                     {/* 公安联网备案：待公安联网备案完成后填写 */}
-                    © 2026 睡前魔法书 All Rights Reserved.
+                    © 2026 是我呀 All Rights Reserved.
                   </p>
                 </div>
               </div>

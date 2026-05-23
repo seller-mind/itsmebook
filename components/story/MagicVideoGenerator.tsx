@@ -23,11 +23,11 @@ export default function MagicVideoGenerator({
   const [error, setError] = useState<string>("");
 
   // 分享文案
-  const shareText = `我用「睡前魔法书」给${childName}讲了《${title}》，用我自己的声音读的！孩子听了一遍又一遍 🌙
+  const shareText = `我用「是我呀」给${childName}生成了一本专属绘本《${title}》✨
 
-快去试试，录一段你的声音，让绘本替你讲睡前故事～
+故事里叫着TA的名字，TA一听就知道"是我呀！"快去试试～
 
-#睡前故事 #AI绘本 #育儿好物 #睡前魔法书`;
+#AI绘本 #个性化绘本 #育儿好物 #是我呀`;
 
   // 生成故事卡片
   const generateCard = useCallback(async () => {
@@ -123,12 +123,12 @@ export default function MagicVideoGenerator({
       // 品牌logo文字
       ctx.fillStyle = "#FFD93D";
       ctx.font = "bold 44px sans-serif";
-      ctx.fillText("📖 睡前魔法书", canvas.width / 2, brandY + 20);
+      ctx.fillText("📖 是我呀", canvas.width / 2, brandY + 20);
 
       // 品牌标语
       ctx.font = "30px sans-serif";
       ctx.fillStyle = "rgba(255,255,255,0.5)";
-      ctx.fillText("你的声音，是孩子最好的睡前魔法", canvas.width / 2, brandY + 80);
+      ctx.fillText("每个孩子都是自己故事的主角", canvas.width / 2, brandY + 80);
 
       // 页数标记
       ctx.font = "26px sans-serif";

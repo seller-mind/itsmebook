@@ -300,7 +300,7 @@ export default function AccountPage() {
 
           {/* 创建新故事 */}
           <button
-            onClick={() => router.push("/recording")}
+            onClick={() => router.push("/create")}
             className="w-full btn-primary py-4 text-base flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -318,7 +318,7 @@ export default function AccountPage() {
             <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary-orange to-primary-dark flex items-center justify-center">
               <span className="text-4xl">🌙</span>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">睡前魔法书</h2>
+            <h2 className="text-2xl font-bold text-gray-900">是我呀</h2>
             <p className="text-sm text-gray-500 mt-1">登录后保存你的故事和声音</p>
           </div>
 
@@ -377,7 +377,7 @@ export default function AccountPage() {
           {/* 跳过登录 */}
           <div className="mt-4 text-center">
             <button
-              onClick={() => router.push("/recording")}
+              onClick={() => router.push("/create")}
               className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
             >
               跳过登录，直接体验

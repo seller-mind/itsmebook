@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     const paymentResult = await createPayment({
       tradeOrderId,
       totalFee: planConfig.price,
-      title: `睡前魔法书-${planConfig.name}`,
+      title: `是我呀-${planConfig.name}`,
       type: payType as 'wechat' | 'alipay',
     });
     

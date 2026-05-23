@@ -16,11 +16,11 @@ export default function SharePage() {
     }
   }, []);
 
-  const shareText = `用我的声音给孩子讲故事，太神奇了！
+  const shareText = `给孩子生成了一本专属绘本，太惊喜了！
 
-孩子缠着讲故事，但我已经累得不想开口了。录30秒，让我的声音替我讲，孩子竟然超喜欢！
+故事里叫着孩子的名字，连喜欢的恐龙都变成了好朋友！孩子一听就知道"这是我呀！"
 
-#睡前故事 #AI绘本 #育儿好物 #睡前魔法书`;
+#睡前故事 #AI绘本 #育儿好物 #是我呀`;
 
   const handleCopy = async () => {
     if (navigator.clipboard) {
@@ -52,7 +52,7 @@ export default function SharePage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-500">加载中...</p>
-          <button onClick={() => router.push("/recording")} className="btn-primary mt-4 px-6 py-2 text-sm">
+          <button onClick={() => router.push("/create")} className="btn-primary mt-4 px-6 py-2 text-sm">
             先去创建故事
           </button>
         </div>
@@ -178,7 +178,7 @@ export default function SharePage() {
         {/* 重新体验 */}
         <div className="text-center pt-2">
           <button
-            onClick={() => router.push("/recording")}
+            onClick={() => router.push("/create")}
             className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
           >
             再创建一个故事

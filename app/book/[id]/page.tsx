@@ -9,7 +9,7 @@ export default function BookDetailPage() {
   // 3秒后自动跳转到新页面
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.push("/recording");
+      router.push("/create");
     }, 3000);
     return () => clearTimeout(timer);
   }, [router]);
@@ -31,13 +31,13 @@ export default function BookDetailPage() {
             故事查看功能已全新升级！
           </p>
           <p className="text-gray-600 leading-relaxed mb-4">
-            新版本支持<strong className="text-primary-orange">声音克隆</strong>，
-            让孩子听着你的声音入睡。
+            新版本支持<strong className="text-primary-orange">AI专属绘本</strong>，
+            故事里叫着孩子的名字。
           </p>
           <div className="bg-purple-50 rounded-xl p-4 text-sm text-purple-800">
             <p className="font-medium mb-2">✨ 新功能亮点：</p>
             <ul className="text-left space-y-1">
-              <li>• 用你的声音讲故事</li>
+              <li>• 输入名字生成专属绘本</li>
               <li>• AI智能生成故事</li>
               <li>• 精美配图</li>
               <li>• 睡前哄睡模式</li>
@@ -48,7 +48,7 @@ export default function BookDetailPage() {
         {/* 操作按钮 */}
         <div className="space-y-3">
           <button
-            onClick={() => router.push("/recording")}
+            onClick={() => router.push("/create")}
             className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-primary-orange to-primary-dark text-white font-semibold shadow-lg hover:shadow-xl transition-all"
           >
             立即体验新功能 →

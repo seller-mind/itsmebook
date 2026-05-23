@@ -79,10 +79,10 @@ export default function RecordingPage() {
         {/* 标题区 */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            用你的声音，给孩子讲今晚的故事
+            给孩子讲一个专属故事
           </h1>
           <p className="text-sm text-gray-500">
-            录10-20秒，我们就能克隆你的声音
+            录10-20秒，我们就能合成故事朗读
           </p>
         </div>
 

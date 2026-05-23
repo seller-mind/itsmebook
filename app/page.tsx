@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-// 首页组件 - 严格按照蓝图v2.1文案
+// 首页组件 - 是我呀 V2
 export default function HomePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -11,18 +11,18 @@ export default function HomePage() {
 
   const handleStart = () => {
     setIsLoading(true);
-    router.push("/recording");
+    router.push("/create");
   };
 
-  const handleListenDemo = () => {
+  const handleViewDemo = () => {
     setShowDemo(true);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-b from-orange-50 via-amber-50 to-purple-50">
       {/* Hero区域 - pt-16为全局fixed导航栏留出空间 */}
       <section className="relative px-4 pt-8 pb-16 text-center max-w-5xl mx-auto overflow-hidden">
-        {/* 装饰背景 */}
+        {/* 装饰背景 - 更温暖的绘本风格装饰 */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {[...Array(12)].map((_, i) => (
             <div
@@ -43,35 +43,47 @@ export default function HomePage() {
             ☁️
           </div>
           <div className="absolute bottom-20 left-1/4 text-3xl opacity-10 cloud-float" style={{ animationDelay: "4s" }}>
-            🌙
+            📖
+          </div>
+          {/* 额外的绘本风格装饰 */}
+          <div className="absolute top-1/4 right-6 text-2xl opacity-15" style={{ animation: "twinkle 3s infinite" }}>
+            🌟
+          </div>
+          <div className="absolute bottom-1/3 right-1/4 text-2xl opacity-10" style={{ animation: "twinkle 2.5s infinite 1s" }}>
+            💫
           </div>
         </div>
 
         {/* 主标题 */}
         <div className="relative z-10">
+          {/* Logo图标 */}
+          <div className="inline-block mb-4">
+            <span className="text-5xl">📖</span>
+          </div>
+          
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4 leading-tight">
-            <span className="text-gradient">你的声音</span>
+            <span className="text-gradient">每个孩子</span>
             <br />
-            <span className="text-xl sm:text-3xl md:text-5xl">是孩子最好的睡前魔法</span>
+            <span className="text-xl sm:text-3xl md:text-5xl">都是自己故事的主角</span>
           </h1>
 
           {/* 副标题 */}
           <p className="text-xs sm:text-base md:text-lg text-gray-600 mb-8 max-w-xs sm:max-w-md mx-auto leading-relaxed">
-            经典童话+AI专属故事，用你的声音讲给孩子听
+            输入名字、选兴趣，60秒生成专属绘本
             <br />
-            录10秒，你的声音就能讲一整本
+            名字、性格、外观，全都是TA的
           </p>
 
           {/* CTA按钮 */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
             <button
-              onClick={handleListenDemo}
+              onClick={handleViewDemo}
               className="px-8 py-3.5 rounded-full border-2 border-gray-300 text-gray-700 font-medium hover:border-primary-orange hover:text-primary-orange transition-all flex items-center gap-2 text-base"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
-              听听这个魔法
+              看看这个魔法
             </button>
             <button
               onClick={handleStart}
@@ -101,14 +113,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 魔法时刻示例区 */}
+      {/* 绘本示例区 */}
       <section className="px-4 pb-16 max-w-5xl mx-auto">
-        <div className="bg-gradient-to-br from-indigo-100 to-purple-100 rounded-3xl p-6 sm:p-8 text-center">
-          {/* 视频封面 */}
+        <div className="bg-gradient-to-br from-orange-100 via-amber-50 to-purple-100 rounded-3xl p-6 sm:p-8 text-center">
+          {/* 绘本预览封面 */}
           <div className="max-w-sm mx-auto mb-6">
             <div
-              className="aspect-video rounded-2xl bg-gradient-to-br from-indigo-200 to-purple-200 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden relative"
-              onClick={handleListenDemo}
+              className="aspect-[3/4] rounded-2xl bg-gradient-to-br from-orange-200 via-amber-100 to-purple-200 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden relative shadow-xl"
+              onClick={handleViewDemo}
             >
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-16 h-16 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg hover:bg-white transition-colors">
@@ -117,8 +129,10 @@ export default function HomePage() {
                   </svg>
                 </div>
               </div>
-              <div className="absolute bottom-3 left-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-                0:15
+              {/* 假装绘本封面 */}
+              <div className="absolute bottom-0 left-0 right-0 bg-white/90 p-4 text-center">
+                <p className="text-lg font-bold text-gray-800">《小明的太空冒险》</p>
+                <p className="text-xs text-gray-500">主角：小明 · 5岁</p>
               </div>
             </div>
           </div>
@@ -126,10 +140,10 @@ export default function HomePage() {
           {/* 用户反馈 */}
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-5 max-w-sm mx-auto">
             <p className="text-gray-700 text-sm leading-relaxed italic">
-              "今晚太累了不想读，但女儿说：
-              <span className="text-primary-orange font-medium">妈妈我想听你讲故事</span>"
+              "儿子看了自己的绘本，兴奋了一整晚！
+              <span className="text-primary-orange font-medium">故事里的小明就是他自己</span>"
             </p>
-            <p className="text-xs text-gray-400 mt-2">—— 北京 · 职场妈妈小雨</p>
+            <p className="text-xs text-gray-400 mt-2">—— 上海 · 宝爸小李</p>
           </div>
         </div>
       </section>
@@ -137,51 +151,46 @@ export default function HomePage() {
       {/* 3步魔法区 */}
       <section className="px-4 pb-16 max-w-5xl mx-auto">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 text-center mb-8">
-          3步，你的声音替孩子讲故事
+          3步，给孩子一本专属绘本
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {/* 步骤1 */}
           <div className="bg-white rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition-shadow">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-pink-100 to-rose-200 flex items-center justify-center">
-              <span className="text-3xl">🎤</span>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-orange-100 to-amber-200 flex items-center justify-center">
+              <span className="text-3xl">✏️</span>
             </div>
-            <div className="w-8 h-8 mx-auto mb-3 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center text-sm font-bold">
+            <div className="w-8 h-8 mx-auto mb-3 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">
               1
             </div>
-            <h3 className="font-bold text-gray-900 mb-1">录声音</h3>
-            <p className="text-sm text-gray-500 mb-3">30秒，录下你的声音</p>
-            <div className="text-xs text-gray-400">约30秒</div>
-          </div>
-
-          {/* 连接线 */}
-          <div className="hidden sm:flex items-center justify-center absolute left-1/3">
-            <div className="w-full h-0.5 bg-gradient-to-r from-pink-300 to-purple-300" />
+            <h3 className="font-bold text-gray-900 mb-1">填信息</h3>
+            <p className="text-sm text-gray-500 mb-3">输入名字和兴趣</p>
+            <div className="text-xs text-gray-400">30秒完成</div>
           </div>
 
           {/* 步骤2 */}
           <div className="bg-white rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition-shadow">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-200 flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-100 to-purple-200 flex items-center justify-center">
               <span className="text-3xl">📖</span>
             </div>
             <div className="w-8 h-8 mx-auto mb-3 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-bold">
               2
             </div>
-            <h3 className="font-bold text-gray-900 mb-1">选故事</h3>
-            <p className="text-sm text-gray-500 mb-3">经典童话或AI专属</p>
-            <div className="text-xs text-gray-400">20+经典 · 无限AI</div>
+            <h3 className="font-bold text-gray-900 mb-1">选主题</h3>
+            <p className="text-sm text-gray-500 mb-3">冒险/友谊/勇气等</p>
+            <div className="text-xs text-gray-400">10+主题可选</div>
           </div>
 
           {/* 步骤3 */}
           <div className="bg-white rounded-2xl p-6 text-center shadow-md hover:shadow-lg transition-shadow">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-200 flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-200 flex items-center justify-center">
               <span className="text-3xl">🌙</span>
             </div>
-            <div className="w-8 h-8 mx-auto mb-3 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold">
+            <div className="w-8 h-8 mx-auto mb-3 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-bold">
               3
             </div>
             <h3 className="font-bold text-gray-900 mb-1">听故事</h3>
-            <p className="text-sm text-gray-500 mb-3">翻页浏览，睡前模式</p>
+            <p className="text-sm text-gray-500 mb-3">AI朗读，翻页阅读</p>
             <div className="text-xs text-gray-400">即刻享用</div>
           </div>
         </div>
@@ -192,7 +201,7 @@ export default function HomePage() {
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 text-center mb-2">
           从经典到专属，总有孩子爱的故事
         </h2>
-        <p className="text-center text-gray-500 text-sm mb-8">你的声音读经典，还是讲一个独一无二的故事？都行</p>
+        <p className="text-center text-gray-500 text-sm mb-8">经典故事精选，还是独一无二的主角故事？都行</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* 经典故事 */}
@@ -228,15 +237,15 @@ export default function HomePage() {
                 <span className="text-2xl">✨</span>
               </div>
               <div>
-                <h3 className="font-bold text-gray-900">AI专属故事</h3>
-                <p className="text-xs text-purple-500">无限生成，独一无二</p>
+                <h3 className="font-bold text-gray-900">AI专属绘本</h3>
+                <p className="text-xs text-purple-500">名字+兴趣+性格·完全定制</p>
               </div>
             </div>
             <div className="space-y-2">
               {[
-                { emoji: "🌙", desc: "输入孩子名字，主角就是TA" },
-                { emoji: "🎨", desc: "选风格主题，每次都不一样" },
-                { emoji: "💡", desc: "融入你想教的道理和习惯" },
+                { emoji: "👤", desc: "名字成为故事主角，代入感满满" },
+                { emoji: "🎨", desc: "外观、性格、喜好全都融入故事" },
+                { emoji: "💡", desc: "你想教的道理，悄悄讲给孩子听" },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span>{item.emoji}</span>
@@ -248,21 +257,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 场景区 */}
+      {/* 场景区 - 更新为V2适用场景 */}
       <section className="px-4 pb-16 max-w-5xl mx-auto">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 text-center mb-2">
-          每晚这一刻，你最需要魔法
+          这些时刻，给孩子一本专属绘本
         </h2>
-        <p className="text-center text-gray-500 text-sm mb-8">这些时刻，让你的声音陪孩子入睡</p>
+        <p className="text-center text-gray-500 text-sm mb-8">每个孩子都值得拥有自己的故事</p>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { emoji: "😫", title: "太累了", desc: "不想开口" },
-            { emoji: "📚", title: "嫌读绘本", desc: "太麻烦" },
-            { emoji: "🤦", title: "觉得自己", desc: "读得不好" },
-            { emoji: "🔁", title: "读了三遍", desc: "孩子还要听" },
-            { emoji: "🗣️", title: "嗓子哑了", desc: "实在读不动" },
-            { emoji: "✈️", title: "出差在外", desc: "语音陪娃" },
+            { emoji: "📖", title: "孩子不喜欢", desc: "读绘本" },
+            { emoji: "🎁", title: "想要", desc: "个性化礼物" },
+            { emoji: "⭐", title: "想让孩子", desc: "成为主角" },
+            { emoji: "🔄", title: "经典故事", desc: "都听腻了" },
           ].map((scene, i) => (
             <div
               key={i}
@@ -277,13 +284,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 定价预览区 */}
+      {/* 定价预览区 - V2定价 */}
       <section className="px-4 pb-16 max-w-5xl mx-auto">
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl p-6 sm:p-8">
+        <div className="bg-gradient-to-br from-orange-50 to-purple-50 rounded-3xl p-6 sm:p-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">解锁更多睡前魔法</h2>
-              <p className="text-sm text-gray-500 mt-1">每天一个故事，每晚一份陪伴</p>
+              <h2 className="text-xl font-bold text-gray-900">解锁更多专属绘本</h2>
+              <p className="text-sm text-gray-500 mt-1">每本都是独一无二的故事</p>
             </div>
             <button
               onClick={() => router.push("/pricing")}
@@ -298,9 +305,9 @@ export default function HomePage() {
 
           <div className="grid grid-cols-3 gap-3">
             {[
-              { name: "免费体验", price: "¥0", desc: "1个故事·6页预览", color: "from-gray-100 to-gray-200" },
-              { name: "月卡", price: "¥99", desc: "每天1个·无限生成", color: "from-primary-orange to-primary-dark", highlight: true },
-              { name: "年卡", price: "¥699", desc: "每天¥1.9·省¥489", color: "from-green-100 to-green-200" },
+              { name: "免费体验", price: "¥0", desc: "1本/月·2种风格", color: "from-gray-100 to-gray-200" },
+              { name: "单本", price: "¥19.9", desc: "1本·全风格+外观", color: "from-primary-orange to-primary-dark", highlight: true },
+              { name: "月度", price: "¥39/月", desc: "3本/月·+睡前模式", color: "from-purple-100 to-indigo-200" },
             ].map((plan, i) => (
               <div
                 key={i}
@@ -322,9 +329,9 @@ export default function HomePage() {
 
       {/* 底部CTA */}
       <section className="px-4 pb-20 max-w-5xl mx-auto text-center">
-        <div className="bg-gradient-to-r from-primary-orange to-primary-dark rounded-3xl p-8 text-white">
-          <h2 className="text-2xl font-bold mb-3">今晚，让故事替你说晚安</h2>
-          <p className="text-white/80 text-sm mb-6">经典童话+AI专属，录10秒就能讲一整本</p>
+        <div className="bg-gradient-to-r from-primary-orange to-purple-500 rounded-3xl p-8 text-white">
+          <h2 className="text-2xl font-bold mb-3">给孩子一本专属绘本</h2>
+          <p className="text-white/80 text-sm mb-6">故事里叫着TA的名字，每页都是TA的样子</p>
           <button
             onClick={handleStart}
             className="px-10 py-3.5 rounded-full bg-white text-primary-orange font-semibold hover:bg-gray-100 transition-colors text-base"
@@ -336,7 +343,7 @@ export default function HomePage() {
 
       {/* 底部提示 */}
       <div className="text-center text-xs text-gray-400 pb-8 px-4">
-        <p>你的声音，是孩子最好的睡前魔法</p>
+        <p className="text-gradient font-medium">是我呀——每个孩子都是自己故事的主角</p>
         <p className="mt-1">
           <button onClick={() => router.push("/privacy")} className="hover:text-gray-600">隐私政策</button>
           {" · "}
@@ -344,47 +351,61 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* 演示弹窗 */}
+      {/* 演示弹窗 - 绘本翻页效果 */}
       {showDemo && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setShowDemo(false)}
         >
           <div
-            className="bg-white rounded-3xl p-8 max-w-sm w-full text-center"
+            className="bg-white rounded-3xl p-8 max-w-md w-full text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-indigo-100 to-purple-200 flex items-center justify-center">
-              <span className="text-3xl">🎧</span>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-orange-100 to-purple-200 flex items-center justify-center">
+              <span className="text-3xl">📖</span>
             </div>
-            <h3 className="font-bold text-gray-900 text-lg mb-2">听听这个魔法</h3>
+            <h3 className="font-bold text-gray-900 text-lg mb-2">看看这个魔法</h3>
             <p className="text-sm text-gray-500 mb-6">
-              这是一位妈妈用30秒录音生成的睡前故事，听听效果
+              输入孩子名字和兴趣，60秒生成专属绘本
             </p>
-            <div className="bg-gray-50 rounded-xl p-4 mb-6">
-              <div className="flex items-center gap-3">
-                <button className="w-12 h-12 rounded-full bg-primary-orange flex items-center justify-center text-white shadow-md flex-shrink-0">
-                  <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </button>
-                <div className="flex-1">
-                  <div className="flex items-center gap-1 mb-1">
-                    {Array.from({ length: 30 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="w-1 rounded-full bg-primary-orange"
-                        style={{
-                          height: `${8 + Math.random() * 20}px`,
-                          opacity: 0.3 + Math.random() * 0.7,
-                        }}
-                      />
-                    ))}
+            
+            {/* 绘本翻页效果展示 */}
+            <div className="relative mb-6">
+              <div className="bg-gradient-to-br from-orange-100 via-amber-50 to-purple-100 rounded-2xl p-6 shadow-lg">
+                {/* 假装绘本页面 */}
+                <div className="bg-white rounded-xl p-4 mb-3 shadow-inner">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl">🚀</span>
+                    <span className="font-bold text-gray-800">《小明的太空冒险》</span>
                   </div>
-                  <p className="text-xs text-gray-400 text-left">0:15 / 0:15</p>
+                  <p className="text-sm text-gray-600 text-left leading-relaxed">
+                    在很远很远的外太空，有一个勇敢的小男孩叫<span className="text-primary-orange font-medium">小明</span>...
+                  </p>
+                </div>
+                {/* 翻页指示 */}
+                <div className="flex justify-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary-orange"></span>
+                  <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+                  <span className="w-2 h-2 rounded-full bg-gray-300"></span>
                 </div>
               </div>
             </div>
+            
+            <div className="bg-orange-50 rounded-xl p-4 mb-6 text-left">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">✨</span>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">专属定制内容</p>
+                  <ul className="text-xs text-gray-500 mt-1 space-y-1">
+                    <li>✓ 主角名字：小明</li>
+                    <li>✓ 外观特征：活泼可爱</li>
+                    <li>✓ 故事主题：太空冒险</li>
+                    <li>✓ 融入道理：勇敢探索</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
             <button
               onClick={() => setShowDemo(false)}
               className="w-full py-3 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-sm"

@@ -17,41 +17,41 @@ export interface PlanConfig {
 }
 
 export const PLAN_CONFIGS: Record<string, PlanConfig> = {
-  monthly: {
-    id: 'monthly',
-    name: '月卡',
-    price: '99.00',
-    priceDisplay: '¥99',
-    pages: 12,
-    credits: 30, // 30个故事/月，约每天1个
+  single: {
+    id: 'single',
+    name: '单本绘本',
+    price: '19.90',
+    priceDisplay: '¥19.9',
+    pages: 8,
+    credits: 1,
     imageModel: 'wan2.7-image',
     imageSize: '1024*1024',
-    description: '每天1个故事，30天无限陪伴',
+    description: '1本专属绘本',
+    tag: null,
+  },
+  monthly: {
+    id: 'monthly',
+    name: '月度会员',
+    price: '39.00',
+    priceDisplay: '¥39/月',
+    pages: 8,
+    credits: 3, // 3本/月
+    imageModel: 'wan2.7-image',
+    imageSize: '1024*1024',
+    description: '3本/月，比单本省35%',
     tag: '推荐',
   },
   yearly: {
     id: 'yearly',
-    name: '年卡',
-    price: '699.00',
-    priceDisplay: '¥699',
-    pages: 12,
-    credits: 365, // 365个故事/年
+    name: '年度会员',
+    price: '299.00',
+    priceDisplay: '¥299/年',
+    pages: 8,
+    credits: 48, // 4本/月 * 12月
     imageModel: 'wan2.7-image',
     imageSize: '1024*1024',
-    description: '每天¥1.9，全年无限故事',
-    tag: '省40%',
-  },
-  single: {
-    id: 'single',
-    name: '单次故事',
-    price: '9.90',
-    priceDisplay: '¥9.9',
-    pages: 12,
-    credits: 1,
-    imageModel: 'wan2.7-image',
-    imageSize: '1024*1024',
-    description: '1个完整故事',
-    tag: null,
+    description: '4本/月，比单本省69%',
+    tag: '省69%',
   },
 };
 

@@ -84,17 +84,17 @@ export default function Navbar() {
           {/* Logo - 手机端简化显示 */}
           <Link href="/" className="flex items-center gap-2 group">
             <span className="text-2xl md:text-3xl transition-transform group-hover:scale-110">
-              🌙
+              📖
             </span>
             <span className="hidden sm:inline text-base sm:text-lg md:text-xl font-bold text-gray-900">
-              睡前魔法书
+              是我呀
             </span>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             <Link
-              href="/recording"
+              href="/create"
               className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
             >
               开始体验
@@ -118,7 +118,7 @@ export default function Navbar() {
 
             {/* 开始制作 */}
             <Link
-              href="/recording"
+              href="/create"
               className="hidden sm:inline-flex btn-primary text-sm"
             >
               立即体验
@@ -222,7 +222,7 @@ export default function Navbar() {
         <div className="md:hidden bg-white border-t border-gray-100 animate-fade-in">
           <div className="px-4 py-4 space-y-3">
             <Link
-              href="/recording"
+              href="/create"
               className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
