@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 type AgeGroup = "2-3" | "4-6" | "7-9" | "9-12" | "";
@@ -117,6 +117,11 @@ export default function CreatePage() {
   const [step, setStep] = useState(1);
   const [showAppearance, setShowAppearance] = useState(false);
   const [parentConfirmed, setParentConfirmed] = useState(false); // COPPA年龄门状态
+
+  // 切换步骤时自动滚回顶部
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
 
   const [profile, setProfile] = useState<ChildProfile>({
     name: "",
@@ -601,7 +606,18 @@ export default function CreatePage() {
                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
             }`}
           >
-            {step === 3 ? "生成专属绘本 →" : "下一步 →"}
+            {canProceed()
+              ? (step === 3 ? "生成专属绘本 →" : "下一步 →")
+              : (step === 1 && !parentConfirmed
+                ? "请先勾选家长确认 ☝️"
+                : step === 1
+                ? "请填写名字和年龄段 ☝️"
+                : step === 2
+                ? "请选择动物和颜色 ☝️"
+                : step === 3
+                ? "请选择故事主题 ☝️"
+                : "下一步 →")
+            }
           </button>
           {step < 3 && (
             <p className="text-center text-xs text-gray-400 mt-2">
