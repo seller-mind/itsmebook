@@ -94,6 +94,12 @@ export default function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
             <Link
+              href="/create"
+              className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
+            >
+              开始体验
+            </Link>
+            <Link
               href="/pricing"
               className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
             >
@@ -204,6 +210,13 @@ export default function Navbar() {
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-100 animate-fade-in">
           <div className="px-4 py-4 space-y-3">
+            <Link
+              href="/create"
+              className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              开始体验
+            </Link>
             <Link
               href="/pricing"
               className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"

@@ -9,7 +9,7 @@ type Color = "red" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink" 
 type Personality = "brave" | "curious" | "shy" | "active" | "gentle" | "stubborn";
 type Theme = "courage" | "friendship" | "sharing" | "bedtime" | "adventure" | "school" | "overcome" | "";
 type Location = "ocean" | "space" | "castle" | "volcano" | "forest" | "island" | "circus" | "";
-type LifeEvent = "kindergarten" | "new-friend" | "afraid-dark" | "moving" | "new-sibling" | "learning-bike" | "";
+type LifeEvent = "kindergarten" | "new-friend" | "afraid-dark" | "moving" | "new-sibling" | "learning-bike" | "first-day-school" | "losing-tooth" | "starting-hobby" | "";
 type HairColor = "black" | "brown" | "blonde" | "red" | "";
 type SkinTone = "light" | "natural" | "wheat" | "dark" | "";
 type HairStyle = "short" | "ponytail" | "twin-tails" | "curly" | "";
@@ -86,6 +86,9 @@ const LIFE_EVENTS: { value: LifeEvent; emoji: string; label: string }[] = [
   { value: "moving", emoji: "🏠", label: "搬家" },
   { value: "new-sibling", emoji: "👶", label: "有了弟弟妹妹" },
   { value: "learning-bike", emoji: "🚲", label: "学骑车" },
+  { value: "first-day-school", emoji: "🏫", label: "第一天上学" },
+  { value: "losing-tooth", emoji: "🦷", label: "换牙了" },
+  { value: "starting-hobby", emoji: "🎨", label: "学新才艺" },
 ];
 
 const HAIR_COLORS: { value: HairColor; label: string; color: string }[] = [
@@ -446,10 +449,10 @@ export default function CreatePage() {
                   <button
                     key={hc.value}
                     onClick={() => updateProfile("hairColor", profile.hairColor === hc.value ? "" : hc.value)}
-                    className={`w-10 h-10 rounded-full ${hc.color} transition-all ${
+                    className={`w-11 h-11 rounded-full ${hc.color} transition-all border-2 ${
                       profile.hairColor === hc.value
-                        ? "ring-3 ring-offset-2 ring-primary-orange scale-110"
-                        : "hover:scale-105"
+                        ? "ring-3 ring-offset-2 ring-primary-orange scale-110 border-primary-orange"
+                        : "border-gray-300 hover:scale-105"
                     }`}
                     title={hc.label}
                   />
@@ -465,10 +468,10 @@ export default function CreatePage() {
                   <button
                     key={st.value}
                     onClick={() => updateProfile("skinTone", profile.skinTone === st.value ? "" : st.value)}
-                    className={`w-10 h-10 rounded-full ${st.color} transition-all ${
+                    className={`w-11 h-11 rounded-full ${st.color} transition-all border-2 ${
                       profile.skinTone === st.value
-                        ? "ring-3 ring-offset-2 ring-primary-orange scale-110"
-                        : "hover:scale-105"
+                        ? "ring-3 ring-offset-2 ring-primary-orange scale-110 border-primary-orange"
+                        : "border-gray-300 hover:scale-105"
                     }`}
                     title={st.label}
                   />
