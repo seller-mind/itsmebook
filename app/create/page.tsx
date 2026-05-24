@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type AgeGroup = "2-3" | "4-6" | "7-9" | "";
+type AgeGroup = "2-3" | "4-6" | "7-9" | "9-12" | "";
 type Animal = "dog" | "cat" | "dinosaur" | "rabbit" | "bear" | "dolphin" | "unicorn" | "monkey" | "";
 type Color = "red" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink" | "";
 type Personality = "brave" | "curious" | "shy" | "active" | "gentle" | "stubborn";
@@ -229,11 +229,12 @@ export default function CreatePage() {
         <label className="block text-sm font-medium text-gray-700 mb-3">
           年龄段 <span className="text-red-500">*</span>
         </label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           {[
             { value: "2-3" as AgeGroup, emoji: "🍼", label: "2-3岁" },
             { value: "4-6" as AgeGroup, emoji: "🎨", label: "4-6岁" },
             { value: "7-9" as AgeGroup, emoji: "📚", label: "7-9岁" },
+            { value: "9-12" as AgeGroup, emoji: "🚀", label: "9-12岁" },
           ].map((age) => (
             <button
               key={age.value}
