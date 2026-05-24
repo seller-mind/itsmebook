@@ -183,10 +183,18 @@ export default function RootLayout({
                         <a href="/privacy" className="text-gray-400 hover:text-white transition-colors">
                           隐私政策
                         </a>
+                        <span className="text-gray-600 mx-1">|</span>
+                        <a href="/privacy/en" className="text-gray-400 hover:text-white transition-colors">
+                          EN
+                        </a>
                       </li>
                       <li>
                         <a href="/terms" className="text-gray-400 hover:text-white transition-colors">
                           用户协议
+                        </a>
+                        <span className="text-gray-600 mx-1">|</span>
+                        <a href="/terms/en" className="text-gray-400 hover:text-white transition-colors">
+                          EN
                         </a>
                       </li>
                       <li>
@@ -198,10 +206,18 @@ export default function RootLayout({
                         <a href="/cookie" className="text-gray-400 hover:text-white transition-colors">
                           Cookie政策
                         </a>
+                        <span className="text-gray-600 mx-1">|</span>
+                        <a href="/cookie/en" className="text-gray-400 hover:text-white transition-colors">
+                          EN
+                        </a>
                       </li>
                       <li>
                         <a href="/refund" className="text-gray-400 hover:text-white transition-colors">
                           退款政策
+                        </a>
+                        <span className="text-gray-600 mx-1">|</span>
+                        <a href="/refund/en" className="text-gray-400 hover:text-white transition-colors">
+                          EN
                         </a>
                       </li>
                     </ul>
