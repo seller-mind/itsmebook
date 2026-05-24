@@ -104,6 +104,34 @@ export default function StoryPlayerPage() {
     setShowVideo(true);
   };
 
+  // 下载绘本（付费用户）
+  const handleDownload = async () => {
+    if (!story) return;
+    try {
+      const res = await fetch("/api/story/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: story.title,
+          childName: story.childName,
+          pages: story.pages,
+        }),
+      });
+      if (!res.ok) throw new Error("下载失败");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${story.title}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("下载失败，请重试");
+    }
+  };
+
   // 分享文案
   const shareText = `用我的声音给孩子讲故事，太神奇了！
 
@@ -140,6 +168,7 @@ export default function StoryPlayerPage() {
         onShare={handleShare}
         onGenerateVideo={handleGenerateVideo}
         isFreeUser={isFreeUser}
+        onDownload={handleDownload}
       />
 
       {/* 分享弹窗 */}

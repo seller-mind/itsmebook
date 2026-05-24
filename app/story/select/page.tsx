@@ -34,8 +34,9 @@ export default function StorySelectPage() {
   );
   const [selectedClassicStory, setSelectedClassicStory] = useState<ClassicStory | null>(null);
   const [isFreeUser, setIsFreeUser] = useState(false);
+  const [hasLastStory, setHasLastStory] = useState(false);
 
-  // 读取孩子档案 + 判断免费用户
+  // 读取孩子档案 + 判断免费用户 + 检查上次绘本
   useEffect(() => {
     const profileStr = sessionStorage.getItem("itsmebook_child_profile");
     if (profileStr) {
@@ -67,7 +68,28 @@ export default function StorySelectPage() {
     } else {
       setIsFreeUser(true);
     }
+
+    // 检查是否有上次未看完的绘本
+    const lastStory = sessionStorage.getItem("bedtime_story") || localStorage.getItem("itsmebook_last_story");
+    if (lastStory) {
+      try {
+        const parsed = JSON.parse(lastStory);
+        if (parsed.pages && parsed.pages.length > 0) {
+          setHasLastStory(true);
+        }
+      } catch {}
+    }
   }, []);
+
+  // 继续上次未读完的绘本
+  const resumeLastStory = () => {
+    const storyStr = sessionStorage.getItem("bedtime_story") || localStorage.getItem("itsmebook_last_story");
+    if (storyStr) {
+      // 确保sessionStorage也有（防页面刷新后丢失）
+      sessionStorage.setItem("bedtime_story", storyStr);
+      router.push("/story/player");
+    }
+  };
 
   // 切换分类展开/收起
   const toggleCategory = (category: string) => {
@@ -101,20 +123,24 @@ export default function StorySelectPage() {
           imageUrl: page.imageUrl!,
         }));
       } else {
-        // 部分缺图，需要API生成缺的
+        // 部分缺图，需要API生成缺的（串行生成，避免并发超时）
         setStatus("正在生成配图...");
         setProgress(10);
-        const maxImages = isFreeUser ? 2 : story.pages.length; // 免费用户只生成2张图
-        pagesWithImages = await Promise.all(
-          story.pages.map(async (page, index) => {
-            setProgress(10 + Math.round((index / story.pages.length) * 80));
-            if (page.imageUrl) {
-              return { pageNumber: page.pageNumber, text: page.text, imageUrl: page.imageUrl };
-            }
-            // 免费用户只生成前2张
-            if (isFreeUser && index >= maxImages) {
-              return { pageNumber: page.pageNumber, text: page.text, imageUrl: getPlaceholderImage(index) };
-            }
+        const maxImages = isFreeUser ? 2 : story.pages.length;
+        pagesWithImages = [];
+        for (let index = 0; index < story.pages.length; index++) {
+          const page = story.pages[index];
+          setProgress(10 + Math.round((index / story.pages.length) * 80));
+          if (page.imageUrl) {
+            pagesWithImages.push({ pageNumber: page.pageNumber, text: page.text, imageUrl: page.imageUrl });
+            continue;
+          }
+          if (isFreeUser && index >= maxImages) {
+            pagesWithImages.push({ pageNumber: page.pageNumber, text: page.text, imageUrl: getPlaceholderImage(index) });
+            continue;
+          }
+          let imageUrl = getPlaceholderImage(index);
+          for (let retry = 0; retry < 2; retry++) {
             try {
               const imageRes = await fetch("/api/image/generate", {
                 method: "POST",
@@ -122,12 +148,16 @@ export default function StorySelectPage() {
                 body: JSON.stringify({ imagePrompt: page.imagePrompt, style: "watercolor", index }),
               });
               const imageData = await imageRes.json();
-              return { pageNumber: page.pageNumber, text: page.text, imageUrl: imageData.success ? imageData.imageUrl : getPlaceholderImage(index) };
+              if (imageData.success && imageData.imageUrl) {
+                imageUrl = imageData.imageUrl;
+                break;
+              }
             } catch {
-              return { pageNumber: page.pageNumber, text: page.text, imageUrl: getPlaceholderImage(index) };
+              // 重试
             }
-          })
-        );
+          }
+          pagesWithImages.push({ pageNumber: page.pageNumber, text: page.text, imageUrl });
+        }
       }
 
       setProgress(95);
@@ -308,22 +338,26 @@ export default function StorySelectPage() {
 
       const story = data.story;
 
-      // 生成配图
+      // 生成配图（串行生成，避免Vercel并发超时）
       setStatus("正在生成配图...");
       const maxImages = isFreeUser ? 2 : story.pages.length; // 免费用户只生成2张图
-      const pagesWithImages = await Promise.all(
-        story.pages.map(async (page: any, index: number) => {
-          // 配图生成进度：55%→85%
-          setProgress(55 + Math.round((index / story.pages.length) * 30));
+      const pagesWithImages: any[] = [];
+      for (let index = 0; index < story.pages.length; index++) {
+        const page = story.pages[index];
+        setProgress(55 + Math.round((index / story.pages.length) * 30));
 
-          // 免费用户只生成前2张，后续用占位图
-          if (isFreeUser && index >= maxImages) {
-            return {
-              ...page,
-              imageUrl: getPlaceholderImage(index),
-            };
-          }
+        // 免费用户只生成前2张，后续用占位图
+        if (isFreeUser && index >= maxImages) {
+          pagesWithImages.push({
+            ...page,
+            imageUrl: getPlaceholderImage(index),
+          });
+          continue;
+        }
 
+        let imageUrl = getPlaceholderImage(index);
+        // 最多重试2次
+        for (let retry = 0; retry < 2; retry++) {
           try {
             const imageRes = await fetch("/api/image/generate", {
               method: "POST",
@@ -334,20 +368,17 @@ export default function StorySelectPage() {
                 index,
               }),
             });
-
             const imageData = await imageRes.json();
-            return {
-              ...page,
-              imageUrl: imageData.success ? imageData.imageUrl : imageData.imageUrl || getPlaceholderImage(index),
-            };
+            if (imageData.success && imageData.imageUrl) {
+              imageUrl = imageData.imageUrl;
+              break; // 成功，跳出重试
+            }
           } catch {
-            return {
-              ...page,
-              imageUrl: getPlaceholderImage(index),
-            };
+            // 重试
           }
-        })
-      );
+        }
+        pagesWithImages.push({ ...page, imageUrl });
+      }
 
       setProgress(85);
       setStatus("正在生成语音...");
@@ -495,6 +526,27 @@ export default function StorySelectPage() {
 
       {/* 主内容 */}
       <div className="max-w-lg mx-auto px-4 pb-12">
+        {/* 继续上次绘本 */}
+        {hasLastStory && !isGenerating && (
+          <div
+            onClick={resumeLastStory}
+            className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl shadow-md p-5 mb-4 cursor-pointer hover:shadow-lg transition-shadow border border-orange-100"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-2xl">
+                📖
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-gray-900">继续上次的绘本</p>
+                <p className="text-sm text-gray-500">点击继续阅读未看完的故事</p>
+              </div>
+              <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </div>
+        )}
+
         {/* 标题 */}
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">选择今晚的故事</h1>

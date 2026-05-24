@@ -17,6 +17,7 @@ interface StoryPlayerProps {
   onShare?: () => void;
   onGenerateVideo?: () => void;
   isFreeUser?: boolean; // 免费用户只看前2页配图
+  onDownload?: () => void; // 下载绘本
 }
 
 export default function StoryPlayer({
@@ -27,6 +28,7 @@ export default function StoryPlayer({
   onShare,
   onGenerateVideo,
   isFreeUser = false,
+  onDownload,
 }: StoryPlayerProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -204,14 +206,13 @@ export default function StoryPlayer({
 
       cachedAudio.onended = () => {
         activeAudiosRef.current.delete(cachedAudio);
-        if (isPlayingRef.current && currentPageRef.current === pageIndex && pageIndex < totalPages - 1) {
+        // 自动翻到下一页并播放
+        if (pageIndex < totalPages - 1) {
           setTimeout(() => {
-            if (isPlayingRef.current) {
-              const next = pageIndex + 1;
-              setCurrentPage(next);
-            }
+            setCurrentPage(pageIndex + 1);
           }, 800);
-        } else if (pageIndex >= totalPages - 1) {
+        } else {
+          // 最后一页播完
           setIsPlaying(false);
           setShowStoryEnd(true);
         }
@@ -298,14 +299,12 @@ export default function StoryPlayer({
 
     audio.onended = () => {
       activeAudiosRef.current.delete(audio);
-      if (isPlayingRef.current && currentPageRef.current === pageIndex && pageIndex < totalPages - 1) {
+      // 自动翻到下一页并播放
+      if (pageIndex < totalPages - 1) {
         setTimeout(() => {
-          if (isPlayingRef.current) {
-            const next = pageIndex + 1;
-            setCurrentPage(next);
-          }
+          setCurrentPage(pageIndex + 1);
         }, 800);
-      } else if (pageIndex >= totalPages - 1) {
+      } else {
         setIsPlaying(false);
         setShowStoryEnd(true);
       }
@@ -340,14 +339,12 @@ export default function StoryPlayer({
     if (zhVoice) utterance.voice = zhVoice;
 
     utterance.onend = () => {
-      if (isPlayingRef.current && currentPageRef.current === pageIndex && pageIndex < totalPages - 1) {
+      // 自动翻到下一页并播放
+      if (pageIndex < totalPages - 1) {
         setTimeout(() => {
-          if (isPlayingRef.current) {
-            const next = pageIndex + 1;
-            setCurrentPage(next);
-          }
+          setCurrentPage(pageIndex + 1);
         }, 800);
-      } else if (pageIndex >= totalPages - 1) {
+      } else {
         setIsPlaying(false);
         setShowStoryEnd(true);
       }
@@ -359,6 +356,17 @@ export default function StoryPlayer({
 
     window.speechSynthesis.speak(utterance);
   }, [volume, totalPages]);
+
+  // 当currentPage变化时，如果正在播放状态则自动播放该页音频
+  const prevPageRef = useRef(0);
+  useEffect(() => {
+    if (currentPage !== prevPageRef.current && isPlayingRef.current) {
+      prevPageRef.current = currentPage;
+      playPageAudio(currentPage);
+      preloadAllPages();
+    }
+    prevPageRef.current = currentPage;
+  }, [currentPage, playPageAudio, preloadAllPages]);
 
   // 播放/暂停
   const togglePlay = useCallback(() => {
@@ -635,6 +643,9 @@ export default function StoryPlayer({
             <button onClick={() => bedtimeMode ? stopBedtimeMode() : setShowBedtimeSet(!showBedtimeSet)} className="text-xs text-white/60 hover:text-white/90 transition-colors">
               {bedtimeMode ? `🌙 ${formatTime(remainingTime || 0)}` : "🌙 睡前"}
             </button>
+            {!isFreeUser && onDownload && (
+              <button onClick={onDownload} className="text-xs text-white/60 hover:text-white/90 transition-colors">📥 下载</button>
+            )}
             <button onClick={onShare} className="text-xs text-white/60 hover:text-white/90 transition-colors">分享</button>
           </div>
         </div>
