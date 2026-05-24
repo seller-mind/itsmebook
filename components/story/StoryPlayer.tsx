@@ -40,6 +40,8 @@ export default function StoryPlayer({
   const [showStoryEnd, setShowStoryEnd] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [controlsTimer, setControlsTimer] = useState<NodeJS.Timeout | null>(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const audioInitDoneRef = useRef(false);
 
   // TTS音频URL缓存：pageIndex -> audioUrl
   const audioCacheRef = useRef<Record<number, string>>({});
@@ -97,12 +99,34 @@ export default function StoryPlayer({
     }
   }, []);
 
-  // 初始化
+  // 初始化：将pages中已有的audioUrl填入缓存，并预创建Audio元素
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      whiteNoiseRef.current = new Audio();
-      whiteNoiseRef.current.loop = true;
+    if (typeof window === "undefined") return;
+    if (audioInitDoneRef.current) return; // 只初始化一次
+    audioInitDoneRef.current = true;
+    
+    whiteNoiseRef.current = new Audio();
+    whiteNoiseRef.current.loop = true;
+
+    // 把pages里预生成的audioUrl填入缓存并预创建Audio元素
+    pages.forEach((page, i) => {
+      if (page.audioUrl) {
+        audioCacheRef.current[i] = page.audioUrl;
+        const audio = new Audio();
+        audio.preload = "auto";
+        audio.src = page.audioUrl;
+        audio.volume = volume;
+        audioElementCacheRef.current[i] = audio;
+      }
+    });
+
+    // 没有预生成audioUrl的页面，启动后台预加载
+    for (let i = 0; i < totalPages; i++) {
+      if (!pages[i].audioUrl && !audioCacheRef.current[i] && !preloadingRef.current.has(i)) {
+        preloadPageAudio(i);
+      }
     }
+
     return () => {
       cleanupAllAudio();
       if (whiteNoiseRef.current) {
@@ -594,7 +618,7 @@ export default function StoryPlayer({
 
         {/* 底部功能行 */}
         <div className="flex items-center justify-between">
-          <button onClick={() => history.back()} className="flex items-center gap-1 text-white/60 hover:text-white/90 transition-colors">
+          <button onClick={() => setShowExitConfirm(true)} className="flex items-center gap-1 text-white/60 hover:text-white/90 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             <span className="text-xs">返回</span>
           </button>
@@ -630,6 +654,25 @@ export default function StoryPlayer({
           <button onClick={onGenerateVideo} className="text-white/60 hover:text-white/90 text-xs transition-colors">📷 卡片</button>
         </div>
       </div>
+
+      {/* 退出确认弹窗 */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl p-5 max-w-xs w-full text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-3xl mb-3">📖</div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">确定退出阅读？</h3>
+            <p className="text-sm text-gray-500 mb-5">绘本已保存，随时可以继续阅读</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowExitConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-medium text-sm hover:bg-gray-200 transition-colors">
+                继续阅读
+              </button>
+              <button onClick={() => { cleanupAllAudio(); history.back(); }} className="flex-1 py-2.5 rounded-xl bg-primary-orange text-white font-medium text-sm hover:bg-primary-dark transition-colors">
+                退出
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

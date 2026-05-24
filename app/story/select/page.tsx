@@ -131,21 +131,49 @@ export default function StorySelectPage() {
       }
 
       setProgress(95);
+      setStatus("正在生成语音...");
+
+      // 并行预生成所有页面的TTS音频URL，进入播放器时秒出
+      const ttsVoiceId = "longhuhu_v3";
+      const pagesWithAudio = await Promise.all(
+        pagesWithImages.map(async (page: any, index: number) => {
+          setProgress(95 + Math.round((index / pagesWithImages.length) * 4));
+          try {
+            const ttsRes = await fetch("/api/voice/tts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: page.text, voice: ttsVoiceId }),
+            });
+            const ttsData = await ttsRes.json();
+            if (ttsData.success && ttsData.audioUrl) {
+              return { ...page, audioUrl: ttsData.audioUrl };
+            }
+          } catch {
+            // TTS预加载失败，播放器会fallback到WebSpeech
+          }
+          return page;
+        })
+      );
+
+      setProgress(99);
       setStatus("正在完成...");
 
       // 使用默认AI声音，不再依赖家长声音克隆
       const storyData = {
         title: story.title,
         childName: name,
-        pages: pagesWithImages,
+        pages: pagesWithAudio,
         voiceUrl: "", // 不再使用克隆声音
-        voiceId: "longhuhu_v3", // 使用默认AI声线
+        voiceId: ttsVoiceId, // 使用默认AI声线
         createdAt: new Date().toISOString(),
         isClassic: true,
         isFreeUser: isFreeUser,
       };
 
+      // 同时存sessionStorage和localStorage，防返回丢失
       sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
+      localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
+
       setProgress(100);
       setStatus("完成！");
 
@@ -322,21 +350,48 @@ export default function StorySelectPage() {
       );
 
       setProgress(85);
+      setStatus("正在生成语音...");
+
+      // 并行预生成所有页面的TTS音频URL，进入播放器时秒出
+      const ttsVoiceId = "longhuhu_v3";
+      const pagesWithAudio = await Promise.all(
+        pagesWithImages.map(async (page: any, index: number) => {
+          setProgress(85 + Math.round((index / pagesWithImages.length) * 12));
+          try {
+            const ttsRes = await fetch("/api/voice/tts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: page.text, voice: ttsVoiceId }),
+            });
+            const ttsData = await ttsRes.json();
+            if (ttsData.success && ttsData.audioUrl) {
+              return { ...page, audioUrl: ttsData.audioUrl };
+            }
+          } catch {
+            // TTS预加载失败，播放器会fallback到WebSpeech
+          }
+          return page;
+        })
+      );
+
+      setProgress(98);
       setStatus("正在完成...");
 
       // 使用默认AI声音，不再依赖家长声音克隆
       const storyData = {
         title: story.title,
         childName: name,
-        pages: pagesWithImages,
+        pages: pagesWithAudio,
         voiceUrl: "", // 不再使用克隆声音
-        voiceId: "longhuhu_v3", // 使用默认AI声线
+        voiceId: ttsVoiceId, // 使用默认AI声线
         createdAt: new Date().toISOString(),
         isClassic: false,
         isFreeUser: isFreeUser,
       };
 
+      // 同时存sessionStorage和localStorage，localStorage不怕返回丢数据
       sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
+      localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
 
       setProgress(100);
       setStatus("完成！");

@@ -22,19 +22,24 @@ export default function StoryPlayerPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // 从sessionStorage读取
-    const storyStr = sessionStorage.getItem("bedtime_story");
+    // 优先从sessionStorage读取，fallback到localStorage（防返回丢失）
+    let storyStr = sessionStorage.getItem("bedtime_story");
+    if (!storyStr) {
+      storyStr = localStorage.getItem("itsmebook_last_story");
+      if (storyStr) {
+        // 从localStorage恢复到sessionStorage
+        sessionStorage.setItem("bedtime_story", storyStr);
+      }
+    }
     if (storyStr) {
       try {
         const storyData = JSON.parse(storyStr);
         setStory(storyData);
         setIsFreeUser(storyData.isFreeUser || false);
       } catch {
-        // 加载演示数据
         loadDemoStory();
       }
     } else {
-      // 加载演示数据
       loadDemoStory();
     }
   }, []);

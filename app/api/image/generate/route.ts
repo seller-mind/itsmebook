@@ -129,10 +129,33 @@ export async function POST(request: NextRequest) {
       result.output?.choices?.[0]?.message?.content?.[0]?.image;
 
     if (!imageUrl) {
-      console.error("[Image] 万相API返回无图片:", JSON.stringify(result).substring(0, 300));
+      console.error("[Image] 万相API返回无图片，1次重试:", JSON.stringify(result).substring(0, 300));
+      // 重试1次
+      try {
+        const retryRes = await fetch(
+          "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify(requestBody),
+          }
+        );
+        if (retryRes.ok) {
+          const retryResult = await retryRes.json();
+          const retryImageUrl = retryResult.output?.choices?.[0]?.message?.content?.[0]?.image;
+          if (retryImageUrl) {
+            return NextResponse.json({ success: true, imageUrl: retryImageUrl });
+          }
+        }
+      } catch {
+        // 重试也失败，返回占位图
+      }
       return NextResponse.json({
         success: false,
-        message: "图片生成未返回结果，请检查API配置",
+        message: "图片生成未返回结果（已重试）",
         imageUrl: getPlaceholderImageUrl(index),
       });
     }
@@ -144,8 +167,8 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("图片生成失败:", error);
     return NextResponse.json(
-      { success: false, message: error.message || "图片生成失败" },
-      { status: 500 }
+      { success: false, message: error.message || "图片生成失败", imageUrl: getPlaceholderImageUrl(index) },
+      { status: 200 }  // 返回200让前端能拿到占位图
     );
   }
 }
