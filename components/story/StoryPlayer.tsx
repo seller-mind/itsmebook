@@ -566,6 +566,11 @@ export default function StoryPlayer({
         ))}
       </div>
 
+      {/* AI生成内容标注 - EU AI Act + 中国暂行办法 */}
+      <div className="absolute left-0 right-0 flex justify-center" style={{ bottom: showControls ? "268px" : "188px" }}>
+        <span className="text-[10px] text-white/50">AI Generated Story · AI生成内容</span>
+      </div>
+
       {/* 故事文字 */}
       <div className={`absolute left-0 right-0 px-6 transition-all duration-300 ${showControls ? "bottom-[200px]" : "bottom-[120px]"}`}>
         {isAudioLoading ? (

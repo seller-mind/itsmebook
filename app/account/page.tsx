@@ -23,6 +23,9 @@ export default function AccountPage() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [showLogin, setShowLogin] = useState(false);
+  // 删除账户相关状态
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // 检查登录状态
   useEffect(() => {
@@ -159,6 +162,59 @@ export default function AccountPage() {
     setHistory([]);
   };
 
+  // 删除账户 - GDPR被遗忘权
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const token = localStorage.getItem("itsmebook_token");
+      const userStr = localStorage.getItem("itsmebook_user");
+      let userId = "";
+      
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          userId = user.id || user.userId || "";
+        } catch {
+          // 解析失败
+        }
+      }
+
+      const res = await fetch("/api/user/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await res.json();
+      
+      if (data.success) {
+        // 清除所有localStorage
+        localStorage.removeItem("itsmebook_token");
+        localStorage.removeItem("itsmebook_user");
+        localStorage.removeItem("itsmebook_user_profile");
+        localStorage.removeItem("itsmebook_child_profile");
+        localStorage.removeItem("bedtime_story");
+        localStorage.removeItem("bedtime_voice_id");
+        
+        setIsLoggedIn(false);
+        setShowLogin(true);
+        setHistory([]);
+        setShowDeleteConfirm(false);
+        
+        // 跳转到首页
+        router.push("/");
+      } else {
+        alert(data.message || "删除失败，请稍后重试");
+      }
+    } catch {
+      alert("删除失败，请稍后重试");
+    }
+    setDeleting(false);
+  };
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return `${d.getMonth() + 1}月${d.getDate()}日`;
@@ -230,15 +286,17 @@ export default function AccountPage() {
               { emoji: "🎬", title: "我的视频", desc: "0个视频", action: () => {} },
               { emoji: "💳", title: "订阅管理", desc: "月卡会员", action: () => router.push("/pricing") },
               { emoji: "❤️", title: "收藏夹", desc: "暂无收藏", action: () => {} },
+              // GDPR被遗忘权 - 删除账户
+              { emoji: "⚠️", title: "删除账户", desc: "永久删除所有数据", action: () => setShowDeleteConfirm(true), isDanger: true },
             ].map((item, i) => (
               <button
                 key={i}
                 onClick={item.action}
-                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                className={`w-full flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 ${(item as { isDanger?: boolean }).isDanger ? 'text-red-600' : ''}`}
               >
                 <span className="text-2xl">{item.emoji}</span>
                 <div className="flex-1 text-left">
-                  <p className="font-medium text-gray-900 text-sm">{item.title}</p>
+                  <p className={`font-medium text-sm ${(item as { isDanger?: boolean }).isDanger ? 'text-red-600' : 'text-gray-900'}`}>{item.title}</p>
                   <p className="text-xs text-gray-400">{item.desc}</p>
                 </div>
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -247,6 +305,44 @@ export default function AccountPage() {
               </button>
             ))}
           </div>
+
+          {/* 删除账户确认弹窗 */}
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-900 mb-3">确认删除账户？</h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  此操作不可撤销！删除后您的所有数据将被永久清除，包括：账户信息、所有故事、角色数据、订单记录。
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={deleting}
+                    className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {deleting ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        删除中...
+                      </>
+                    ) : (
+                      "确认删除"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 历史故事 */}
           {history.length > 0 && (

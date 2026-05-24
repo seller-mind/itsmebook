@@ -190,6 +190,16 @@ export default function RootLayout({
                         </a>
                       </li>
                       <li>
+                        <a href="/children-privacy" className="text-gray-400 hover:text-white transition-colors">
+                          儿童隐私保护
+                        </a>
+                      </li>
+                      <li>
+                        <a href="/cookie" className="text-gray-400 hover:text-white transition-colors">
+                          Cookie政策
+                        </a>
+                      </li>
+                      <li>
                         <a href="/refund" className="text-gray-400 hover:text-white transition-colors">
                           退款政策
                         </a>

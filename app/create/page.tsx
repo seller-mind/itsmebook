@@ -116,6 +116,7 @@ export default function CreatePage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [showAppearance, setShowAppearance] = useState(false);
+  const [parentConfirmed, setParentConfirmed] = useState(false); // COPPA年龄门状态
 
   const [profile, setProfile] = useState<ChildProfile>({
     name: "",
@@ -148,6 +149,8 @@ export default function CreatePage() {
   };
 
   const canProceed = () => {
+    // 必须先通过年龄门确认
+    if (!parentConfirmed) return false;
     if (step === 1) return profile.name.trim() !== "" && profile.ageGroup !== "";
     if (step === 2) return profile.favoriteAnimal !== "" && profile.favoriteColor !== "";
     if (step === 3) return profile.theme !== "";
@@ -212,6 +215,23 @@ export default function CreatePage() {
 
   const renderStep1 = () => (
     <div className="space-y-6">
+      {/* 年龄门确认区域 - COPPA/GDPR-K */}
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+        <h3 className="text-lg font-bold text-blue-800 mb-2">👨‍👩‍👧 家长须知</h3>
+        <p className="text-sm text-blue-700 mb-4">
+          本产品面向3-12岁儿童，由家长协助使用。请确认您是该儿童的家长或监护人。
+        </p>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={parentConfirmed}
+            onChange={(e) => setParentConfirmed(e.target.checked)}
+            className="mt-1 w-5 h-5 text-primary-orange border-blue-300 rounded focus:ring-primary-orange"
+          />
+          <span className="text-sm text-blue-800">我是孩子的家长或法定监护人</span>
+        </label>
+      </div>
+
       {/* 孩子名字 */}
       <div className="bg-white rounded-2xl shadow-md p-5">
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -222,7 +242,12 @@ export default function CreatePage() {
           value={profile.name}
           onChange={(e) => updateProfile("name", e.target.value)}
           placeholder="输入孩子的名字，如小禾"
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-orange focus:ring-2 focus:ring-orange-100 outline-none transition-all text-gray-900 placeholder:text-gray-400"
+          disabled={!parentConfirmed}
+          className={`w-full px-4 py-3 rounded-xl border outline-none transition-all text-gray-900 placeholder:text-gray-400 ${
+            parentConfirmed
+              ? "border-gray-200 focus:border-primary-orange focus:ring-2 focus:ring-orange-100"
+              : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+          }`}
         />
         <p className="mt-2 text-xs text-gray-400">这个名字会出现在故事的每一页</p>
       </div>
@@ -242,8 +267,11 @@ export default function CreatePage() {
             <button
               key={age.value}
               onClick={() => updateProfile("ageGroup", age.value)}
+              disabled={!parentConfirmed}
               className={`py-4 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
-                profile.ageGroup === age.value
+                !parentConfirmed
+                  ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : profile.ageGroup === age.value
                   ? "border-primary-orange bg-orange-50 text-primary-orange"
                   : "border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300"
               }`}

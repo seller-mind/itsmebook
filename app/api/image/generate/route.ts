@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("图片生成失败:", error);
     return NextResponse.json(
-      { success: false, message: error.message || "图片生成失败", imageUrl: getPlaceholderImageUrl(index) },
+      { success: false, message: error.message || "图片生成失败", imageUrl: getPlaceholderImageUrl(0) },
       { status: 200 }  // 返回200让前端能拿到占位图
     );
   }

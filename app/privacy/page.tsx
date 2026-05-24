@@ -227,6 +227,71 @@ export default function PrivacyPage() {
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>根据《电子商务法》要求，订单数据保存不少于3年</li>
               </ul>
+
+              <h3 className="font-semibold text-gray-800">4. 生成内容自动删除策略</h3>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li>生成内容（故事文本、配图、语音）保留30天后自动删除</li>
+                <li>您可在生成后30天内下载保存您的故事</li>
+                <li>超过30天系统将自动清除，请及时保存</li>
+              </ul>
+              <p className="bg-red-50 p-4 rounded-xl border border-red-200">
+                <strong>⚠️ 请在生成后30天内下载保存您的故事，超过30天系统将自动清除</strong>
+              </p>
+            </div>
+          </section>
+
+          {/* COPPA合规说明 - 美国儿童在线隐私保护法 */}
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span>🇺🇸</span> COPPA合规说明
+            </h2>
+            <div className="space-y-4 text-gray-600 leading-relaxed">
+              <p>根据美国《儿童在线隐私保护法》（COPPA）及2026年修订版要求：</p>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li>本产品面向家长使用，所有操作由家长完成，不直接收集儿童个人信息</li>
+                <li>我们不收集儿童生物识别数据（包括声纹、面部识别）</li>
+                <li>我们不收集儿童照片</li>
+                <li>向第三方（火山引擎、阿里云百炼）传输数据需您知悉并同意——详见上方第三方SDK列表</li>
+                <li>您可随时要求删除您孩子的所有数据，我们将在15个工作日内完成</li>
+                <li>我们不会将儿童数据用于行为广告推送</li>
+                <li>数据保留期限：生成内容保留30天，账户数据保留至您删除账户，订单数据依法保留3年</li>
+              </ul>
+              <p>如认为我们违反COPPA，可向FTC投诉：<a href="https://www.ftc.gov/complaint" target="_blank" rel="noopener noreferrer" className="text-primary-orange hover:underline">https://www.ftc.gov/complaint</a></p>
+            </div>
+          </section>
+
+          {/* GDPR-K合规说明 - 欧盟儿童数据保护 */}
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span>🇪🇺</span> GDPR-K合规说明
+            </h2>
+            <div className="space-y-4 text-gray-600 leading-relaxed">
+              <p>根据欧盟《通用数据保护条例》关于儿童的规定（GDPR-K）：</p>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li>向16岁以下儿童提供服务需获得家长同意（部分成员国降至13岁）</li>
+                <li>本产品通过年龄门确认家长身份</li>
+                <li>您享有被遗忘权：可随时要求删除所有个人数据</li>
+                <li>您享有数据可携带权：可要求导出您的数据</li>
+                <li>我们采用数据最小化原则，仅收集提供服务所必需的信息</li>
+                <li>如对数据处理有异议，您有权向当地数据保护机构投诉</li>
+              </ul>
+            </div>
+          </section>
+
+          {/* AI内容标注说明 */}
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span>🤖</span> AI生成内容声明
+            </h2>
+            <div className="space-y-4 text-gray-600 leading-relaxed">
+              <p>根据欧盟《人工智能法案》（EU AI Act）及中国《生成式人工智能服务管理暂行办法》：</p>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li>本产品中的故事文本和配图由AI生成，每本绘本均标注"AI生成内容"</li>
+                <li>AI生成内容仅供参考娱乐，不构成任何专业建议</li>
+                <li>纯AI生成内容不受版权法保护，您不可对AI生成的故事主张版权</li>
+                <li>我们的产品设计、角色系统、UI/UX属于人工创作，受知识产权保护</li>
+                <li>我们使用的AI模型：火山引擎（豆包）用于故事生成，阿里云百炼（万相）用于配图生成，火山引擎（CosyVoice）用于语音合成</li>
+              </ul>
             </div>
           </section>
 

@@ -82,6 +82,26 @@ export default function TermsPage() {
             </div>
           </section>
 
+          {/* 儿童隐私保护 */}
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span>👨‍👩‍👧</span> 儿童隐私保护
+            </h2>
+            <div className="space-y-4 text-gray-600 leading-relaxed">
+              <p>本产品面向3-12岁儿童，须由家长或法定监护人操作：</p>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li>我们不收集儿童生物识别数据、儿童照片</li>
+                <li>用户确认自己是儿童家长或法定监护人后方可使用本产品</li>
+                <li>家长可随时要求删除与儿童相关的所有数据</li>
+                <li>我们不会将儿童数据用于行为广告推送</li>
+                <li>产品使用前需通过年龄门确认家长身份</li>
+              </ul>
+              <p className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                <strong>💡 COPPA合规：</strong>本产品符合美国《儿童在线隐私保护法》（COPPA）要求，不直接收集儿童个人信息。
+              </p>
+            </div>
+          </section>
+
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <span>🎤</span> 声音录制与使用
@@ -107,7 +127,10 @@ export default function TermsPage() {
             <div className="space-y-4 text-gray-600 leading-relaxed">
               <h3 className="font-semibold text-gray-800">1. 内容所有权</h3>
               <p>
-                您使用AI生成的故事内容（故事文本和配图）的<strong>版权归您个人所有</strong>，您有权自由使用、分享和打印。
+                用户理解并同意，本产品中的故事内容、配图和语音由AI生成。
+              </p>
+              <p>
+                <strong>纯AI生成内容不受版权法保护，您不可对AI生成的故事主张版权。</strong>您可将AI生成的故事用于个人娱乐、非商业目的使用。
               </p>
 
               <h3 className="font-semibold text-gray-800">2. 内容规范</h3>
@@ -123,6 +146,11 @@ export default function TermsPage() {
               <h3 className="font-semibold text-gray-800">3. 内容声明</h3>
               <p>
                 AI生成的内容均标注"AI生成"标识，<strong>仅供参考娱乐使用，不代表任何真实事件或观点，不构成教育建议</strong>。AI生成内容可能存在不准确之处，"是我呀"不对AI生成内容的准确性、完整性或适用性作出任何保证。
+              </p>
+
+              <h3 className="font-semibold text-gray-800">4. 商业使用限制</h3>
+              <p>
+                用户不得将AI生成内容用于商业用途或声称为自己的原创作品。
               </p>
 
               <p className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
