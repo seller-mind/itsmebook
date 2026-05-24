@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 调用百炼CosyVoice TTS (非流式)
-    // 所有参数都在 input 对象内，不在 parameters 里
+    // 注意：v3.5模型不支持v3系列系统音色(如longhuhu_v3)，需使用v3-flash模型
     const ttsVoice = voice || "longhuhu_v3"; // 默认用龙呼呼：天真烂漫女童(6-10岁)，最适合讲儿童睡前故事
 
     const controller = new AbortController();
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "cosyvoice-v3.5-flash",
+            model: "cosyvoice-v3-flash", // v3-flash支持longhuhu_v3系统音色
             input: {
               text: truncatedText,
               voice: ttsVoice,

@@ -116,7 +116,12 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`万相API错误: ${response.status} - ${errorText.substring(0, 100)}`);
+      console.error(`[Image] 万相API错误 ${response.status}:`, errorText.substring(0, 300));
+      return NextResponse.json({
+        success: false,
+        message: `图片生成失败(${response.status})，请检查阿里云百炼余额`,
+        imageUrl: getPlaceholderImageUrl(index),
+      });
     }
 
     const result = await response.json();
@@ -124,7 +129,12 @@ export async function POST(request: NextRequest) {
       result.output?.choices?.[0]?.message?.content?.[0]?.image;
 
     if (!imageUrl) {
-      throw new Error(`万相API返回格式异常`);
+      console.error("[Image] 万相API返回无图片:", JSON.stringify(result).substring(0, 300));
+      return NextResponse.json({
+        success: false,
+        message: "图片生成未返回结果，请检查API配置",
+        imageUrl: getPlaceholderImageUrl(index),
+      });
     }
 
     return NextResponse.json({
