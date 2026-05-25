@@ -208,15 +208,53 @@ async function runGeneration(params: GenerateParams): Promise<void> {
       saveState(state);
     }
 
-    // ============ 步骤2&3: 并发生成配图和TTS（流水线模式） ============
+    // ============ 步骤2: 批量生成TTS（先并发生成所有页的TTS，比图片快） ============
     state = getGeneratingState();
     if (!state || state.status === 'failed') return;
 
-    const pages = state.story.pages;
-    const maxImages = params.isFreeUser ? 2 : pages.length;
+    state.step = '正在生成语音...';
+    state.progress = 30;
+    saveState(state);
 
-    // 并发控制：每次最多3页同时生成
+    const pages = state.story.pages;
     const BATCH_SIZE = 3;
+
+    // 先批量生成所有页的TTS
+    for (let batchStart = 0; batchStart < pages.length; batchStart += BATCH_SIZE) {
+      state = getGeneratingState();
+      if (!state || state.status === 'failed') return;
+
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, pages.length);
+
+      await Promise.all(pages.slice(batchStart, batchEnd).map(async (page: any, i: number) => {
+        const index = batchStart + i;
+        // TTS生成
+        if (!page.audioUrl) {
+          try {
+            const ttsRes = await fetch('/api/voice/tts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: page.text, voice: params.voiceId }),
+            });
+            const ttsData = await ttsRes.json();
+            if (ttsData.success && ttsData.audioUrl) {
+              page.audioUrl = ttsData.audioUrl;
+            }
+          } catch { /* TTS失败，播放器会fallback到WebSpeech */ }
+        }
+      }));
+
+      // 更新进度：30-55%
+      state.step = `正在生成语音 (${batchEnd}/${pages.length})...`;
+      state.progress = 30 + Math.round((batchEnd / pages.length) * 25);
+      saveState(state);
+    }
+
+    // ============ 步骤3: 批量生成配图 ============
+    state = getGeneratingState();
+    if (!state || state.status === 'failed') return;
+
+    const maxImages = params.isFreeUser ? 2 : pages.length;
 
     for (let batchStart = 0; batchStart < pages.length; batchStart += BATCH_SIZE) {
       state = getGeneratingState();
@@ -225,7 +263,7 @@ async function runGeneration(params: GenerateParams): Promise<void> {
       const batchEnd = Math.min(batchStart + BATCH_SIZE, pages.length);
       const batchPages = pages.slice(batchStart, batchEnd);
 
-      // 批量生成：每页同时生成图片+TTS
+      // 批量生成图片
       await Promise.all(batchPages.map(async (page: any, i: number) => {
         const index = batchStart + i;
 
@@ -258,26 +296,11 @@ async function runGeneration(params: GenerateParams): Promise<void> {
           }
           page.imageUrl = imageUrl;
         }
-
-        // TTS生成
-        if (!page.audioUrl) {
-          try {
-            const ttsRes = await fetch('/api/voice/tts', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: page.text, voice: params.voiceId }),
-            });
-            const ttsData = await ttsRes.json();
-            if (ttsData.success && ttsData.audioUrl) {
-              page.audioUrl = ttsData.audioUrl;
-            }
-          } catch { /* TTS失败，播放器会fallback到WebSpeech */ }
-        }
       }));
 
-      // 更新进度
-      state.step = `正在生成 (${batchEnd}/${pages.length})...`;
-      state.progress = 30 + Math.round((batchEnd / pages.length) * 65);
+      // 更新进度：55-95%
+      state.step = `正在生成配图 (${batchEnd}/${pages.length})...`;
+      state.progress = 55 + Math.round((batchEnd / pages.length) * 40);
       saveState(state);
     }
 

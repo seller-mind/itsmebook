@@ -22,6 +22,7 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [userAvatar, setUserAvatar] = useState<string>("");
 
   // 监听滚动
   useEffect(() => {
@@ -51,14 +52,31 @@ export default function Navbar() {
       } else {
         setUser(null);
       }
+
+      // 读取用户头像（emoji）
+      try {
+        const profileStr = localStorage.getItem("itsmebook_user_profile");
+        if (profileStr) {
+          const profile = JSON.parse(profileStr);
+          setUserAvatar(profile.avatar || "");
+        } else {
+          setUserAvatar("");
+        }
+      } catch {
+        setUserAvatar("");
+      }
     };
 
     // 初始检查
     checkAuth();
 
-    // 监听登录状态变化
+    // 监听登录状态变化和focus事件
     window.addEventListener("loginStateChange", checkAuth);
-    return () => window.removeEventListener("loginStateChange", checkAuth);
+    window.addEventListener("focus", checkAuth);
+    return () => {
+      window.removeEventListener("loginStateChange", checkAuth);
+      window.removeEventListener("focus", checkAuth);
+    };
   }, []);
 
   // 退出登录
@@ -122,7 +140,7 @@ export default function Navbar() {
                   className="flex items-center gap-2 px-3 py-2 rounded-full bg-orange-100 hover:bg-orange-200 transition"
                 >
                   <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-medium">
-                    {user.nickname?.charAt(0) || "U"}
+                    {userAvatar || user.nickname?.charAt(0) || "U"}
                   </div>
                   <span className="hidden sm:block text-gray-700 text-sm">
                     {maskPhone(user.phone)}
@@ -189,7 +207,7 @@ export default function Navbar() {
                 className="md:hidden flex items-center"
               >
                 <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-medium">
-                  {user.nickname?.charAt(0) || "U"}
+                  {userAvatar || user.nickname?.charAt(0) || "U"}
                 </div>
               </button>
             ) : (

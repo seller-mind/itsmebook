@@ -439,11 +439,10 @@ export default function StoryPlayer({
     const newPage = Math.max(0, Math.min(page, totalPages - 1));
     setCurrentPage(newPage);
     setShowStoryEnd(false);
-
-    if (isPlayingRef.current) {
-      playPageAudio(newPage);
-      preloadAllPages();
-    }
+    // 翻页时自动播放，无需先点播放按钮
+    setIsPlaying(true);
+    playPageAudio(newPage);
+    preloadAllPages();
   }, [totalPages, cleanupAllAudio, playPageAudio, preloadAllPages]);
 
   // ====== 滑动翻页 ======

@@ -276,6 +276,9 @@ export default function StorySelectPage() {
       }
     }
 
+    // 保存选中的声音ID到sessionStorage，播放器需要用到
+    sessionStorage.setItem("bedtime_voice_id", selectedVoice.id);
+
     startGeneration({
       childName: name,
       themeId: selectedTheme || "custom",
