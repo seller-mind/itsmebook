@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { STORY_THEMES } from "@/lib/story";
 import { CLASSIC_STORIES, STORY_CATEGORIES, ClassicStory } from "@/lib/classic-stories";
-import { startGeneration, pollGeneratingStatus, getGeneratingState, clearGeneratingState, saveCompletedBook } from "@/lib/story-generator";
+import { startGeneration, pollGeneratingStatus, getGeneratingState, clearGeneratingState, saveCompletedBook, resumeGeneration } from "@/lib/story-generator";
 
 // 孩子档案类型
 interface ChildProfile {
@@ -155,6 +155,8 @@ export default function StorySelectPage() {
       setIsGenerating(true);
       setProgress(genState.progress);
       setStatus(genState.step);
+      // 关键：恢复被中断的生成（可能页面刷新后runGeneration已停止）
+      resumeGeneration();
     }
 
     // 启动轮询

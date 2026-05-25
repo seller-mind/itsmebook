@@ -36,6 +36,9 @@ interface GenerateState {
 
 const STORAGE_KEY = 'itsmebook_generating';
 
+// 模块级标志，防止重复运行
+let isRunning = false;
+
 // 保存状态到 localStorage
 function saveState(state: GenerateState) {
   try {
@@ -83,6 +86,14 @@ function getPlaceholderImage(index: number): string {
  * 返回后用户可以随意切换页面，生成继续在后台跑
  */
 export function startGeneration(params: GenerateParams): void {
+  // 如果已经在运行，不重复启动
+  if (isRunning) return;
+  
+  // 保存 voiceId 到 localStorage，供播放器使用
+  try {
+    localStorage.setItem('itsmebook_last_voice_id', params.voiceId);
+  } catch {}
+
   const state: GenerateState = {
     status: 'generating',
     step: '正在生成故事文本...',
@@ -92,8 +103,29 @@ export function startGeneration(params: GenerateParams): void {
   };
   saveState(state);
 
-  // 在后台运行生成流程
-  runGeneration(params);
+  // 在后台运行生成流程，标记为运行中
+  isRunning = true;
+  runGeneration(params).finally(() => {
+    isRunning = false;
+  });
+}
+
+/**
+ * 恢复被中断的绘本生成
+ * 当用户离开页面后返回，或者页面刷新后恢复生成
+ */
+export function resumeGeneration(): void {
+  // 如果已经在运行，不重复启动
+  if (isRunning) return;
+
+  const state = getGeneratingState();
+  if (!state || state.status !== 'generating') return; // 没有需要恢复的任务
+
+  console.log('[StoryGenerator] 恢复生成任务，当前进度:', state.progress, state.step);
+  isRunning = true;
+  runGeneration(state.params).finally(() => {
+    isRunning = false;
+  });
 }
 
 async function runGeneration(params: GenerateParams): Promise<void> {

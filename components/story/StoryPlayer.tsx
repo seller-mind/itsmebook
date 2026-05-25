@@ -198,7 +198,10 @@ export default function StoryPlayer({
     preloadingRef.current.add(pageIndex);
     try {
       const pageText = pages[pageIndex].text;
-      const customVoiceId = sessionStorage.getItem("bedtime_voice_id");
+      // 优先从 sessionStorage 读取，fallback 到 localStorage（story-generator 已保存）
+      const sessionVoiceId = sessionStorage.getItem("bedtime_voice_id");
+      const localVoiceId = localStorage.getItem("itsmebook_last_voice_id");
+      const customVoiceId = sessionVoiceId || localVoiceId;
 
       const res = await fetch("/api/voice/tts", {
         method: "POST",
@@ -289,7 +292,10 @@ export default function StoryPlayer({
     if (!audioUrl) {
       setIsAudioLoading(true);
       try {
-        const customVoiceId = sessionStorage.getItem("bedtime_voice_id");
+        // 优先从 sessionStorage 读取，fallback 到 localStorage
+        const sessionVoiceId = sessionStorage.getItem("bedtime_voice_id");
+        const localVoiceId = localStorage.getItem("itsmebook_last_voice_id");
+        const customVoiceId = sessionVoiceId || localVoiceId;
 
         const res = await fetch("/api/voice/tts", {
           method: "POST",
