@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { STORY_THEMES } from "@/lib/story";
 import { CLASSIC_STORIES, STORY_CATEGORIES, ClassicStory } from "@/lib/classic-stories";
+import { startGeneration, pollGeneratingStatus, getGeneratingState, clearGeneratingState, saveCompletedBook } from "@/lib/story-generator";
 
 // 孩子档案类型
 interface ChildProfile {
@@ -99,7 +100,7 @@ export default function StorySelectPage() {
   // 声音选择
   const [selectedVoice, setSelectedVoice] = useState(VOICE_OPTIONS[0]);
 
-  // 读取孩子档案 + 判断免费用户 + 检查上次绘本 + 检查未完成的生成任务
+  // 读取孩子档案 + 判断免费用户 + 检查上次绘本
   useEffect(() => {
     const profileStr = sessionStorage.getItem("itsmebook_child_profile");
     if (profileStr) {
@@ -119,7 +120,7 @@ export default function StorySelectPage() {
       }
     }
 
-    // 判断是否免费用户：免费次数<=0 且没有购买过套餐
+    // 判断是否免费用户
     const userStr = localStorage.getItem("itsmebook_user");
     if (userStr) {
       try {
@@ -142,130 +143,67 @@ export default function StorySelectPage() {
         }
       } catch {}
     }
-    
-    // ====== 检查未完成的生成任务 ======
-    const generating = storage.getGenerating();
-    if (generating && generating.story) {
-      const pages = generating.story.pages || [];
-      // 检查哪些页面缺图片
-      const missingImagePages = pages.filter((p: any) => !p.imageUrl);
-      
-      if (missingImagePages.length === 0) {
-        // 所有图片都有了，检查TTS
-        const missingAudioPages = pages.filter((p: any) => !p.audioUrl);
-        if (missingAudioPages.length === 0) {
-          // 全部完成，清理并跳转
-          storage.clearGenerating();
-          sessionStorage.setItem("bedtime_story", JSON.stringify(generating.story));
-          localStorage.setItem("itsmebook_last_story", JSON.stringify(generating.story));
-          storage.addBook(generating.story);
-          router.push("/story/player");
-          return;
-        }
-      }
-      
-      // 有未完成的任务，恢复进度
-      setIsGenerating(true);
-      setStatus("正在恢复生成进度...");
-      setProgress(generating.progress || 50);
-      
-      // 从缺失的地方继续
-      resumeGenerating(generating);
-    }
   }, []);
 
-  // 恢复未完成的生成任务
-  const resumeGenerating = async (generating: any) => {
-    const story = generating.story;
-    const pages = story.pages || [];
-    const maxImages = isFreeUser ? 2 : pages.length;
-    
-    // 继续生成缺失的图片
-    for (let index = 0; index < pages.length; index++) {
-      if (pages[index].imageUrl) continue;
-      
-      setStatus("正在生成配图...");
-      setProgress(50 + Math.round((index / pages.length) * 30));
-      
-      if (isFreeUser && index >= maxImages) {
-        pages[index].imageUrl = getPlaceholderImage(index);
-        continue;
-      }
-      
-      let imageUrl = getPlaceholderImage(index);
-      for (let retry = 0; retry < 2; retry++) {
-        try {
-          const imageRes = await fetch("/api/image/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              imagePrompt: pages[index].imagePrompt,
-              style: "watercolor",
-              index,
-            }),
-          });
-          const imageData = await imageRes.json();
-          if (imageData.success && imageData.imageUrl) {
-            imageUrl = imageData.imageUrl;
-            break;
-          }
-        } catch { /* 重试 */ }
-      }
-      pages[index].imageUrl = imageUrl;
-      
-      // 增量保存进度
-      storage.setGenerating({ story, progress: 50 + Math.round((index / pages.length) * 30) });
+  // 轮询生成进度 - 独立于组件生命周期
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // 检查是否有正在进行的生成任务
+    const genState = getGeneratingState();
+    if (genState && genState.status === 'generating') {
+      setIsGenerating(true);
+      setProgress(genState.progress);
+      setStatus(genState.step);
     }
-    
-    setProgress(85);
-    setStatus("正在生成语音...");
-    
-    // 继续生成缺失的TTS
-    const voiceId = generating.voiceId || selectedVoice.id;
-    for (let index = 0; index < pages.length; index++) {
-      if (pages[index].audioUrl) continue;
+
+    // 启动轮询
+    pollTimerRef.current = setInterval(() => {
+      const result = pollGeneratingStatus();
       
-      setProgress(85 + Math.round((index / pages.length) * 12));
-      try {
-        const ttsRes = await fetch("/api/voice/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: pages[index].text, voice: voiceId }),
-        });
-        const ttsData = await ttsRes.json();
-        if (ttsData.success && ttsData.audioUrl) {
-          pages[index].audioUrl = ttsData.audioUrl;
-        }
-      } catch { /* TTS失败，播放器fallback */ }
-      
-      // 增量保存进度
-      storage.setGenerating({ story, voiceId, progress: 85 + Math.round((index / pages.length) * 12) });
-    }
-    
-    // 生成完成，保存最终数据
-    const storyData = {
-      title: story.title,
-      childName: story.childName,
-      pages,
-      voiceUrl: "",
-      voiceId,
-      createdAt: new Date().toISOString(),
-      isClassic: generating.isClassic || false,
-      isFreeUser,
+      if (result.isGenerating) {
+        setIsGenerating(true);
+        setProgress(result.progress);
+        setStatus(result.step);
+      } else if (result.isCompleted && result.storyData) {
+        setIsGenerating(false);
+        setProgress(100);
+        clearInterval(pollTimerRef.current!);
+        // 跳转到播放器
+        setTimeout(() => router.push("/story/player"), 500);
+      } else if (result.isFailed) {
+        setIsGenerating(false);
+        setError(result.error || "生成失败，请重试");
+        clearInterval(pollTimerRef.current!);
+      } else {
+        setIsGenerating(false);
+      }
+    }, 1000);
+
+    // 监听自定义完成事件（用户停留在当前页时直接响应）
+    const handleComplete = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setIsGenerating(false);
+      setProgress(100);
+      clearInterval(pollTimerRef.current!);
+      setTimeout(() => router.push("/story/player"), 500);
     };
-    
-    sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
-    localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
-    storage.addBook(storyData);
-    storage.clearGenerating();
-    
-    setProgress(100);
-    setStatus("完成！");
-    
-    setTimeout(() => {
-      router.push("/story/player");
-    }, 500);
-  };
+    const handleFailed = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setIsGenerating(false);
+      setError(customEvent.detail || "生成失败，请重试");
+      clearInterval(pollTimerRef.current!);
+    };
+
+    window.addEventListener("storyGenerationComplete", handleComplete);
+    window.addEventListener("storyGenerationFailed", handleFailed);
+
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      window.removeEventListener("storyGenerationComplete", handleComplete);
+      window.removeEventListener("storyGenerationFailed", handleFailed);
+    };
+  }, [router]);
 
   // 继续上次未读完的绘本
   const resumeLastStory = () => {
@@ -285,7 +223,7 @@ export default function StorySelectPage() {
     }));
   };
 
-  // 选择经典故事并开始生成
+  // 选择经典故事并开始生成 - 委托给后台生成服务
   const handleSelectClassicStory = async (story: ClassicStory) => {
     const name = childName.trim() || "小宝贝";
     setSelectedClassicStory(story);
@@ -293,142 +231,26 @@ export default function StorySelectPage() {
     setProgress(0);
     setError("");
 
-    try {
-      // 检查是否所有页面都有预生成图片
-      const allPreGenerated = story.pages.every(p => p.imageUrl);
-      
-      let pagesWithImages;
-      
-      // ====== 增量保存：开始生成 ======
-      storage.setGenerating({
-        childName: name,
-        classicStory: story,
-        isClassic: true,
-        progress: 5,
-      });
-      
-      if (allPreGenerated) {
-        // 全部有预生成图片，秒开
-        setStatus("正在准备故事...");
-        setProgress(50);
-        pagesWithImages = story.pages.map((page) => ({
-          pageNumber: page.pageNumber,
-          text: page.text,
-          imageUrl: page.imageUrl!,
-        }));
-      } else {
-        // 部分缺图，需要API生成缺的（串行生成，避免并发超时）
-        setStatus("正在生成配图...");
-        setProgress(10);
-        const maxImages = isFreeUser ? 2 : story.pages.length;
-        pagesWithImages = [];
-        for (let index = 0; index < story.pages.length; index++) {
-          const page = story.pages[index];
-          setProgress(10 + Math.round((index / story.pages.length) * 80));
-          if (page.imageUrl) {
-            pagesWithImages.push({ pageNumber: page.pageNumber, text: page.text, imageUrl: page.imageUrl });
-            continue;
-          }
-          if (isFreeUser && index >= maxImages) {
-            pagesWithImages.push({ pageNumber: page.pageNumber, text: page.text, imageUrl: getPlaceholderImage(index) });
-            continue;
-          }
-          let imageUrl = getPlaceholderImage(index);
-          for (let retry = 0; retry < 2; retry++) {
-            try {
-              const imageRes = await fetch("/api/image/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ imagePrompt: page.imagePrompt, style: "watercolor", index }),
-              });
-              const imageData = await imageRes.json();
-              if (imageData.success && imageData.imageUrl) {
-                imageUrl = imageData.imageUrl;
-                break;
-              }
-            } catch {
-              // 重试
-            }
-          }
-          pagesWithImages.push({ pageNumber: page.pageNumber, text: page.text, imageUrl });
-          
-          // 增量保存图片进度
-          storage.setGenerating({
-            childName: name,
-            classicStory: story,
-            story: { title: story.title, childName: name, pages: pagesWithImages },
-            isClassic: true,
-            voiceId: selectedVoice.id,
-            progress: 10 + Math.round((index / story.pages.length) * 80),
-          });
-        }
-      }
-
-      setProgress(95);
-      setStatus("正在生成语音...");
-
-      // 并行预生成所有页面的TTS音频URL，进入播放器时秒出
-      const ttsVoiceId = selectedVoice.id;
-      const pagesWithAudio = await Promise.all(
-        pagesWithImages.map(async (page: any, index: number) => {
-          setProgress(95 + Math.round((index / pagesWithImages.length) * 4));
-          try {
-            const ttsRes = await fetch("/api/voice/tts", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: page.text, voice: ttsVoiceId }),
-            });
-            const ttsData = await ttsRes.json();
-            if (ttsData.success && ttsData.audioUrl) {
-              return { ...page, audioUrl: ttsData.audioUrl };
-            }
-          } catch {
-            // TTS预加载失败，播放器会fallback到WebSpeech
-          }
-          return page;
-        })
-      );
-
-      setProgress(99);
-      setStatus("正在完成...");
-
-      // 使用默认AI声音，不再依赖家长声音克隆
-      const storyData = {
-        title: story.title,
-        childName: name,
-        pages: pagesWithAudio,
-        voiceUrl: "", // 不再使用克隆声音
-        voiceId: ttsVoiceId, // 使用默认AI声线
-        createdAt: new Date().toISOString(),
-        isClassic: true,
-        isFreeUser: isFreeUser,
-      };
-
-      // 同时存sessionStorage和localStorage，防返回丢失
-      sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
-      localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
-      
-      // 追加到绘本列表
-      storage.addBook(storyData);
-      
-      // 清理生成状态
-      storage.clearGenerating();
-
-      setProgress(100);
-      setStatus("完成！");
-
-      setTimeout(() => {
-        router.push("/story/player");
-      }, 500);
-    } catch (err: any) {
-      storage.clearGenerating();
-      setError(err.message || "生成失败，请重试");
-      setIsGenerating(false);
-      setSelectedClassicStory(null);
-    }
+    startGeneration({
+      childName: name,
+      themeId: "classic",
+      customPrompt: "",
+      styleId: "watercolor",
+      ageGroup: "",
+      favoriteAnimal: "",
+      favoriteColor: "",
+      personality: "",
+      location: "",
+      lifeEvent: "",
+      voiceId: selectedVoice.id,
+      isFreeUser,
+      isClassic: true,
+      classicPages: story.pages,
+      classicTitle: story.title,
+    });
   };
 
-  // 自定义故事生成（原有逻辑）
+  // 自定义故事生成 - 委托给后台生成服务
   const handleGenerate = async () => {
     if (!selectedTheme && !customPrompt.trim()) {
       setError("请选择一个故事主题或输入自定义故事");
@@ -440,254 +262,32 @@ export default function StorySelectPage() {
     setProgress(0);
     setError("");
 
-    try {
-      setStatus("正在生成故事文本...");
-      setProgress(5);
-
-      // 启动模拟进度：从5%缓慢爬到25%，每2秒+1%
-      const progressTimer = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 25) {
-            clearInterval(progressTimer);
-            return 25;
-          }
-          return prev + 1;
-        });
-      }, 2000);
-
-      // 读取孩子档案参数
-      const profileStr = sessionStorage.getItem("itsmebook_child_profile");
-      let profile: ChildProfile = {};
-      if (profileStr) {
-        try {
-          profile = JSON.parse(profileStr);
-        } catch (e) {
-          console.error("解析孩子档案失败:", e);
-        }
+    // 读取孩子档案参数
+    const profileStr = sessionStorage.getItem("itsmebook_child_profile");
+    let profile: ChildProfile = {};
+    if (profileStr) {
+      try {
+        profile = JSON.parse(profileStr);
+      } catch (e) {
+        console.error("解析孩子档案失败:", e);
       }
-
-      // ====== 增量保存：开始生成 ======
-      storage.setGenerating({
-        childName: name,
-        themeId: selectedTheme || "custom",
-        customPrompt: customPrompt.trim(),
-        profile,
-        isClassic: false,
-        progress: 5,
-      });
-
-      // 调用故事生成API，传递孩子档案参数
-      const response = await fetch("/api/story/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          childName: name,
-          themeId: selectedTheme || "custom",
-          styleId: "watercolor",
-          customPrompt: customPrompt.trim(),
-          // 新增孩子档案参数
-          ageGroup: profile.ageGroup || "",
-          favoriteAnimal: profile.favoriteAnimal || "",
-          favoriteColor: profile.favoriteColor || "",
-          personality: profile.personality || "",
-          location: profile.location || "",
-          lifeEvent: profile.lifeEvent || "",
-        }),
-      });
-
-      // 检查是否是流式响应
-      const contentType = response.headers.get("content-type") || "";
-      const isStreaming = contentType.includes("text/event-stream");
-
-      let data;
-
-      if (!isStreaming) {
-        // 非流式响应（demo模式），直接解析JSON
-        clearInterval(progressTimer);
-        setProgress(30);
-        data = await response.json();
-      } else {
-        // 流式响应
-        clearInterval(progressTimer);
-        setProgress(30);
-
-        // 处理流式响应
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let fullData = "";
-
-        if (!reader) {
-          throw new Error("无法读取响应流");
-        }
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          // 流式读取时渐进进度：30→55%
-          setProgress(prev => Math.min(prev + 1, 55));
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const lineData = line.slice(6).trim();
-              if (lineData && lineData !== "[DONE]") {
-                try {
-                  const parsed = JSON.parse(lineData);
-                  if (parsed.success === false) {
-                    throw new Error(parsed.message || "故事生成失败");
-                  }
-                  if (parsed.story) {
-                    fullData = JSON.stringify(parsed);
-                  }
-                } catch {
-                  // 忽略解析错误，继续接收
-                }
-              }
-            }
-          }
-        }
-
-        data = JSON.parse(fullData);
-      }
-
-      if (!data.success) {
-        throw new Error(data.message || "故事生成失败");
-      }
-
-      const story = data.story;
-      
-      // ====== 增量保存：故事文本生成完成 ======
-      storage.setGenerating({
-        childName: name,
-        themeId: selectedTheme || "custom",
-        customPrompt: customPrompt.trim(),
-        profile,
-        story,
-        isClassic: false,
-        voiceId: selectedVoice.id,
-        progress: 55,
-      });
-
-      // 生成配图（串行生成，避免Vercel并发超时）
-      setStatus("正在生成配图...");
-      const maxImages = isFreeUser ? 2 : story.pages.length; // 免费用户只生成2张图
-      const pagesWithImages: any[] = [];
-      for (let index = 0; index < story.pages.length; index++) {
-        const page = story.pages[index];
-        setProgress(55 + Math.round((index / story.pages.length) * 30));
-
-        // 免费用户只生成前2张，后续用占位图
-        if (isFreeUser && index >= maxImages) {
-          pagesWithImages.push({
-            ...page,
-            imageUrl: getPlaceholderImage(index),
-          });
-          continue;
-        }
-
-        let imageUrl = getPlaceholderImage(index);
-        // 最多重试2次
-        for (let retry = 0; retry < 2; retry++) {
-          try {
-            const imageRes = await fetch("/api/image/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                imagePrompt: page.imagePrompt,
-                style: "watercolor",
-                index,
-              }),
-            });
-            const imageData = await imageRes.json();
-            if (imageData.success && imageData.imageUrl) {
-              imageUrl = imageData.imageUrl;
-              break; // 成功，跳出重试
-            }
-          } catch {
-            // 重试
-          }
-        }
-        pagesWithImages.push({ ...page, imageUrl });
-        
-        // 增量保存图片进度
-        storage.setGenerating({
-          childName: name,
-          themeId: selectedTheme || "custom",
-          customPrompt: customPrompt.trim(),
-          profile,
-          story,
-          pagesWithImages,
-          isClassic: false,
-          voiceId: selectedVoice.id,
-          progress: 55 + Math.round((index / story.pages.length) * 30),
-        });
-      }
-
-      setProgress(85);
-      setStatus("正在生成语音...");
-
-      // 并行预生成所有页面的TTS音频URL，进入播放器时秒出
-      const ttsVoiceId = selectedVoice.id;
-      const pagesWithAudio = await Promise.all(
-        pagesWithImages.map(async (page: any, index: number) => {
-          setProgress(85 + Math.round((index / pagesWithImages.length) * 12));
-          try {
-            const ttsRes = await fetch("/api/voice/tts", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: page.text, voice: ttsVoiceId }),
-            });
-            const ttsData = await ttsRes.json();
-            if (ttsData.success && ttsData.audioUrl) {
-              return { ...page, audioUrl: ttsData.audioUrl };
-            }
-          } catch {
-            // TTS预加载失败，播放器会fallback到WebSpeech
-          }
-          return page;
-        })
-      );
-
-      setProgress(98);
-      setStatus("正在完成...");
-
-      // 使用默认AI声音，不再依赖家长声音克隆
-      const storyData = {
-        title: story.title,
-        childName: name,
-        pages: pagesWithAudio,
-        voiceUrl: "", // 不再使用克隆声音
-        voiceId: ttsVoiceId, // 使用默认AI声线
-        createdAt: new Date().toISOString(),
-        isClassic: false,
-        isFreeUser: isFreeUser,
-      };
-
-      // 同时存sessionStorage和localStorage，localStorage不怕返回丢数据
-      sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
-      localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
-      
-      // 追加到绘本列表
-      storage.addBook(storyData);
-      
-      // 清理生成状态
-      storage.clearGenerating();
-
-      setProgress(100);
-      setStatus("完成！");
-
-      // 跳转到播放器
-      setTimeout(() => {
-        router.push("/story/player");
-      }, 500);
-    } catch (err: any) {
-      storage.clearGenerating();
-      setError(err.message || "生成失败，请重试");
-      setIsGenerating(false);
     }
+
+    startGeneration({
+      childName: name,
+      themeId: selectedTheme || "custom",
+      customPrompt: customPrompt.trim(),
+      styleId: "watercolor",
+      ageGroup: profile.ageGroup || "",
+      favoriteAnimal: profile.favoriteAnimal || "",
+      favoriteColor: profile.favoriteColor || "",
+      personality: profile.personality || "",
+      location: profile.location || "",
+      lifeEvent: profile.lifeEvent || "",
+      voiceId: selectedVoice.id,
+      isFreeUser,
+      isClassic: false,
+    });
   };
 
   return (
