@@ -8,7 +8,7 @@ type Animal = "dog" | "cat" | "dinosaur" | "rabbit" | "bear" | "dolphin" | "unic
 type Color = "red" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink" | "";
 type Personality = "brave" | "curious" | "shy" | "active" | "gentle" | "stubborn";
 type Theme = "courage" | "friendship" | "sharing" | "bedtime" | "adventure" | "school" | "overcome" | "";
-type Location = "ocean" | "space" | "castle" | "volcano" | "forest" | "island" | "circus" | "";
+type Location = "ocean" | "space" | "castle" | "volcano" | "forest" | "island" | "circus" | "garden" | "cloud" | "";
 type LifeEvent = "kindergarten" | "new-friend" | "afraid-dark" | "moving" | "new-sibling" | "learning-bike" | "first-day-school" | "losing-tooth" | "starting-hobby" | "";
 type HairColor = "black" | "brown" | "blonde" | "red" | "";
 type SkinTone = "light" | "natural" | "wheat" | "dark" | "";
@@ -77,6 +77,8 @@ const LOCATIONS: { value: Location; emoji: string; label: string }[] = [
   { value: "forest", emoji: "🌲", label: "森林" },
   { value: "island", emoji: "🏝️", label: "岛屿" },
   { value: "circus", emoji: "🎪", label: "马戏团" },
+  { value: "garden", emoji: "🌸", label: "花园" },
+  { value: "cloud", emoji: "☁️", label: "云端" },
 ];
 
 const LIFE_EVENTS: { value: LifeEvent; emoji: string; label: string }[] = [

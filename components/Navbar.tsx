@@ -81,41 +81,42 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo - 手机端简化显示 */}
+          {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <span className="text-2xl md:text-3xl transition-transform group-hover:scale-110">
               📖
             </span>
-            <span className="hidden sm:inline text-base sm:text-lg md:text-xl font-bold text-gray-900">
+            <span className="text-base sm:text-lg md:text-xl font-bold text-gray-900">
               是我呀
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-6">
+          {/* 右侧操作区 */}
+          <div className="flex items-center gap-3">
+            {/* 桌面端导航链接 */}
             <Link
               href="/create"
-              className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
+              className="hidden md:block text-gray-600 hover:text-primary-orange transition-colors font-medium"
             >
               开始体验
             </Link>
             <Link
               href="/pricing"
-              className="text-gray-600 hover:text-primary-orange transition-colors font-medium"
+              className="hidden md:block text-gray-600 hover:text-primary-orange transition-colors font-medium"
             >
               定价
             </Link>
 
-            {/* 免费次数提示 */}
+            {/* 免费次数提示 - 桌面端 */}
             {user && (
-              <div className="flex items-center gap-1 text-sm text-gray-600">
+              <div className="hidden md:flex items-center gap-1 text-sm text-gray-600">
                 <span className="text-orange-500 font-medium">剩余 {user.freeCount} 次</span>
               </div>
             )}
 
+            {/* 桌面端 - 用户下拉菜单 / 登录按钮 */}
             {user ? (
-              /* 已登录 - 显示用户下拉菜单 */
-              <div className="relative">
+              <div className="relative hidden md:block">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="flex items-center gap-2 px-3 py-2 rounded-full bg-orange-100 hover:bg-orange-200 transition"
@@ -147,6 +148,13 @@ export default function Navbar() {
                       <p className="text-sm text-gray-600">免费次数</p>
                       <p className="font-medium text-orange-500">{user.freeCount} 次</p>
                     </div>
+                    <Link
+                      href="/account"
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      个人中心
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
@@ -157,24 +165,44 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              /* 未登录 - 简洁按钮组 */
               <Link
                 href="/sign-in"
-                className="text-gray-600 hover:text-primary-orange transition-colors font-medium text-sm"
+                className="hidden md:block text-gray-600 hover:text-primary-orange transition-colors font-medium text-sm"
               >
                 登录
               </Link>
             )}
 
-            {/* 开始制作 */}
+            {/* 桌面端 - 立即体验按钮 */}
             <Link
               href="/create"
-              className="btn-primary text-sm"
+              className="hidden md:block btn-primary text-sm"
             >
               立即体验
             </Link>
 
-            {/* Mobile Menu Button */}
+            {/* ====== 移动端右侧按钮组 ====== */}
+            {user ? (
+              /* 已登录 - 头像点击进个人中心 */
+              <button
+                onClick={() => router.push("/account")}
+                className="md:hidden flex items-center"
+              >
+                <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-medium">
+                  {user.nickname?.charAt(0) || "U"}
+                </div>
+              </button>
+            ) : (
+              /* 未登录 - 登录按钮 */
+              <Link
+                href="/sign-in"
+                className="md:hidden px-3 py-1.5 rounded-full text-sm font-medium text-primary-orange border border-primary-orange/30 hover:bg-orange-50 transition"
+              >
+                登录
+              </Link>
+            )}
+
+            {/* 移动端汉堡菜单 */}
             <button
               className="md:hidden p-2 text-gray-600"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -228,6 +256,13 @@ export default function Navbar() {
             {/* 移动端用户信息 */}
             {user ? (
               <>
+                <Link
+                  href="/account"
+                  className="block text-gray-600 hover:text-primary-orange transition-colors font-medium py-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  个人中心
+                </Link>
                 <div className="py-2 border-t border-gray-100">
                   <p className="text-sm text-gray-500">登录账号</p>
                   <p className="font-medium text-gray-900">{maskPhone(user.phone)}</p>

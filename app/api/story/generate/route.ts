@@ -52,12 +52,15 @@ const PERSONALITY_NAMES: Record<string, string> = {
 // 地点名称映射
 const LOCATION_NAMES: Record<string, string> = {
   underwater: "海底",
+  ocean: "海底",
   space: "太空",
   castle: "城堡",
   volcano: "火山",
   forest: "森林",
   island: "岛屿",
   circus: "马戏团",
+  garden: "花园",
+  cloud: "云端",
 };
 
 // 生活经历映射
@@ -82,6 +85,8 @@ const WAN_STYLE_MAP: Record<string, string> = {
   minimalist: "现代简约绘本风格，大胆几何造型，有限色彩，干净构图",
   nordic: "北欧经典绘本风格，简洁线条，柔和冷色调，温馨极简",
 };
+
+export const maxDuration = 60; // 允许60秒执行时间，豆包API响应可能超过10秒
 
 export async function POST(request: NextRequest) {
   try {
