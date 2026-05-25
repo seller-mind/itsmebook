@@ -179,13 +179,24 @@ async function generateImage(
   const styleConfig = STYLE_CONFIGS[style] || STYLE_CONFIGS.watercolor;
   const fullPrompt = `${imagePrompt}，${styleConfig.chinesePrompt}`;
 
+  // 有参考图时用Pro模型（面部一致性更好），无参考图用标准模型
+  const useProModel = !!refImageBase64;
+  const model = useProModel ? "wan2.7-image-pro" : "wan2.7-image";
+
+  const contentParts: any[] = [{ text: fullPrompt }];
+
+  // 如果有参考图片（孩子主角），添加ref_image参数
+  if (refImageBase64) {
+    contentParts.push({ image: refImageBase64 });
+  }
+
   const requestBody: any = {
-    model: "wan2.7-image",
+    model,
     input: {
       messages: [
         {
           role: "user",
-          content: [{ text: fullPrompt }],
+          content: contentParts,
         },
       ],
     },
@@ -194,13 +205,6 @@ async function generateImage(
       n: 1,
     },
   };
-
-  // 如果有参考图片（孩子主角），添加ref_image参数
-  if (refImageBase64) {
-    requestBody.input.messages[0].content.push({
-      image: refImageBase64
-    });
-  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 55000);
