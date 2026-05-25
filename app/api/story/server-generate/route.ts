@@ -171,6 +171,21 @@ export async function POST(request: NextRequest) {
         let pages: any[] = [];
 
         try {
+          // ============ 0. 在Supabase创建生成记录 ============
+          try {
+            const supabase = getServiceSupabase();
+            await supabase.from("story_generations").upsert({
+              session_id: sessionId,
+              status: "generating",
+              progress: 0,
+              step: "正在生成故事文本...",
+              params: body,
+            }, { onConflict: "session_id" });
+          } catch (dbErr) {
+            console.error("[ServerGenerate] Failed to create generation record:", dbErr);
+            // 不中断生成，继续
+          }
+
           // ============ 1. 生成故事文本 ============
           sendSSE(controller, { type: "progress", step: "正在生成故事文本...", progress: 10 });
           await updateGenerationProgress(sessionId, { status: "generating", progress: 10, step: "正在生成故事文本..." });

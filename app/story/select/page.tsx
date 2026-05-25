@@ -187,26 +187,69 @@ export default function StorySelectPage() {
 
   // 轮询生成进度 - 独立于组件生命周期
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const serverPollCountRef = useRef(0);
 
   useEffect(() => {
-    // 启动轮询
-    pollTimerRef.current = setInterval(() => {
-      const result = pollGeneratingStatus();
+    // 启动轮询：本地localStorage每1秒读一次，服务端每3秒查一次
+    pollTimerRef.current = setInterval(async () => {
+      const localResult = pollGeneratingStatus();
       
-      if (result.isGenerating) {
-        setIsGenerating(true);
-        setProgress(result.progress);
-        setStatus(result.step);
-      } else if (result.isCompleted && result.storyData) {
+      if (localResult.isCompleted && localResult.storyData) {
         setIsGenerating(false);
         setProgress(100);
         clearInterval(pollTimerRef.current!);
-        // 跳转到播放器
         setTimeout(() => router.push("/story/player"), 500);
-      } else if (result.isFailed) {
+        return;
+      } else if (localResult.isFailed) {
         setIsGenerating(false);
-        setError(result.error || "生成失败，请重试");
+        setError(localResult.error || "生成失败，请重试");
         clearInterval(pollTimerRef.current!);
+        return;
+      }
+
+      if (localResult.isGenerating) {
+        setIsGenerating(true);
+        setProgress(localResult.progress);
+        setStatus(localResult.step);
+
+        // 每3秒查一次服务端，获取真实进度（SSE断开后本地不更新）
+        serverPollCountRef.current++;
+        if (serverPollCountRef.current % 3 === 0) {
+          const genState = getGeneratingState();
+          if (genState?.sessionId) {
+            try {
+              const serverState = await getGenerationStatus(genState.sessionId);
+              if (serverState) {
+                if (serverState.status === 'completed' && serverState.result) {
+                  saveCompletedBook(serverState.result);
+                  setIsGenerating(false);
+                  setProgress(100);
+                  clearInterval(pollTimerRef.current!);
+                  setTimeout(() => router.push("/story/player"), 500);
+                  return;
+                } else if (serverState.status === 'failed') {
+                  clearGeneratingState();
+                  setIsGenerating(false);
+                  setError("生成失败，请重试");
+                  clearInterval(pollTimerRef.current!);
+                  return;
+                } else if (serverState.status === 'generating') {
+                  // 用服务端进度更新本地状态和UI
+                  setProgress(serverState.progress);
+                  setStatus(serverState.step);
+                  const updatedState = getGeneratingState();
+                  if (updatedState) {
+                    updatedState.progress = serverState.progress;
+                    updatedState.step = serverState.step;
+                    localStorage.setItem('itsmebook_generating', JSON.stringify(updatedState));
+                  }
+                }
+              }
+            } catch {
+              // 服务端查询失败，继续用本地状态
+            }
+          }
+        }
       } else {
         setIsGenerating(false);
       }
