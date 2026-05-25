@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ADMIN_PLANS, getPlanConfig, AdminGenerateParams, AdminFeatures, addClonedVoice, VoiceOption } from "@/lib/admin";
+import { ADMIN_PLANS, getPlanConfig, AdminGenerateParams, AdminFeatures, addClonedVoice, VoiceOption, isAdminMode } from "@/lib/admin";
 import { STORY_THEMES } from "@/lib/story";
 import { v4 as uuidv4 } from "uuid";
 import dynamic from "next/dynamic";
@@ -133,6 +133,13 @@ export default function AdminPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   
+  // 非admin模式下跳转回首页
+  useEffect(() => {
+    if (!isAdminMode()) {
+      router.replace("/");
+    }
+  }, [router]);
+
   // 监听套餐变化
   useEffect(() => {
     const plan = ADMIN_PLANS.find(p => p.id === form.planId);

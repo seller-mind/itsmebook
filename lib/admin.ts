@@ -1,16 +1,10 @@
 /**
  * Admin 模式工具 - 是我呀
- * 通过 NEXT_PUBLIC_APP_MODE 环境变量控制功能开关
- * public 模式：对外版 itsmebook.com，保持现有功能
- * admin 模式：admin.itsmebook.com，开放所有高级功能
+ * 根据访问域名自动判断模式：
+ *   admin.itsmebook.com → admin 模式（全功能，仅自用）
+ *   itsmebook.com / 其他 → public 模式（对外版，零敏感数据）
+ * 也可通过 NEXT_PUBLIC_APP_MODE 环境变量覆盖（本地开发用）
  */
-
-// 扩展Window类型
-declare global {
-  interface Window {
-    NEXT_PUBLIC_APP_MODE?: string;
-  }
-}
 
 /**
  * 获取当前应用模式
@@ -18,12 +12,19 @@ declare global {
  */
 export function getAppMode(): 'admin' | 'public' {
   if (typeof window === 'undefined') {
-    // 服务端使用 process.env
+    // 服务端：优先用环境变量，否则根据请求头判断（middleware中设置）
     return (process.env.NEXT_PUBLIC_APP_MODE as 'admin' | 'public') || 'public';
   }
-  // 客户端使用 window.NEXT_PUBLIC_APP_MODE
-  const mode = window.NEXT_PUBLIC_APP_MODE as 'admin' | 'public' | undefined;
-  return mode || 'public';
+  // 客户端：优先根据域名判断，环境变量作后备
+  const hostname = window.location.hostname;
+  if (hostname === 'admin.itsmebook.com' || hostname.startsWith('admin.')) {
+    return 'admin';
+  }
+  // 本地开发时可通过环境变量切换
+  if (process.env.NEXT_PUBLIC_APP_MODE === 'admin') {
+    return 'admin';
+  }
+  return 'public';
 }
 
 /**
