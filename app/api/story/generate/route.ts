@@ -83,36 +83,6 @@ const WAN_STYLE_MAP: Record<string, string> = {
   nordic: "北欧经典绘本风格，简洁线条，柔和冷色调，温馨极简",
 };
 
-// 流式调用Doubao API并返回流式响应
-async function streamDoubaoStory(
-  prompt: string,
-  apiKey: string,
-  endpoint: string,
-  modelId: string
-): Promise<ReadableStream> {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: modelId,
-      messages: [{ role: "user", content: prompt }],
-      stream: true,
-      temperature: 0.8,
-      max_tokens: 4000,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`故事生成API错误: ${response.status}`);
-  }
-
-  // 返回原始流，让前端处理
-  return response.body!;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -191,7 +161,10 @@ export async function POST(request: NextRequest) {
     const endpoint =
       process.env.DOUBAO_ENDPOINT ||
       "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
-    const modelId = process.env.DOUBAO_MODEL_ID || "ep-20260515144642-96m6k";
+    const modelId =
+      process.env.DOUBAO_MODEL_ID ||
+      process.env.VOLCENGINE_ENDPOINT_ID ||
+      "ep-20260515144642-96m6k";
 
     if (!apiKey) {
       // 没有API key时，返回演示数据
@@ -202,20 +175,55 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 使用流式响应，避免Vercel 10秒超时
-    const stream = await streamDoubaoStory(prompt, apiKey, endpoint, modelId);
-
-    // 将Doubao的SSE流转换为Next.js的流式响应
+    // 立即开始流式响应，避免Vercel 10秒超时杀进程
+    // 关键：先返回Response，再在流内部请求Doubao API
     const encoder = new TextEncoder();
-    
+
     const readable = new ReadableStream({
       async start(controller) {
-        const reader = stream.getReader();
+        // 先发一个心跳，让Vercel知道连接还活着
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "connecting" })}\n\n`));
+
+        let doubaoReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
         let fullContent = "";
 
         try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: modelId,
+              messages: [{ role: "user", content: prompt }],
+              stream: true,
+              temperature: 0.8,
+              max_tokens: 4000,
+            }),
+          });
+
+          if (!response.ok) {
+            const errText = await response.text().catch(() => "");
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ success: false, message: `故事生成API错误(${response.status}): ${errText.slice(0, 200)}` })}\n\n`)
+            );
+            controller.close();
+            return;
+          }
+
+          if (!response.body) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ success: false, message: "API未返回数据流" })}\n\n`)
+            );
+            controller.close();
+            return;
+          }
+
+          doubaoReader = response.body.getReader();
+
           while (true) {
-            const { done, value } = await reader.read();
+            const { done, value } = await doubaoReader.read();
             if (done) break;
 
             const chunk = new TextDecoder().decode(value);
@@ -247,7 +255,7 @@ export async function POST(request: NextRequest) {
                     );
                   } catch (parseError: any) {
                     controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify({ success: false, message: "故事格式解析失败" })}\n\n`)
+                      encoder.encode(`data: ${JSON.stringify({ success: false, message: "故事格式解析失败: " + (parseError.message || "").slice(0, 100) })}\n\n`)
                     );
                   }
                   controller.close();
@@ -266,13 +274,40 @@ export async function POST(request: NextRequest) {
               }
             }
           }
-        } catch (error) {
+
+          // 流正常结束但没收到[DONE]，尝试解析已有内容
+          if (fullContent) {
+            try {
+              const jsonStr = fullContent
+                .replace(/^```json\s*/g, "")
+                .replace(/^```\s*/g, "")
+                .replace(/\s*```$/g, "")
+                .trim();
+              const storyData = JSON.parse(jsonStr);
+              if (!storyData.title) storyData.title = `${childName}的睡前故事`;
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ success: true, story: storyData })}\n\n`)
+              );
+            } catch {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ success: false, message: "故事生成不完整，请重试" })}\n\n`)
+              );
+            }
+          } else {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ success: false, message: "AI未返回任何内容，请重试" })}\n\n`)
+            );
+          }
+          controller.close();
+        } catch (error: any) {
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ success: false, message: "流式读取失败" })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ success: false, message: `生成失败: ${(error.message || "未知错误").slice(0, 100)}` })}\n\n`)
           );
           controller.close();
         } finally {
-          reader.releaseLock();
+          if (doubaoReader) {
+            try { doubaoReader.releaseLock(); } catch {}
+          }
         }
       },
     });
