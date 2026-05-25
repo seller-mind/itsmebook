@@ -43,7 +43,11 @@ export default function StoryPlayer({
   const [showControls, setShowControls] = useState(true);
   const [controlsTimer, setControlsTimer] = useState<NodeJS.Timeout | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const audioInitDoneRef = useRef(false);
+
+  // 全屏容器引用
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null);
 
   // TTS音频URL缓存：pageIndex -> audioUrl
   const audioCacheRef = useRef<Record<number, string>>({});
@@ -63,6 +67,50 @@ export default function StoryPlayer({
   // 同步ref
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+
+  // 全屏状态监听
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isNowFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isNowFullscreen);
+      
+      // 全屏时隐藏控制栏，一段时间后自动显示
+      if (isNowFullscreen) {
+        setShowControls(false);
+      } else {
+        setShowControls(true);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  // 全屏切换
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        // 进入全屏
+        if (fullscreenContainerRef.current?.requestFullscreen) {
+          await fullscreenContainerRef.current.requestFullscreen();
+        } else if (fullscreenContainerRef.current?.webkitRequestFullscreen) {
+          // Safari
+          await (fullscreenContainerRef.current as any).webkitRequestFullscreen();
+        }
+      } else {
+        // 退出全屏
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        }
+      }
+    } catch (error) {
+      console.error("全屏切换失败:", error);
+    }
+  }, []);
 
   // 彻底清理所有音频
   const cleanupAllAudio = useCallback(() => {
@@ -504,8 +552,12 @@ export default function StoryPlayer({
 
   const currentPageData = pages[currentPage];
 
+  // 全屏模式下隐藏控制栏
+  const shouldHideControls = isFullscreen && !showControls;
+
   return (
     <div
+      ref={fullscreenContainerRef}
       className="fixed inset-0 z-50 bg-black select-none"
       onClick={toggleControls}
       onTouchStart={handleTouchStart}
@@ -562,7 +614,7 @@ export default function StoryPlayer({
       )}
 
       {/* 页码指示器 */}
-      <div className={`absolute left-0 right-0 flex items-center justify-center gap-1.5 transition-all duration-300 ${showControls ? "bottom-[280px]" : "bottom-[200px]"}`} style={{ pointerEvents: "auto" }}>
+      <div className={`absolute left-0 right-0 flex items-center justify-center gap-1.5 transition-all duration-300 ${showControls ? "bottom-[280px]" : "bottom-[200px]"}`} style={{ pointerEvents: shouldHideControls ? "none" : "auto" }}>
         {pages.map((_, i) => (
           <button
             key={i}
@@ -605,7 +657,7 @@ export default function StoryPlayer({
       <div
         className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent pt-10 pb-6 px-6 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0 pointer-events-none"}`}
         onClick={(e) => e.stopPropagation()}
-        style={{ pointerEvents: showControls ? "auto" : "none" }}
+        style={{ pointerEvents: shouldHideControls ? "none" : (showControls ? "auto" : "none") }}
       >
         {/* 播放控制 */}
         <div className="flex items-center justify-center gap-8 mb-4">
@@ -643,6 +695,10 @@ export default function StoryPlayer({
             <button onClick={() => bedtimeMode ? stopBedtimeMode() : setShowBedtimeSet(!showBedtimeSet)} className="text-xs text-white/60 hover:text-white/90 transition-colors">
               {bedtimeMode ? `🌙 ${formatTime(remainingTime || 0)}` : "🌙 睡前"}
             </button>
+            {/* 全屏按钮 */}
+            <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="text-xs text-white/60 hover:text-white/90 transition-colors">
+              {isFullscreen ? "⛶ 退出" : "⛶ 全屏"}
+            </button>
             {!isFreeUser && onDownload && (
               <button onClick={onDownload} className="text-xs text-white/60 hover:text-white/90 transition-colors">📥 下载</button>
             )}
@@ -661,7 +717,7 @@ export default function StoryPlayer({
       </div>
 
       {/* 顶部信息条（自动隐藏） */}
-      <div className={`absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent pb-6 px-4 pt-3 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0 pointer-events-none"}`}>
+      <div className={`absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent pb-6 px-4 pt-3 transition-all duration-300 ${showControls ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0 pointer-events-none"}`} style={{ pointerEvents: shouldHideControls ? "none" : (showControls ? "auto" : "none") }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-white/80 font-medium text-sm">{title}</span>
@@ -682,7 +738,14 @@ export default function StoryPlayer({
               <button onClick={() => setShowExitConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-medium text-sm hover:bg-gray-200 transition-colors">
                 继续阅读
               </button>
-              <button onClick={() => { cleanupAllAudio(); history.back(); }} className="flex-1 py-2.5 rounded-xl bg-primary-orange text-white font-medium text-sm hover:bg-primary-dark transition-colors">
+              <button onClick={() => { 
+                // 退出全屏（如果在全屏状态）
+                if (document.fullscreenElement) {
+                  document.exitFullscreen().catch(() => {});
+                }
+                cleanupAllAudio(); 
+                history.back(); 
+              }} className="flex-1 py-2.5 rounded-xl bg-primary-orange text-white font-medium text-sm hover:bg-primary-dark transition-colors">
                 退出
               </button>
             </div>

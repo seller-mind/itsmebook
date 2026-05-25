@@ -17,6 +17,66 @@ interface ChildProfile {
   lifeEvent?: string;
 }
 
+// 声音选项
+interface VoiceOption {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+}
+
+const VOICE_OPTIONS: VoiceOption[] = [
+  { id: "longhuhu_v3", name: "龙呼呼", emoji: "🐉", description: "天真女童，最适合故事" },
+  { id: "xiaoyi_v3", name: "亲切老师", emoji: "🧑‍🏫", description: "温暖女声，娓娓道来" },
+  { id: "zhichu_v3", name: "阳光少年", emoji: "👨‍🎓", description: "活泼男童声线" },
+  { id: "zhimiao_v3", name: "睡前低语", emoji: "🎭", description: "轻柔女声，适合睡前" },
+  { id: "zhiyan_v3", name: "故事大王", emoji: "🌟", description: "浑厚男声，讲大冒险" },
+];
+
+// localStorage 操作辅助函数
+const storage = {
+  getGenerating: (): any | null => {
+    try {
+      const str = localStorage.getItem("itsmebook_generating");
+      return str ? JSON.parse(str) : null;
+    } catch { return null; }
+  },
+  setGenerating: (data: any) => {
+    try {
+      localStorage.setItem("itsmebook_generating", JSON.stringify(data));
+    } catch { /* 存储失败，忽略 */ }
+  },
+  clearGenerating: () => {
+    try {
+      localStorage.removeItem("itsmebook_generating");
+    } catch { /* 忽略 */ }
+  },
+  getBooks: (): any[] => {
+    try {
+      const str = localStorage.getItem("itsmebook_books");
+      return str ? JSON.parse(str) : [];
+    } catch { return []; }
+  },
+  addBook: (book: any) => {
+    try {
+      const books = storage.getBooks();
+      books.unshift({ ...book, id: Date.now().toString() });
+      localStorage.setItem("itsmebook_books", JSON.stringify(books.slice(0, 50))); // 最多保留50个
+    } catch { /* 忽略 */ }
+  },
+  getUserProfile: (): any => {
+    try {
+      const str = localStorage.getItem("itsmebook_user_profile");
+      return str ? JSON.parse(str) : null;
+    } catch { return null; }
+  },
+  setUserProfile: (profile: any) => {
+    try {
+      localStorage.setItem("itsmebook_user_profile", JSON.stringify(profile));
+    } catch { /* 忽略 */ }
+  },
+};
+
 export default function StorySelectPage() {
   const router = useRouter();
   const [selectedTheme, setSelectedTheme] = useState<string>("");
@@ -35,8 +95,11 @@ export default function StorySelectPage() {
   const [selectedClassicStory, setSelectedClassicStory] = useState<ClassicStory | null>(null);
   const [isFreeUser, setIsFreeUser] = useState(false);
   const [hasLastStory, setHasLastStory] = useState(false);
+  
+  // 声音选择
+  const [selectedVoice, setSelectedVoice] = useState(VOICE_OPTIONS[0]);
 
-  // 读取孩子档案 + 判断免费用户 + 检查上次绘本
+  // 读取孩子档案 + 判断免费用户 + 检查上次绘本 + 检查未完成的生成任务
   useEffect(() => {
     const profileStr = sessionStorage.getItem("itsmebook_child_profile");
     if (profileStr) {
@@ -79,7 +142,130 @@ export default function StorySelectPage() {
         }
       } catch {}
     }
+    
+    // ====== 检查未完成的生成任务 ======
+    const generating = storage.getGenerating();
+    if (generating && generating.story) {
+      const pages = generating.story.pages || [];
+      // 检查哪些页面缺图片
+      const missingImagePages = pages.filter((p: any) => !p.imageUrl);
+      
+      if (missingImagePages.length === 0) {
+        // 所有图片都有了，检查TTS
+        const missingAudioPages = pages.filter((p: any) => !p.audioUrl);
+        if (missingAudioPages.length === 0) {
+          // 全部完成，清理并跳转
+          storage.clearGenerating();
+          sessionStorage.setItem("bedtime_story", JSON.stringify(generating.story));
+          localStorage.setItem("itsmebook_last_story", JSON.stringify(generating.story));
+          storage.addBook(generating.story);
+          router.push("/story/player");
+          return;
+        }
+      }
+      
+      // 有未完成的任务，恢复进度
+      setIsGenerating(true);
+      setStatus("正在恢复生成进度...");
+      setProgress(generating.progress || 50);
+      
+      // 从缺失的地方继续
+      resumeGenerating(generating);
+    }
   }, []);
+
+  // 恢复未完成的生成任务
+  const resumeGenerating = async (generating: any) => {
+    const story = generating.story;
+    const pages = story.pages || [];
+    const maxImages = isFreeUser ? 2 : pages.length;
+    
+    // 继续生成缺失的图片
+    for (let index = 0; index < pages.length; index++) {
+      if (pages[index].imageUrl) continue;
+      
+      setStatus("正在生成配图...");
+      setProgress(50 + Math.round((index / pages.length) * 30));
+      
+      if (isFreeUser && index >= maxImages) {
+        pages[index].imageUrl = getPlaceholderImage(index);
+        continue;
+      }
+      
+      let imageUrl = getPlaceholderImage(index);
+      for (let retry = 0; retry < 2; retry++) {
+        try {
+          const imageRes = await fetch("/api/image/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imagePrompt: pages[index].imagePrompt,
+              style: "watercolor",
+              index,
+            }),
+          });
+          const imageData = await imageRes.json();
+          if (imageData.success && imageData.imageUrl) {
+            imageUrl = imageData.imageUrl;
+            break;
+          }
+        } catch { /* 重试 */ }
+      }
+      pages[index].imageUrl = imageUrl;
+      
+      // 增量保存进度
+      storage.setGenerating({ story, progress: 50 + Math.round((index / pages.length) * 30) });
+    }
+    
+    setProgress(85);
+    setStatus("正在生成语音...");
+    
+    // 继续生成缺失的TTS
+    const voiceId = generating.voiceId || selectedVoice.id;
+    for (let index = 0; index < pages.length; index++) {
+      if (pages[index].audioUrl) continue;
+      
+      setProgress(85 + Math.round((index / pages.length) * 12));
+      try {
+        const ttsRes = await fetch("/api/voice/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: pages[index].text, voice: voiceId }),
+        });
+        const ttsData = await ttsRes.json();
+        if (ttsData.success && ttsData.audioUrl) {
+          pages[index].audioUrl = ttsData.audioUrl;
+        }
+      } catch { /* TTS失败，播放器fallback */ }
+      
+      // 增量保存进度
+      storage.setGenerating({ story, voiceId, progress: 85 + Math.round((index / pages.length) * 12) });
+    }
+    
+    // 生成完成，保存最终数据
+    const storyData = {
+      title: story.title,
+      childName: story.childName,
+      pages,
+      voiceUrl: "",
+      voiceId,
+      createdAt: new Date().toISOString(),
+      isClassic: generating.isClassic || false,
+      isFreeUser,
+    };
+    
+    sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
+    localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
+    storage.addBook(storyData);
+    storage.clearGenerating();
+    
+    setProgress(100);
+    setStatus("完成！");
+    
+    setTimeout(() => {
+      router.push("/story/player");
+    }, 500);
+  };
 
   // 继续上次未读完的绘本
   const resumeLastStory = () => {
@@ -112,6 +298,14 @@ export default function StorySelectPage() {
       const allPreGenerated = story.pages.every(p => p.imageUrl);
       
       let pagesWithImages;
+      
+      // ====== 增量保存：开始生成 ======
+      storage.setGenerating({
+        childName: name,
+        classicStory: story,
+        isClassic: true,
+        progress: 5,
+      });
       
       if (allPreGenerated) {
         // 全部有预生成图片，秒开
@@ -157,6 +351,16 @@ export default function StorySelectPage() {
             }
           }
           pagesWithImages.push({ pageNumber: page.pageNumber, text: page.text, imageUrl });
+          
+          // 增量保存图片进度
+          storage.setGenerating({
+            childName: name,
+            classicStory: story,
+            story: { title: story.title, childName: name, pages: pagesWithImages },
+            isClassic: true,
+            voiceId: selectedVoice.id,
+            progress: 10 + Math.round((index / story.pages.length) * 80),
+          });
         }
       }
 
@@ -164,7 +368,7 @@ export default function StorySelectPage() {
       setStatus("正在生成语音...");
 
       // 并行预生成所有页面的TTS音频URL，进入播放器时秒出
-      const ttsVoiceId = "longhuhu_v3";
+      const ttsVoiceId = selectedVoice.id;
       const pagesWithAudio = await Promise.all(
         pagesWithImages.map(async (page: any, index: number) => {
           setProgress(95 + Math.round((index / pagesWithImages.length) * 4));
@@ -203,6 +407,12 @@ export default function StorySelectPage() {
       // 同时存sessionStorage和localStorage，防返回丢失
       sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
       localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
+      
+      // 追加到绘本列表
+      storage.addBook(storyData);
+      
+      // 清理生成状态
+      storage.clearGenerating();
 
       setProgress(100);
       setStatus("完成！");
@@ -211,6 +421,7 @@ export default function StorySelectPage() {
         router.push("/story/player");
       }, 500);
     } catch (err: any) {
+      storage.clearGenerating();
       setError(err.message || "生成失败，请重试");
       setIsGenerating(false);
       setSelectedClassicStory(null);
@@ -254,6 +465,16 @@ export default function StorySelectPage() {
           console.error("解析孩子档案失败:", e);
         }
       }
+
+      // ====== 增量保存：开始生成 ======
+      storage.setGenerating({
+        childName: name,
+        themeId: selectedTheme || "custom",
+        customPrompt: customPrompt.trim(),
+        profile,
+        isClassic: false,
+        progress: 5,
+      });
 
       // 调用故事生成API，传递孩子档案参数
       const response = await fetch("/api/story/generate", {
@@ -337,6 +558,18 @@ export default function StorySelectPage() {
       }
 
       const story = data.story;
+      
+      // ====== 增量保存：故事文本生成完成 ======
+      storage.setGenerating({
+        childName: name,
+        themeId: selectedTheme || "custom",
+        customPrompt: customPrompt.trim(),
+        profile,
+        story,
+        isClassic: false,
+        voiceId: selectedVoice.id,
+        progress: 55,
+      });
 
       // 生成配图（串行生成，避免Vercel并发超时）
       setStatus("正在生成配图...");
@@ -378,13 +611,26 @@ export default function StorySelectPage() {
           }
         }
         pagesWithImages.push({ ...page, imageUrl });
+        
+        // 增量保存图片进度
+        storage.setGenerating({
+          childName: name,
+          themeId: selectedTheme || "custom",
+          customPrompt: customPrompt.trim(),
+          profile,
+          story,
+          pagesWithImages,
+          isClassic: false,
+          voiceId: selectedVoice.id,
+          progress: 55 + Math.round((index / story.pages.length) * 30),
+        });
       }
 
       setProgress(85);
       setStatus("正在生成语音...");
 
       // 并行预生成所有页面的TTS音频URL，进入播放器时秒出
-      const ttsVoiceId = "longhuhu_v3";
+      const ttsVoiceId = selectedVoice.id;
       const pagesWithAudio = await Promise.all(
         pagesWithImages.map(async (page: any, index: number) => {
           setProgress(85 + Math.round((index / pagesWithImages.length) * 12));
@@ -423,6 +669,12 @@ export default function StorySelectPage() {
       // 同时存sessionStorage和localStorage，localStorage不怕返回丢数据
       sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
       localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
+      
+      // 追加到绘本列表
+      storage.addBook(storyData);
+      
+      // 清理生成状态
+      storage.clearGenerating();
 
       setProgress(100);
       setStatus("完成！");
@@ -432,6 +684,7 @@ export default function StorySelectPage() {
         router.push("/story/player");
       }, 500);
     } catch (err: any) {
+      storage.clearGenerating();
       setError(err.message || "生成失败，请重试");
       setIsGenerating(false);
     }
@@ -622,7 +875,7 @@ export default function StorySelectPage() {
             </div>
 
             {/* 自定义故事输入 */}
-            <div className="bg-white rounded-2xl shadow-md p-5 mb-6">
+            <div className="bg-white rounded-2xl shadow-md p-5 mb-4">
               <h3 className="font-medium text-gray-900 text-sm mb-3">自定义故事</h3>
               <p className="text-xs text-gray-500 mb-3">
                 说一句话或关键词，我会帮你生成故事
@@ -658,6 +911,30 @@ export default function StorySelectPage() {
                 rows={3}
                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-orange focus:outline-none transition-colors text-base resize-none"
               />
+            </div>
+
+            {/* 声音选择 */}
+            <div className="bg-white rounded-2xl shadow-md p-5 mb-6">
+              <h3 className="font-medium text-gray-900 text-sm mb-3">选择朗读声音</h3>
+              <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+                {VOICE_OPTIONS.map((voice) => (
+                  <button
+                    key={voice.id}
+                    onClick={() => setSelectedVoice(voice)}
+                    className={`flex-shrink-0 p-3 rounded-xl text-center transition-all min-w-[90px] ${
+                      selectedVoice.id === voice.id
+                        ? "bg-gradient-to-br from-primary-orange/10 to-amber-50 ring-2 ring-primary-orange shadow-sm"
+                        : "bg-gray-50 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="text-2xl block mb-1">{voice.emoji}</span>
+                    <p className={`font-medium text-xs ${selectedVoice.id === voice.id ? "text-primary-orange" : "text-gray-700"}`}>
+                      {voice.name}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5 leading-tight line-clamp-2">{voice.description}</p>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* 错误提示 */}
@@ -698,6 +975,29 @@ export default function StorySelectPage() {
         {/* 经典故事库 */}
         {activeTab === "classic" && (
           <div className="space-y-3">
+            {/* 声音选择（经典故事也支持选择声音） */}
+            <div className="bg-white rounded-2xl shadow-md p-4 mb-4">
+              <h3 className="font-medium text-gray-900 text-sm mb-3">选择朗读声音</h3>
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                {VOICE_OPTIONS.map((voice) => (
+                  <button
+                    key={voice.id}
+                    onClick={() => setSelectedVoice(voice)}
+                    className={`flex-shrink-0 p-2.5 rounded-xl text-center transition-all min-w-[80px] ${
+                      selectedVoice.id === voice.id
+                        ? "bg-gradient-to-br from-primary-orange/10 to-amber-50 ring-2 ring-primary-orange"
+                        : "bg-gray-50 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="text-xl block mb-0.5">{voice.emoji}</span>
+                    <p className={`font-medium text-xs ${selectedVoice.id === voice.id ? "text-primary-orange" : "text-gray-700"}`}>
+                      {voice.name}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
             {/* 故事数量提示 */}
             <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-3 mb-4">
               <p className="text-sm text-amber-800 flex items-center gap-2">
