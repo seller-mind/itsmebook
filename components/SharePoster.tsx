@@ -331,7 +331,7 @@ export default function SharePoster({ bookData, referralCode, onClose }: SharePo
             <p className="font-medium text-orange-600 mb-2">💡 分享文案：</p>
             <p className="leading-relaxed">
               我用AI给孩子做了一本专属绘本，孩子居然是故事的主角！🎉
-              注册就送1次免费体验，用我的链接注册，咱俩都能多得1次👇
+              新用户首本只需9.9元，用我的链接注册，咱俩都能得优惠👇
             </p>
           </div>
         </div>

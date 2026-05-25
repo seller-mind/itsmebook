@@ -102,6 +102,15 @@ export default function RootLayout({
           
           {/* 百度统计 */}
           <BaiduAnalytics />
+          
+          {/* APP_MODE注入 - 让客户端能访问环境变量 */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                window.NEXT_PUBLIC_APP_MODE = '${process.env.NEXT_PUBLIC_APP_MODE || 'public'}';
+              `,
+            }}
+          />
         </head>
           <body className="min-h-screen flex flex-col">
             {/* 注册 Service Worker */}

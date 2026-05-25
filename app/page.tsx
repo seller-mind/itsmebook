@@ -362,7 +362,7 @@ export default function HomePage() {
 
           <div className="grid grid-cols-3 gap-3">
             {[
-              { name: "免费体验", price: "¥0", desc: "首次1本·2种风格", color: "from-gray-100 to-gray-200" },
+              { name: "新用户首本", price: "¥9.9", desc: "首次1本·2种风格", color: "from-green-100 to-emerald-200" },
               { name: "单本", price: "¥29.9", desc: "1本·全风格+外观", color: "from-primary-orange to-primary-dark", highlight: true },
               { name: "月度", price: "¥49/月", desc: "4本/月·+睡前模式", color: "from-purple-100 to-indigo-200" },
             ].map((plan, i) => (
