@@ -1,9 +1,8 @@
 /**
- * 绘本生成服务 - 独立于React组件，页面切换不中断
+ * 绘本生成服务 - 调用服务端API
  * 
- * 原理：生成逻辑在模块作用域运行，不依赖组件state
- * 进度通过 localStorage 传递，任何页面都能读取
- * 完成后派发自定义事件，当前页面组件可监听
+ * 核心变更：将生成逻辑从客户端移到服务端
+ * 服务端API不受浏览器生命周期影响，用户切走也能继续生成
  */
 
 export interface GenerateParams {
@@ -25,6 +24,7 @@ export interface GenerateParams {
 }
 
 interface GenerateState {
+  sessionId: string;
   status: 'generating' | 'completed' | 'failed';
   step: string;
   progress: number;
@@ -36,8 +36,12 @@ interface GenerateState {
 
 const STORAGE_KEY = 'itsmebook_generating';
 
-// 模块级标志，防止重复运行
-let isRunning = false;
+// 生成占位图
+function getPlaceholderImage(index: number): string {
+  const colors = ['FF6B6B', '4ECDC4', '45B7D1', '96CEB4', 'FFEAA7', 'DDA0DD', '98D8C8', 'F7DC6F'];
+  const bg = colors[index % colors.length];
+  return `https://placehold.co/800x800/${bg}/ffffff?text=Page+${index + 1}`;
+}
 
 // 保存状态到 localStorage
 function saveState(state: GenerateState) {
@@ -74,346 +78,285 @@ export function saveCompletedBook(storyData: any) {
   } catch {}
 }
 
-// 生成占位图
-function getPlaceholderImage(index: number): string {
-  const colors = ['FF6B6B', '4ECDC4', '45B7D1', '96CEB4', 'FFEAA7', 'DDA0DD', '98D8C8', 'F7DC6F'];
-  const bg = colors[index % colors.length];
-  return `https://placehold.co/800x800/${bg}/ffffff?text=Page+${index + 1}`;
+// 派发完成事件
+function dispatchComplete(storyData: any) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('storyGenerationComplete', { detail: storyData }));
+  }
+}
+
+// 派发失败事件
+function dispatchFailed(error: string) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('storyGenerationFailed', { detail: error }));
+  }
 }
 
 /**
- * 启动绘本生成 - 在模块作用域运行，不依赖React组件
- * 返回后用户可以随意切换页面，生成继续在后台跑
+ * 启动绘本生成 - 调用服务端API
+ * 通过SSE接收服务端推送的进度
  */
 export function startGeneration(params: GenerateParams): void {
-  // 如果已经在运行，不重复启动
-  if (isRunning) return;
-  
-  // 保存 voiceId 到 localStorage，供播放器使用
+  // 保存 voiceId 到 localStorage 和 sessionStorage，供播放器使用
   try {
     localStorage.setItem('itsmebook_last_voice_id', params.voiceId);
+    sessionStorage.setItem('bedtime_voice_id', params.voiceId);
   } catch {}
 
+  const sessionId = crypto.randomUUID();
+
   const state: GenerateState = {
+    sessionId,
     status: 'generating',
-    step: '正在生成故事文本...',
-    progress: 5,
+    step: '正在连接服务端...',
+    progress: 0,
     params,
     startedAt: Date.now(),
   };
   saveState(state);
 
-  // 在后台运行生成流程，标记为运行中
-  isRunning = true;
-  runGeneration(params).finally(() => {
-    isRunning = false;
-  });
-}
-
-/**
- * 恢复被中断的绘本生成
- * 当用户离开页面后返回，或者页面刷新后恢复生成
- */
-export function resumeGeneration(): void {
-  // 如果已经在运行，不重复启动
-  if (isRunning) return;
-
-  const state = getGeneratingState();
-  if (!state || state.status !== 'generating') return; // 没有需要恢复的任务
-
-  console.log('[StoryGenerator] 恢复生成任务，当前进度:', state.progress, state.step);
-  isRunning = true;
-  runGeneration(state.params).finally(() => {
-    isRunning = false;
-  });
-}
-
-async function runGeneration(params: GenerateParams): Promise<void> {
-  let state: GenerateState | null = getGeneratingState();
-  if (!state) return;
-
-  try {
-    // ============ 步骤1: 生成故事文本 ============
-    if (!state.story || !state.story.pages) {
-      state.step = '正在生成故事文本...';
-      state.progress = 10;
-      saveState(state);
-
-      let story: any;
-
-      if (params.isClassic && params.classicPages) {
-        // 经典故事 - 直接使用预置内容
-        story = {
-          title: params.classicTitle || '经典故事',
-          pages: params.classicPages.map((p: any, i: number) => ({
-            pageNumber: i + 1,
-            text: p.text,
-            imagePrompt: p.imagePrompt || p.text,
-            imageUrl: p.imageUrl || '',
-          })),
-        };
-      } else {
-        // AI生成故事
-        const response = await fetch('/api/story/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            childName: params.childName,
-            themeId: params.themeId,
-            styleId: params.styleId,
-            customPrompt: params.customPrompt,
-            ageGroup: params.ageGroup,
-            favoriteAnimal: params.favoriteAnimal,
-            favoriteColor: params.favoriteColor,
-            personality: params.personality,
-            location: params.location,
-            lifeEvent: params.lifeEvent,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`故事生成失败(${response.status})`);
-        }
-
-        // 检查是否流式响应
-        const contentType = response.headers.get('content-type') || '';
-        const isStreaming = contentType.includes('text/event-stream');
-
-        if (isStreaming) {
-          // 流式读取
-          const reader = response.body?.getReader();
-          if (!reader) throw new Error('无法读取响应流');
-          const decoder = new TextDecoder();
-          let fullData = '';
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            state = getGeneratingState();
-            if (!state || state.status === 'failed') {
-              reader.releaseLock();
-              return; // 被外部取消了
-            }
-            state.progress = Math.min(state.progress + 1, 25);
-            saveState(state);
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const lineData = line.slice(6).trim();
-                if (lineData && lineData !== '[DONE]') {
-                  try {
-                    const parsed = JSON.parse(lineData);
-                    if (parsed.success === false) {
-                      throw new Error(parsed.message || '故事生成失败');
-                    }
-                    if (parsed.story) {
-                      fullData = JSON.stringify(parsed);
-                    }
-                  } catch (e: any) {
-                    if (e.message && !e.message.includes('JSON')) throw e;
-                  }
-                }
-              }
-            }
-          }
-
-          if (!fullData) throw new Error('AI未返回故事内容');
-          const data = JSON.parse(fullData);
-          story = data.story;
-        } else {
-          // 非流式（demo模式）
-          const data = await response.json();
-          if (!data.success) throw new Error(data.message || '故事生成失败');
-          story = data.story;
-        }
-      }
-
-      // 保存故事文本
-      state = getGeneratingState();
-      if (!state || state.status === 'failed') return;
-      state.story = story;
-      state.step = '故事文本生成完成';
-      state.progress = 30;
-      saveState(state);
+  // 调用服务端生成API
+  fetch('/api/story/server-generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...params, sessionId }),
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`服务端响应错误(${response.status})`);
     }
 
-    // ============ 步骤2: 批量生成TTS（先并发生成所有页的TTS，比图片快） ============
-    state = getGeneratingState();
-    if (!state || state.status === 'failed') return;
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('无法读取响应流');
 
-    state.step = '正在生成语音...';
-    state.progress = 30;
-    saveState(state);
+    const decoder = new TextDecoder();
 
-    const pages = state.story.pages;
-    const BATCH_SIZE = 3;
+    const readStream = () => {
+      reader.read().then(({ done, value }) => {
+        if (done) return;
 
-    // 先批量生成所有页的TTS
-    for (let batchStart = 0; batchStart < pages.length; batchStart += BATCH_SIZE) {
-      state = getGeneratingState();
-      if (!state || state.status === 'failed') return;
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
 
-      const batchEnd = Math.min(batchStart + BATCH_SIZE, pages.length);
-
-      await Promise.all(pages.slice(batchStart, batchEnd).map(async (page: any, i: number) => {
-        const index = batchStart + i;
-        // TTS生成
-        if (!page.audioUrl) {
-          try {
-            const ttsRes = await fetch('/api/voice/tts', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: page.text, voice: params.voiceId }),
-            });
-            const ttsData = await ttsRes.json();
-            if (ttsData.success && ttsData.audioUrl) {
-              page.audioUrl = ttsData.audioUrl;
-            }
-          } catch { /* TTS失败，播放器会fallback到WebSpeech */ }
-        }
-      }));
-
-      // 更新进度：30-55%
-      state.step = `正在生成语音 (${batchEnd}/${pages.length})...`;
-      state.progress = 30 + Math.round((batchEnd / pages.length) * 25);
-      saveState(state);
-    }
-
-    // ============ 步骤3: 批量生成配图 ============
-    state = getGeneratingState();
-    if (!state || state.status === 'failed') return;
-
-    const maxImages = params.isFreeUser ? 2 : pages.length;
-
-    for (let batchStart = 0; batchStart < pages.length; batchStart += BATCH_SIZE) {
-      state = getGeneratingState();
-      if (!state || state.status === 'failed') return;
-
-      const batchEnd = Math.min(batchStart + BATCH_SIZE, pages.length);
-      const batchPages = pages.slice(batchStart, batchEnd);
-
-      // 批量生成图片
-      await Promise.all(batchPages.map(async (page: any, i: number) => {
-        const index = batchStart + i;
-
-        // 免费用户只生成前2张图
-        if (params.isFreeUser && index >= maxImages) {
-          page.imageUrl = getPlaceholderImage(index);
-          return;
-        }
-
-        // 图片生成（带重试）
-        if (!page.imageUrl || page.imageUrl.includes('placehold.co')) {
-          let imageUrl = getPlaceholderImage(index);
-          for (let retry = 0; retry < 2; retry++) {
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
             try {
-              const imageRes = await fetch('/api/image/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  imagePrompt: page.imagePrompt,
-                  style: params.styleId || 'watercolor',
-                  index,
-                }),
-              });
-              const imageData = await imageRes.json();
-              if (imageData.success && imageData.imageUrl) {
-                imageUrl = imageData.imageUrl;
-                break;
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'progress') {
+                // 更新进度
+                const currentState = getGeneratingState();
+                if (currentState && currentState.sessionId === sessionId) {
+                  currentState.step = data.step;
+                  currentState.progress = data.progress;
+                  saveState(currentState);
+                }
+              } else if (data.type === 'complete') {
+                // 生成完成
+                const storyData = data.storyData;
+                const finalState: GenerateState = {
+                  ...getGeneratingState()!,
+                  status: 'completed',
+                  progress: 100,
+                  step: '生成完成',
+                  story: storyData,
+                };
+                saveState(finalState);
+                
+                // 保存到 storage
+                saveCompletedBook(storyData);
+                
+                // 派发完成事件
+                dispatchComplete(storyData);
+              } else if (data.type === 'error') {
+                // 生成失败
+                const finalState: GenerateState = {
+                  ...getGeneratingState()!,
+                  status: 'failed',
+                  step: '生成失败',
+                  error: data.message,
+                };
+                saveState(finalState);
+                
+                // 派发失败事件
+                dispatchFailed(data.message);
               }
-            } catch { /* 重试 */ }
+            } catch (e) {
+              // 忽略解析错误
+            }
           }
-          page.imageUrl = imageUrl;
         }
-      }));
 
-      // 更新进度：55-95%
-      state.step = `正在生成配图 (${batchEnd}/${pages.length})...`;
-      state.progress = 55 + Math.round((batchEnd / pages.length) * 40);
-      saveState(state);
-    }
-
-    // ============ 步骤4: 完成 ============
-    state = getGeneratingState();
-    if (!state || state.status === 'failed') return;
-
-    const storyData = {
-      title: state.story.title,
-      childName: params.childName,
-      pages,
-      voiceUrl: '',
-      voiceId: params.voiceId,
-      createdAt: new Date().toISOString(),
-      isClassic: params.isClassic,
-      isFreeUser: params.isFreeUser,
+        if (!done) {
+          readStream();
+        }
+      });
     };
 
-    saveCompletedBook(storyData);
-
-    state.status = 'completed';
-    state.step = '完成！';
-    state.progress = 100;
-    saveState(state);
-
-    // 派发自定义事件，让当前页面的组件知道完成了
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('storyGenerationComplete', { detail: storyData }));
-    }
-  } catch (error: any) {
-    const currentState = getGeneratingState();
-    if (currentState) {
-      currentState.status = 'failed';
-      currentState.error = error.message || '生成失败';
-      saveState(currentState);
-      
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('storyGenerationFailed', { detail: currentState.error }));
-      }
-    }
-  }
+    readStream();
+  })
+  .catch(error => {
+    console.error('[StoryGenerator] Server generation error:', error);
+    const finalState: GenerateState = {
+      ...getGeneratingState()!,
+      status: 'failed',
+      step: '生成失败',
+      error: error.message,
+    };
+    saveState(finalState);
+    dispatchFailed(error.message);
+  });
 }
 
 /**
- * 轮询生成状态 - 供React组件调用
- * 返回当前进度、步骤、是否完成
+ * 轮询生成状态 - 用于select页面
+ * 优先从localStorage读取，如果SSE断开则调用服务端API查询
  */
 export function pollGeneratingStatus(): {
   isGenerating: boolean;
-  progress: number;
-  step: string;
   isCompleted: boolean;
   isFailed: boolean;
-  error?: string;
-  storyData?: any;
+  progress: number;
+  step: string;
+  storyData: any;
+  error: string;
 } {
   const state = getGeneratingState();
   
   if (!state) {
-    return { isGenerating: false, progress: 0, step: '', isCompleted: false, isFailed: false };
-  }
-
-  if (state.status === 'completed') {
-    // 读取完成的数据
-    const storyStr = localStorage.getItem('itsmebook_last_story');
-    const storyData = storyStr ? JSON.parse(storyStr) : null;
-    clearGeneratingState();
-    return { isGenerating: false, progress: 100, step: '完成！', isCompleted: true, isFailed: false, storyData };
-  }
-
-  if (state.status === 'failed') {
-    const error = state.error || '生成失败';
-    clearGeneratingState();
-    return { isGenerating: false, progress: 0, step: '', isCompleted: false, isFailed: true, error };
+    return {
+      isGenerating: false,
+      isCompleted: false,
+      isFailed: false,
+      progress: 0,
+      step: '',
+      storyData: null,
+      error: '',
+    };
   }
 
   return {
-    isGenerating: true,
+    isGenerating: state.status === 'generating',
+    isCompleted: state.status === 'completed',
+    isFailed: state.status === 'failed',
     progress: state.progress,
     step: state.step,
-    isCompleted: false,
-    isFailed: false,
+    storyData: state.story,
+    error: state.error || '',
   };
+}
+
+/**
+ * 恢复被中断的生成 - 当用户返回页面时调用
+ * 先检查本地状态，再尝试从服务端获取最新状态
+ */
+export async function resumeGeneration(): Promise<void> {
+  const state = getGeneratingState();
+  if (!state) return;
+
+  // 如果状态是已完成或失败，不需要恢复
+  if (state.status === 'completed' || state.status === 'failed') return;
+
+  // 尝试从服务端获取最新状态
+  try {
+    const response = await fetch(`/api/story/generation-status?sessionId=${encodeURIComponent(state.sessionId)}`);
+    const data = await response.json();
+
+    if (data.success && data.exists) {
+      if (data.status === 'completed' && data.result) {
+        // 服务端已完成，直接使用结果
+        const updatedState: GenerateState = {
+          ...state,
+          status: 'completed',
+          progress: 100,
+          step: '生成完成',
+          story: data.result,
+        };
+        saveState(updatedState);
+        saveCompletedBook(data.result);
+        dispatchComplete(data.result);
+      } else if (data.status === 'failed') {
+        // 服务端失败
+        const updatedState: GenerateState = {
+          ...state,
+          status: 'failed',
+          step: data.step || '生成失败',
+          error: '服务端生成失败',
+        };
+        saveState(updatedState);
+        dispatchFailed('服务端生成失败');
+      } else {
+        // 仍在生成中，更新进度
+        const updatedState: GenerateState = {
+          ...state,
+          progress: data.progress || state.progress,
+          step: data.step || state.step,
+        };
+        saveState(updatedState);
+        
+        // 如果SSE断开了，重新发起请求
+        // 注意：这里不重新发起，因为SSE连接是独立的
+        // 用户通过轮询本地的localStorage来获取进度
+      }
+    }
+  } catch (err) {
+    console.error('[StoryGenerator] Failed to resume from server:', err);
+    // 如果服务端查询失败，继续使用本地状态
+  }
+}
+
+/**
+ * 重新连接生成流程 - 用于页面重新加载后
+ * 尝试重新连接到现有的生成任务
+ */
+export async function reconnectGeneration(): Promise<boolean> {
+  const state = getGeneratingState();
+  if (!state || state.status !== 'generating') return false;
+
+  // 先查询服务端状态
+  try {
+    const response = await fetch(`/api/story/generation-status?sessionId=${encodeURIComponent(state.sessionId)}`);
+    const data = await response.json();
+
+    if (data.success && data.exists) {
+      if (data.status === 'completed' && data.result) {
+        // 已完成
+        const updatedState: GenerateState = {
+          ...state,
+          status: 'completed',
+          progress: 100,
+          step: '生成完成',
+          story: data.result,
+        };
+        saveState(updatedState);
+        saveCompletedBook(data.result);
+        dispatchComplete(data.result);
+        return true;
+      } else if (data.status === 'failed') {
+        // 失败
+        const updatedState: GenerateState = {
+          ...state,
+          status: 'failed',
+          step: data.step || '生成失败',
+          error: data.step || '服务端生成失败',
+        };
+        saveState(updatedState);
+        dispatchFailed(data.step || '服务端生成失败');
+        return true;
+      } else {
+        // 仍在生成，更新本地状态
+        const updatedState: GenerateState = {
+          ...state,
+          progress: data.progress || state.progress,
+          step: data.step || state.step,
+        };
+        saveState(updatedState);
+        return true;
+      }
+    }
+  } catch (err) {
+    console.error('[StoryGenerator] Reconnect error:', err);
+  }
+
+  return false;
 }

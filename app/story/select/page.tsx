@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { STORY_THEMES } from "@/lib/story";
 import { CLASSIC_STORIES, STORY_CATEGORIES, ClassicStory } from "@/lib/classic-stories";
-import { startGeneration, pollGeneratingStatus, getGeneratingState, clearGeneratingState, saveCompletedBook, resumeGeneration } from "@/lib/story-generator";
+import { startGeneration, pollGeneratingStatus, getGeneratingState, clearGeneratingState, saveCompletedBook, resumeGeneration, reconnectGeneration } from "@/lib/story-generator";
+import { getGenerationStatus } from "@/lib/supabase";
 
 // 孩子档案类型
 interface ChildProfile {
@@ -100,7 +101,7 @@ export default function StorySelectPage() {
   // 声音选择
   const [selectedVoice, setSelectedVoice] = useState(VOICE_OPTIONS[0]);
 
-  // 读取孩子档案 + 判断免费用户 + 检查上次绘本
+  // 读取孩子档案 + 判断免费用户 + 检查上次绘本 + 恢复生成状态
   useEffect(() => {
     const profileStr = sessionStorage.getItem("itsmebook_child_profile");
     if (profileStr) {
@@ -143,22 +144,51 @@ export default function StorySelectPage() {
         }
       } catch {}
     }
-  }, []);
+
+    // 恢复上次选择的声音
+    const savedVoiceId = localStorage.getItem("itsmebook_last_voice_id") || sessionStorage.getItem("bedtime_voice_id");
+    if (savedVoiceId) {
+      const matchedVoice = VOICE_OPTIONS.find(v => v.id === savedVoiceId);
+      if (matchedVoice) {
+        setSelectedVoice(matchedVoice);
+      }
+    }
+
+    // 检查是否有正在进行的生成任务（从服务端恢复）
+    const genState = getGeneratingState();
+    if (genState && genState.sessionId && genState.status === 'generating') {
+      // 尝试从服务端恢复状态
+      getGenerationStatus(genState.sessionId).then(serverState => {
+        if (serverState) {
+          if (serverState.status === 'completed' && serverState.result) {
+            // 服务端已完成
+            saveCompletedBook(serverState.result);
+            setTimeout(() => router.push("/story/player"), 500);
+          } else if (serverState.status === 'failed') {
+            // 服务端失败
+            clearGeneratingState();
+          } else {
+            // 仍在生成中，更新本地状态
+            setIsGenerating(true);
+            setProgress(serverState.progress);
+            setStatus(serverState.step);
+          }
+        }
+      }).catch(() => {
+        // 服务端查询失败，使用本地状态
+        if (genState.status === 'generating') {
+          setIsGenerating(true);
+          setProgress(genState.progress);
+          setStatus(genState.step);
+        }
+      });
+    }
+  }, [router]);
 
   // 轮询生成进度 - 独立于组件生命周期
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // 检查是否有正在进行的生成任务
-    const genState = getGeneratingState();
-    if (genState && genState.status === 'generating') {
-      setIsGenerating(true);
-      setProgress(genState.progress);
-      setStatus(genState.step);
-      // 关键：恢复被中断的生成（可能页面刷新后runGeneration已停止）
-      resumeGeneration();
-    }
-
     // 启动轮询
     pollTimerRef.current = setInterval(() => {
       const result = pollGeneratingStatus();
@@ -233,8 +263,9 @@ export default function StorySelectPage() {
     setProgress(0);
     setError("");
 
-    // 保存选中的声音ID到sessionStorage，播放器需要用到
+    // 保存选中的声音ID到 sessionStorage 和 localStorage
     sessionStorage.setItem("bedtime_voice_id", selectedVoice.id);
+    localStorage.setItem("itsmebook_last_voice_id", selectedVoice.id);
 
     startGeneration({
       childName: name,
@@ -278,8 +309,9 @@ export default function StorySelectPage() {
       }
     }
 
-    // 保存选中的声音ID到sessionStorage，播放器需要用到
+    // 保存选中的声音ID到 sessionStorage 和 localStorage
     sessionStorage.setItem("bedtime_voice_id", selectedVoice.id);
+    localStorage.setItem("itsmebook_last_voice_id", selectedVoice.id);
 
     startGeneration({
       childName: name,

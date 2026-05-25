@@ -151,6 +151,7 @@ export default function StoryPlayerPage() {
   const exportVideo = useCallback(async () => {
     if (!story || !story.pages || story.pages.length === 0) return;
     
+    setShowDownloadOptions(false); // 关闭下载选项弹窗
     setIsExportingVideo(true);
     setVideoExportProgress(0);
     
@@ -182,7 +183,6 @@ export default function StoryPlayerPage() {
         a.click();
         URL.revokeObjectURL(url);
         setIsExportingVideo(false);
-        setShowDownloadOptions(false);
         alert('视频已保存！如需其他格式可使用视频转换工具。');
       };
       

@@ -195,3 +195,63 @@ export async function deletePhoto(photoId: string): Promise<boolean> {
 
   return true;
 }
+
+// ============================================
+// 故事生成状态相关操作
+// ============================================
+
+export interface StoryGeneration {
+  id: string;
+  session_id: string;
+  status: 'pending' | 'generating' | 'completed' | 'failed';
+  progress: number;
+  step: string;
+  params: any;
+  result: any;
+  created_at: string;
+  updated_at: string;
+}
+
+// 创建生成记录
+export async function createGenerationRecord(params: any): Promise<{ sessionId: string } | null> {
+  try {
+    const response = await fetch('/api/story/create-generation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ params }),
+    });
+    const data = await response.json();
+    if (data.success && data.sessionId) {
+      return { sessionId: data.sessionId };
+    }
+    return null;
+  } catch (err) {
+    console.error('Error creating generation record:', err);
+    return null;
+  }
+}
+
+// 获取生成状态
+export async function getGenerationStatus(sessionId: string): Promise<StoryGeneration | null> {
+  try {
+    const response = await fetch(`/api/story/generation-status?sessionId=${encodeURIComponent(sessionId)}`);
+    const data = await response.json();
+    if (data.success && data.exists) {
+      return {
+        id: '',
+        session_id: sessionId,
+        status: data.status,
+        progress: data.progress,
+        step: data.step,
+        params: data.params,
+        result: data.result,
+        created_at: data.createdAt,
+        updated_at: data.updatedAt,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error('Error fetching generation status:', err);
+    return null;
+  }
+}

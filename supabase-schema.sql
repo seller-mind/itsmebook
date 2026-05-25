@@ -193,3 +193,37 @@ FROM information_schema.tables t
 WHERE table_schema = 'public' 
 AND table_name IN ('users', 'sms_codes', 'books', 'orders')
 ORDER BY table_name;
+
+-- ============================================
+-- 8. 创建 story_generations 表（服务端生成状态表）
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.story_generations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id TEXT UNIQUE NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'generating', 'completed', 'failed')),
+    progress INTEGER DEFAULT 0,
+    step TEXT DEFAULT '',
+    params JSONB,
+    result JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_story_generations_session ON public.story_generations(session_id);
+CREATE INDEX IF NOT EXISTS idx_story_generations_status ON public.story_generations(status);
+
+-- 启用 RLS
+ALTER TABLE public.story_generations ENABLE ROW LEVEL SECURITY;
+
+-- story_generations 表策略
+CREATE POLICY "Allow read story_generations" ON public.story_generations FOR SELECT USING (true);
+CREATE POLICY "Allow insert story_generations" ON public.story_generations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update story_generations" ON public.story_generations FOR UPDATE USING (true);
+
+-- 更新触发器
+DROP TRIGGER IF EXISTS update_story_generations_updated_at ON public.story_generations;
+CREATE TRIGGER update_story_generations_updated_at
+    BEFORE UPDATE ON public.story_generations
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_updated_at_column();
