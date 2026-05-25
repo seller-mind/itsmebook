@@ -208,87 +208,76 @@ async function runGeneration(params: GenerateParams): Promise<void> {
       saveState(state);
     }
 
-    // ============ 步骤2: 生成配图 ============
+    // ============ 步骤2&3: 并发生成配图和TTS（流水线模式） ============
     state = getGeneratingState();
     if (!state || state.status === 'failed') return;
-    
+
     const pages = state.story.pages;
     const maxImages = params.isFreeUser ? 2 : pages.length;
-    
-    for (let index = 0; index < pages.length; index++) {
+
+    // 并发控制：每次最多3页同时生成
+    const BATCH_SIZE = 3;
+
+    for (let batchStart = 0; batchStart < pages.length; batchStart += BATCH_SIZE) {
       state = getGeneratingState();
       if (!state || state.status === 'failed') return;
 
-      // 如果已有图片，跳过（支持断点续传）
-      if (pages[index].imageUrl && !pages[index].imageUrl.includes('placehold.co')) continue;
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, pages.length);
+      const batchPages = pages.slice(batchStart, batchEnd);
 
-      state.step = `正在生成配图 (${index + 1}/${pages.length})...`;
-      state.progress = 30 + Math.round((index / pages.length) * 40);
-      saveState(state);
+      // 批量生成：每页同时生成图片+TTS
+      await Promise.all(batchPages.map(async (page: any, i: number) => {
+        const index = batchStart + i;
 
-      // 免费用户只生成前2张
-      if (params.isFreeUser && index >= maxImages) {
-        pages[index].imageUrl = getPlaceholderImage(index);
-        saveState(state);
-        continue;
-      }
-
-      let imageUrl = getPlaceholderImage(index);
-      for (let retry = 0; retry < 2; retry++) {
-        try {
-          const imageRes = await fetch('/api/image/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imagePrompt: pages[index].imagePrompt,
-              style: params.styleId || 'watercolor',
-              index,
-            }),
-          });
-          const imageData = await imageRes.json();
-          if (imageData.success && imageData.imageUrl) {
-            imageUrl = imageData.imageUrl;
-            break;
-          }
-        } catch { /* 重试 */ }
-      }
-      pages[index].imageUrl = imageUrl;
-
-      // 每生成一张图就保存进度
-      state.progress = 30 + Math.round(((index + 1) / pages.length) * 40);
-      saveState(state);
-    }
-
-    // ============ 步骤3: 生成TTS语音 ============
-    state = getGeneratingState();
-    if (!state || state.status === 'failed') return;
-    state.step = '正在生成语音...';
-    state.progress = 75;
-    saveState(state);
-
-    for (let index = 0; index < pages.length; index++) {
-      state = getGeneratingState();
-      if (!state || state.status === 'failed') return;
-
-      // 已有音频跳过
-      if (pages[index].audioUrl) continue;
-
-      state.progress = 75 + Math.round((index / pages.length) * 20);
-      saveState(state);
-
-      try {
-        const ttsRes = await fetch('/api/voice/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: pages[index].text, voice: params.voiceId }),
-        });
-        const ttsData = await ttsRes.json();
-        if (ttsData.success && ttsData.audioUrl) {
-          pages[index].audioUrl = ttsData.audioUrl;
+        // 免费用户只生成前2张图
+        if (params.isFreeUser && index >= maxImages) {
+          page.imageUrl = getPlaceholderImage(index);
+          return;
         }
-      } catch { /* TTS失败，播放器会fallback到WebSpeech */ }
 
-      // 增量保存
+        // 图片生成（带重试）
+        if (!page.imageUrl || page.imageUrl.includes('placehold.co')) {
+          let imageUrl = getPlaceholderImage(index);
+          for (let retry = 0; retry < 2; retry++) {
+            try {
+              const imageRes = await fetch('/api/image/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  imagePrompt: page.imagePrompt,
+                  style: params.styleId || 'watercolor',
+                  index,
+                }),
+              });
+              const imageData = await imageRes.json();
+              if (imageData.success && imageData.imageUrl) {
+                imageUrl = imageData.imageUrl;
+                break;
+              }
+            } catch { /* 重试 */ }
+          }
+          page.imageUrl = imageUrl;
+        }
+
+        // TTS生成
+        if (!page.audioUrl) {
+          try {
+            const ttsRes = await fetch('/api/voice/tts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: page.text, voice: params.voiceId }),
+            });
+            const ttsData = await ttsRes.json();
+            if (ttsData.success && ttsData.audioUrl) {
+              page.audioUrl = ttsData.audioUrl;
+            }
+          } catch { /* TTS失败，播放器会fallback到WebSpeech */ }
+        }
+      }));
+
+      // 更新进度
+      state.step = `正在生成 (${batchEnd}/${pages.length})...`;
+      state.progress = 30 + Math.round((batchEnd / pages.length) * 65);
       saveState(state);
     }
 

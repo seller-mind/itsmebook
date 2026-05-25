@@ -93,18 +93,19 @@ export default function StoryPlayer({
     try {
       if (!document.fullscreenElement) {
         // 进入全屏
-        if (fullscreenContainerRef.current?.requestFullscreen) {
-          await fullscreenContainerRef.current.requestFullscreen();
-        } else if (fullscreenContainerRef.current?.webkitRequestFullscreen) {
+        const container = fullscreenContainerRef.current as HTMLElement | null;
+        if (container?.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if ((container as any)?.webkitRequestFullscreen) {
           // Safari
-          await (fullscreenContainerRef.current as any).webkitRequestFullscreen();
+          await (container as any).webkitRequestFullscreen();
         }
       } else {
         // 退出全屏
         if (document.exitFullscreen) {
           await document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          await document.webkitExitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
         }
       }
     } catch (error) {
@@ -433,7 +434,8 @@ export default function StoryPlayer({
 
   // 翻页
   const goToPage = useCallback((page: number) => {
-    stopCurrentAudio();
+    // 彻底清理所有音频，避免重叠
+    cleanupAllAudio();
     const newPage = Math.max(0, Math.min(page, totalPages - 1));
     setCurrentPage(newPage);
     setShowStoryEnd(false);
@@ -442,7 +444,7 @@ export default function StoryPlayer({
       playPageAudio(newPage);
       preloadAllPages();
     }
-  }, [totalPages, stopCurrentAudio, playPageAudio, preloadAllPages]);
+  }, [totalPages, cleanupAllAudio, playPageAudio, preloadAllPages]);
 
   // ====== 滑动翻页 ======
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);

@@ -16,11 +16,16 @@ export default function SharePage() {
     }
   }, []);
 
-  const shareText = `给孩子生成了一本专属绘本，太惊喜了！
+  const getShareText = () => {
+    const childNameText = story?.childName || "孩子";
+    return `给孩子生成了一本专属绘本，太惊喜了！
 
-故事里叫着孩子的名字，连喜欢的恐龙都变成了好朋友！孩子一听就知道"这是我呀！"
+故事里叫着${childNameText}的名字，连喜欢的恐龙都变成了好朋友！孩子一听就知道"这是我呀！"
 
 #睡前故事 #AI绘本 #育儿好物 #是我呀`;
+  };
+
+  const shareText = getShareText();
 
   const handleCopy = async () => {
     if (navigator.clipboard) {
@@ -30,21 +35,30 @@ export default function SharePage() {
     }
   };
 
-  const handleShare = (platform: string) => {
-    const shareUrls: Record<string, string> = {
-      wechat: "weixin://",
-      moments: "",
-      xiaohongshu: "",
-      douyin: "",
-    };
-
-    if (platform === "wechat" || platform === "moments") {
-      alert("请在微信中打开并分享");
-    } else if (platform === "xiaohongshu") {
-      alert("小红书分享功能请使用App内分享");
-    } else if (platform === "douyin") {
-      alert("抖音分享功能请使用App内分享");
+  // 使用Web Share API分享（支持移动端原生分享）
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: story?.title || "是我呀-专属绘本",
+          text: shareText,
+          url: window.location.href,
+        });
+      } catch (err) {
+        // 用户取消分享
+        if ((err as Error).name !== "AbortError") {
+          console.error("分享失败:", err);
+        }
+      }
+    } else {
+      // 不支持Web Share API时，复制文案
+      handleCopy();
     }
+  };
+
+  const handleShare = () => {
+    // 使用Web Share API
+    handleNativeShare();
   };
 
   if (!story) {
@@ -126,24 +140,29 @@ export default function SharePage() {
         {/* 分享到 */}
         <div className="bg-white rounded-3xl shadow-md p-6">
           <h3 className="font-bold text-gray-900 mb-4">分享到</h3>
-          <div className="grid grid-cols-4 gap-4">
-            {[
-              { name: "微信", emoji: "💬", color: "bg-green-500" },
-              { name: "朋友圈", emoji: "🖼️", color: "bg-green-600" },
-              { name: "小红书", emoji: "📕", color: "bg-red-500" },
-              { name: "抖音", emoji: "🎵", color: "bg-black" },
-            ].map((platform) => (
-              <button
-                key={platform.name}
-                onClick={() => handleShare(platform.name.toLowerCase())}
-                className="flex flex-col items-center gap-2"
-              >
-                <div className={`w-12 h-12 rounded-2xl ${platform.color} flex items-center justify-center text-xl text-white shadow-md`}>
-                  {platform.emoji}
-                </div>
-                <span className="text-xs text-gray-600">{platform.name}</span>
-              </button>
-            ))}
+          <div className="flex gap-4">
+            <button
+              onClick={handleNativeShare}
+              className="flex-1 flex flex-col items-center gap-2 bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-xl text-white shadow-md">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              </div>
+              <span className="text-sm font-medium text-gray-700">一键分享</span>
+            </button>
+            <button
+              onClick={handleCopy}
+              className="flex-1 flex flex-col items-center gap-2 bg-gray-50 rounded-2xl p-4 hover:bg-gray-100 transition-colors"
+            >
+              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-xl shadow-sm">
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span className="text-sm text-gray-600">复制文案</span>
+            </button>
           </div>
         </div>
 

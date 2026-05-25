@@ -231,6 +231,9 @@ export default function StorySelectPage() {
     setProgress(0);
     setError("");
 
+    // 保存选中的声音ID到sessionStorage，播放器需要用到
+    sessionStorage.setItem("bedtime_voice_id", selectedVoice.id);
+
     startGeneration({
       childName: name,
       themeId: "classic",
