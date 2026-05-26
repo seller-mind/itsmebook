@@ -195,16 +195,22 @@ export default function AdminPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const uploadSectionRef = useRef<HTMLDivElement | null>(null);
   
   // 已通过密码验证，不需要再检查 admin 模式
 
-  // 监听套餐变化
+  // 监听套餐变化 - 自动滚动到上传区域
   useEffect(() => {
     const plan = ADMIN_PLANS.find(p => p.id === form.planId);
     if (plan) {
       setSelectedPlan(plan);
-      // 更新页数
       setForm(prev => ({ ...prev, pageCount: plan.pageCount }));
+      // 选了需要上传的套餐时，自动滚动到上传区域
+      if (plan.id === "parent-voice" || plan.id === "child-hero") {
+        setTimeout(() => {
+          uploadSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 300);
+      }
     }
   }, [form.planId]);
   
@@ -738,12 +744,12 @@ export default function AdminPage() {
 
             {/* 照片上传（孩子主角） */}
             {(form.planId === "child-hero" || form.useChildPhoto) && (
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <div ref={uploadSectionRef} className="bg-white rounded-2xl shadow-md p-6 border-2 border-orange-300">
+                <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
                   <span>📷</span> 孩子照片（生成主角）
                 </h2>
-                <p className="text-sm text-gray-500 mb-4">
-                  上传孩子照片，AI将生成以孩子形象为主角的绘本
+                <p className="text-sm text-orange-600 font-medium mb-4">
+                  ⚠️ 请上传孩子正面照片，AI将根据照片生成主角形象
                 </p>
                 
                 {!photoPreviewUrl ? (
@@ -781,12 +787,12 @@ export default function AdminPage() {
 
             {/* 语音录制（亲子朗读） */}
             {(form.planId === "parent-voice" || form.planId === "child-hero" || form.useClonedVoice) && (
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <div ref={form.planId === "parent-voice" ? uploadSectionRef : undefined} className="bg-white rounded-2xl shadow-md p-6 border-2 border-orange-300">
+                <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
                   <span>🎙️</span> 家长语音（克隆声音）
                 </h2>
-                <p className="text-sm text-gray-500 mb-4">
-                  录制家长语音片段（5-20秒），AI将克隆家长的声音朗读绘本
+                <p className="text-sm text-orange-600 font-medium mb-4">
+                  ⚠️ 请录制5-20秒家长语音，AI将克隆家长声音朗读绘本
                 </p>
                 
                 {!voicePreviewUrl ? (
