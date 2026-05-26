@@ -5,11 +5,6 @@ import { useRouter } from "next/navigation";
 import { ADMIN_PLANS, getPlanConfig, AdminGenerateParams, AdminFeatures, addClonedVoice, VoiceOption } from "@/lib/admin";
 import { STORY_THEMES } from "@/lib/story";
 import { v4 as uuidv4 } from "uuid";
-import dynamic from "next/dynamic";
-
-// 动态导入导出组件（避免SSR问题）
-const PDFExport = dynamic(() => import("@/components/admin/PDFExport"), { ssr: false });
-const VideoExport = dynamic(() => import("@/components/admin/VideoExport"), { ssr: false });
 
 // Admin 密码保护
 const ADMIN_PASSWORD = "itsmebook2026";
@@ -193,6 +188,10 @@ export default function AdminPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [completedBookId, setCompletedBookId] = useState<string | null>(null);
+  const [completedStory, setCompletedStory] = useState<{
+    title: string; childName: string;
+    pages: Array<{ pageNumber: number; text: string; imageUrl: string; audioUrl: string | null }>;
+  } | null>(null);
   
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -459,7 +458,7 @@ export default function AdminPage() {
       setCurrentSessionId(sessionId);
       
       setGenerationStep("generating_story");
-      setGenerationProgress(30);
+      // Progress will be driven by SSE events
       
       const generateResponse = await fetch("/api/admin/generate", {
         method: "POST",
@@ -601,6 +600,25 @@ export default function AdminPage() {
     });
   };
   
+  // 保存完成的绘本数据
+  const saveCompletedStory = (data: any) => {
+    if (!data.pages || data.pages.length === 0) return;
+    const storyData = {
+      title: data.title || form.childName + "的绘本",
+      childName: form.childName,
+      pages: data.pages.map((p: any) => ({
+        pageNumber: p.page_number,
+        text: p.text,
+        imageUrl: p.image_url,
+        audioUrl: p.audio_url || null,
+      })),
+    };
+    setCompletedStory(storyData);
+    const playerData = { ...storyData, voiceUrl: "" };
+    sessionStorage.setItem("bedtime_story", JSON.stringify(playerData));
+    localStorage.setItem("itsmebook_last_story", JSON.stringify(playerData));
+  };
+
   // 查看生成的绘本
   const viewBook = () => {
     if (completedBookId) {
@@ -692,49 +710,51 @@ export default function AdminPage() {
             )}
             
             {generationStep === "completed" && (
-              <div className="mt-4 space-y-4">
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-green-700 font-medium">✅ 绘本生成完成！</p>
-                  <div className="mt-3 flex gap-3 flex-wrap">
-                    <button
-                      onClick={viewBook}
-                      className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                    >
-                      📖 查看绘本
-                    </button>
-                    <button
-                      onClick={copyShareLink}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      🔗 复制分享链接
-                    </button>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                    >
-                      ➕ 新建订单
-                    </button>
-                  </div>
-                </div>
-                
-                {/* PDF和视频导出 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <PDFExport
-                    bookId={completedBookId || ""}
-                    title={`${form.childName}的绘本`}
-                    characterName={form.childName}
-                    characterAge={form.childAge}
-                    pages={[]}
-                  />
-                  <VideoExport
-                    bookId={completedBookId || ""}
-                    title={`${form.childName}的绘本`}
-                    pages={[]}
-                    pageDuration={4}
-                  />
-                </div>
+              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-green-700 font-medium">✅ 绘本生成完成！绘本预览正在加载...</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* 完成预览 - 独立于生成状态，不会因isGenerating变化而消失 */}
+        {completedStory && !isGenerating && (
+          <div className="mb-6 bg-white rounded-2xl shadow-lg p-6">
+            <h3 className="text-lg font-semibold mb-4">✅ {completedStory.title}</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              {completedStory.pages.map((page, idx) => (
+                <div key={idx} className="rounded-xl overflow-hidden border-2 border-gray-100 hover:border-orange-300 transition-colors">
+                  {page.imageUrl ? (
+                    <img src={page.imageUrl} alt={`第${idx+1}页`} className="w-full aspect-square object-cover" />
+                  ) : (
+                    <div className="w-full aspect-square bg-gray-100 flex items-center justify-center text-gray-400 text-sm">第{idx+1}页</div>
+                  )}
+                  <div className="p-2">
+                    <p className="text-xs text-gray-600 line-clamp-2">{page.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={viewBook}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                📖 查看绘本
+              </button>
+              <button
+                onClick={copyShareLink}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                🔗 复制分享链接
+              </button>
+              <button
+                onClick={() => { setCompletedStory(null); setGenerationStep("idle"); setGenerationProgress(0); }}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+              >
+                ➕ 新建订单
+              </button>
+            </div>
           </div>
         )}
 
