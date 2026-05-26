@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ADMIN_PLANS, getPlanConfig, AdminGenerateParams, AdminFeatures, addClonedVoice, VoiceOption, isAdminMode } from "@/lib/admin";
+import { ADMIN_PLANS, getPlanConfig, AdminGenerateParams, AdminFeatures, addClonedVoice, VoiceOption } from "@/lib/admin";
 import { STORY_THEMES } from "@/lib/story";
 import { v4 as uuidv4 } from "uuid";
 import dynamic from "next/dynamic";
@@ -96,15 +96,12 @@ type GenerationStep =
   | "completed"
   | "failed";
 
-export default function AdminPage() {
-  const router = useRouter();
-  
-  // 密码验证状态
+// 密码保护组件
+function AdminAuthGuard({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
   
-  // 检查已保存的认证状态
   useEffect(() => {
     const saved = sessionStorage.getItem(AUTH_KEY);
     if (saved === "true") {
@@ -112,7 +109,6 @@ export default function AdminPage() {
     }
   }, []);
   
-  // 密码验证
   const handleLogin = () => {
     if (passwordInput === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
@@ -123,7 +119,6 @@ export default function AdminPage() {
     }
   };
   
-  // 未认证时显示密码页面
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white flex items-center justify-center">
@@ -156,6 +151,12 @@ export default function AdminPage() {
       </div>
     );
   }
+  
+  return <>{children}</>;
+}
+
+export default function AdminPage() {
+  const router = useRouter();
   
   // 表单状态
   const [form, setForm] = useState<OrderForm>({
@@ -501,6 +502,7 @@ export default function AdminPage() {
   };
 
   return (
+    <AdminAuthGuard>
     <div className="min-h-screen bg-gradient-to-b from-orange-50 via-amber-50 to-purple-50">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-16 z-40">
@@ -1024,5 +1026,6 @@ export default function AdminPage() {
         </div>
       </div>
     </div>
+    </AdminAuthGuard>
   );
 }
