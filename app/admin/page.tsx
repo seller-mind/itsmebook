@@ -490,7 +490,7 @@ export default function AdminPage() {
       // 同时将sessionId存到sessionStorage，用于页面恢复
       sessionStorage.setItem("itsmebook_generating_session", sessionId);
       
-      // 处理SSE流 - 如果连接断了，自动切换到轮询
+      // 处理SSE流 - 读取后端推送的进度和完成事件
       try {
         const reader = generateResponse.body?.getReader();
         if (reader) {
@@ -508,11 +508,27 @@ export default function AdminPage() {
                   const data = JSON.parse(line.slice(6));
                   
                   if (data.type === "progress") {
-                    // 后端可能在progress事件中发送step="completed"和progress=100
                     if (data.step === "completed" || data.progress >= 100) {
                       setGenerationProgress(100);
                       setGenerationStep("completed");
                       sseCompletedRef.current = true;
+                      if (data.bookId) setCompletedBookId(data.bookId);
+                      // progress事件中也可能带pages数据
+                      if (data.pages && data.pages.length > 0) {
+                        const storyData = {
+                          title: data.title || form.childName + "的绘本",
+                          childName: form.childName,
+                          pages: data.pages.map((p: any) => ({
+                            pageNumber: p.page_number,
+                            text: p.text,
+                            imageUrl: p.image_url,
+                            audioUrl: p.audio_url || null,
+                          })),
+                          voiceUrl: "",
+                        };
+                        sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
+                        localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
+                      }
                     } else {
                       setGenerationProgress(data.progress);
                       setGenerationStep(data.step as GenerationStep);
@@ -520,28 +536,46 @@ export default function AdminPage() {
                   } else if (data.type === "completed") {
                     setGenerationProgress(100);
                     setGenerationStep("completed");
-                    setCompletedBookId(data.bookId);
+                    if (data.bookId) setCompletedBookId(data.bookId);
                     sseCompletedRef.current = true;
-                    sessionStorage.removeItem("itsmebook_generating_session");
+                    // 将绘本数据存到sessionStorage，供StoryPlayer读取
+                    if (data.pages && data.pages.length > 0) {
+                      const storyData = {
+                        title: data.title || form.childName + "的绘本",
+                        childName: form.childName,
+                        pages: data.pages.map((p: any) => ({
+                          pageNumber: p.page_number,
+                          text: p.text,
+                          imageUrl: p.image_url,
+                          audioUrl: p.audio_url || null,
+                        })),
+                        voiceUrl: "",
+                      };
+                      sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
+                      localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
+                    }
                   } else if (data.type === "error") {
                     throw new Error(data.message);
                   }
-                } catch (e) {
-                  // 忽略JSON解析错误
+                } catch (parseOrApiError: any) {
+                  if (parseOrApiError instanceof Error && parseOrApiError.message && !parseOrApiError.message.includes("JSON")) {
+                    throw parseOrApiError;
+                  }
                 }
               }
             }
           }
           
-          // SSE流正常结束，如果还没收到completed事件则标记完成
+          // SSE流正常结束 = 生成完成
           if (!sseCompletedRef.current) {
             setGenerationStep("completed");
             setGenerationProgress(100);
           }
+          setIsGenerating(false);
           sessionStorage.removeItem("itsmebook_generating_session");
         }
       } catch (streamError: any) {
-        // SSE流断了（比如切走页面），不需要报错，服务端还在继续生成
+        // SSE流异常断开，服务端可能还在继续生成，轮询会接管
         console.log("SSE流断开，服务端仍在生成中，可通过轮询恢复");
       }
       
@@ -549,13 +583,11 @@ export default function AdminPage() {
       console.error("生成失败:", error);
       setGenerationStep("failed");
       setGenerationError(error.message || "生成过程中出现错误");
-      alert(`生成失败：${error.message || "未知错误"}\n\n请检查网络连接后重试`);
+      setIsGenerating(false);
+      alert(`生成失败：${error.message || "未知错误"}
+
+请检查网络连接后重试`);
       sessionStorage.removeItem("itsmebook_generating_session");
-    } finally {
-      // 只有完成或失败才停止，进行中不停止
-      if (generationStep === "completed" || generationStep === "failed") {
-        setIsGenerating(false);
-      }
     }
   };
   
@@ -868,7 +900,7 @@ export default function AdminPage() {
             )}
 
             {/* 语音录制（亲子朗读） */}
-            {(form.planId === "parent-voice" || form.planId === "child-hero" || form.useClonedVoice) && (
+            {(form.planId === "parent-voice" || form.useClonedVoice) && (
               <div ref={form.planId === "parent-voice" ? uploadSectionRef : undefined} className="bg-white rounded-2xl shadow-md p-6 border-2 border-orange-300">
                 <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
                   <span>🎙️</span> 家长语音（克隆声音）

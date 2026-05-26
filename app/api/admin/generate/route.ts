@@ -577,10 +577,10 @@ export async function POST(request: NextRequest) {
           orderNote,
         });
 
-        // 完成
+        // 完成 - 将完整绘本数据通过SSE传回前端
         controller.enqueue(encoder.encode(sendProgress("completed", 100)));
         controller.enqueue(encoder.encode(
-          `data: ${JSON.stringify({ type: "completed", bookId, title: story.title })}\n\n`
+          `data: ${JSON.stringify({ type: "completed", bookId, title: story.title, pages: pagesWithAudio })}\n\n`
         ));
         await updateSupabaseProgress(sessionId, { status: "completed", progress: 100, step: "生成完成", result: { bookId, title: story.title } });
 
