@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generationCache } from "@/app/api/story/generation-status/route";
 
-export const maxDuration = 300; // 允许5分钟执行时间
+export const maxDuration = 60; // Vercel Hobby上限60秒
 
 // 发送SSE进度
 function sendProgress(step: string, progress: number, data: any = {}): string {
@@ -175,7 +175,8 @@ async function generateStory(params: {
         { role: "user", content: `请为${params.childName}创作一个温馨的${theme.name}故事，${params.pageCount}页。` },
       ],
       temperature: 0.8,
-      max_tokens: 4000,
+      max_tokens: 3000,
+      stream: false,
     }),
   });
 
@@ -191,17 +192,48 @@ async function generateStory(params: {
     throw new Error("故事生成返回为空");
   }
 
-  // 解析JSON
+  // 解析JSON（增强版：处理markdown代码块、思维链等干扰）
   try {
-    // 尝试提取JSON
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+    let jsonStr = content;
+    
+    // 1. 去掉markdown代码块包裹
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim();
     }
-    throw new Error("无法解析故事内容");
-  } catch (e) {
+    
+    // 2. 去掉<think>...</think>思维链标签
+    jsonStr = jsonStr.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    
+    // 3. 尝试直接解析
+    try {
+      return JSON.parse(jsonStr);
+    } catch {}
+    
+    // 4. 提取第一个完整的JSON对象
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {}
+    }
+    
+    // 5. 逐步修复常见JSON错误
+    let fixed = jsonStr;
+    // 去掉尾部逗号
+    fixed = fixed.replace(/,\s*([\]}])/g, "$1");
+    // 去掉单引号替换双引号
+    fixed = fixed.replace(/'/g, '"');
+    try {
+      return JSON.parse(fixed);
+    } catch {}
+    
+    console.error("故事解析全部失败，原始内容:", content.substring(0, 500));
+    throw new Error("故事格式解析失败");
+  } catch (e: any) {
+    if (e.message === "故事格式解析失败") throw e;
     console.error("故事解析错误:", e);
-    console.log("原始内容:", content);
+    console.log("原始内容前500字:", content?.substring(0, 500));
     throw new Error("故事格式解析失败");
   }
 }
@@ -538,57 +570,33 @@ export async function POST(request: NextRequest) {
         // 步骤3: 生成配图
         controller.enqueue(encoder.encode(sendProgress("generating_images", 30)));
         await updateSupabaseProgress(sessionId, { progress: 30, step: "正在生成配图..." });
-        const pagesWithImages = await Promise.all(
-          story.pages.map(async (page, index) => {
-            const progress = 30 + Math.floor((index / story.pages.length) * 40);
-            controller.enqueue(encoder.encode(sendProgress("generating_images", progress)));
+        // 逐个生成配图（避免并发超时，更可靠）
+        const pagesWithImages: any[] = [];
+        for (let index = 0; index < story.pages.length; index++) {
+          const page = story.pages[index];
+          const progress = 30 + Math.floor((index / story.pages.length) * 50);
+          controller.enqueue(encoder.encode(sendProgress("generating_images", progress)));
+          await updateSupabaseProgress(sessionId, { progress, step: `正在生成配图 (${index + 1}/${story.pages.length})...` });
 
-            // 如果使用孩子照片，每页都传参考图以保持角色一致性
-            const refImage = useChildPhoto ? photoBase64 : undefined;
-            
-            const imageUrl = await generateImage(
-              page.image_prompt,
-              styleId || "watercolor",
-              index,
-              refImage
-            );
-            
-            // 每页生成后更新进度
-            await updateSupabaseProgress(sessionId, { progress, step: `正在生成配图 (${index + 1}/${story.pages.length})...` });
-
-            return {
-              ...page,
-              image_url: imageUrl,
-            };
-          })
-        );
-
-        controller.enqueue(encoder.encode(sendProgress("generating_images", 70)));
-        await updateSupabaseProgress(sessionId, { progress: 70, step: "配图生成完成" });
-
-        // 步骤4: 生成配音（如果有声音选项）
-        let pagesWithAudio: any[] = pagesWithImages;
-
-        if (voiceId && voiceId !== "none") {
-          controller.enqueue(encoder.encode(sendProgress("generating_audio", 75)));
-          await updateSupabaseProgress(sessionId, { progress: 75, step: "正在生成配音..." });
-          pagesWithAudio = await Promise.all(
-            pagesWithImages.map(async (page, index) => {
-              const progress = 75 + Math.floor((index / pagesWithImages.length) * 10);
-              controller.enqueue(encoder.encode(sendProgress("generating_audio", progress)));
-
-              const audioUrl = await generateTTS(page.text, finalVoiceId);
-
-              return {
-                ...page,
-                audio_url: audioUrl || null,
-              };
-            })
+          const refImage = useChildPhoto ? photoBase64 : undefined;
+          const imageUrl = await generateImage(
+            page.image_prompt,
+            styleId || "watercolor",
+            index,
+            refImage
           );
+
+          pagesWithImages.push({ ...page, image_url: imageUrl });
         }
 
-        controller.enqueue(encoder.encode(sendProgress("generating_audio", 85)));
-        await updateSupabaseProgress(sessionId, { progress: 85, step: "配音生成完成" });
+        controller.enqueue(encoder.encode(sendProgress("generating_images", 80)));
+        await updateSupabaseProgress(sessionId, { progress: 80, step: "配图生成完成" });
+
+        // 步骤4: 跳过配音生成（Vercel 60秒限制，配音改按需生成）
+        let pagesWithAudio: any[] = pagesWithImages.map(p => ({ ...p, audio_url: null }));
+
+        // 配音将在视频导出时按需生成（通过 /api/admin/export-video）
+        // 这样主生成流程在60秒内完成，不超时
 
         // 步骤5: 保存绘本
         controller.enqueue(encoder.encode(sendProgress("saving_book", 90)));
