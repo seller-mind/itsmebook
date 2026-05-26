@@ -67,26 +67,6 @@ const drawWrappedText = (
   return y;
 };
 
-/**
- * 检测浏览器支持的最佳视频格式
- */
-function getSupportedVideoMimeType(): string {
-  if (typeof MediaRecorder === "undefined") return "video/webm";
-  const types = [
-    "video/mp4;codecs=avc1",
-    "video/mp4",
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=vp8,opus",
-    "video/webm;codecs=vp9",
-    "video/webm;codecs=vp8",
-    "video/webm",
-  ];
-  for (const type of types) {
-    if (MediaRecorder.isTypeSupported(type)) return type;
-  }
-  return "video/webm";
-}
-
 // ============ 页面组件 ============
 
 export default function StoryPlayerPage() {
@@ -384,114 +364,69 @@ export default function StoryPlayerPage() {
       for (let i = 0; i < pages.length; i++) {
         const pc = document.createElement("canvas");
         pc.width = 1080;
-        pc.height = 1920;
+        pc.height = 1080;
         const pctx = pc.getContext("2d")!;
 
-        // 深色背景
-        const gradient = pctx.createLinearGradient(0, 0, 0, pc.height);
-        gradient.addColorStop(0, "#1a1a3e");
-        gradient.addColorStop(1, "#2d1b4e");
-        pctx.fillStyle = gradient;
-        pctx.fillRect(0, 0, pc.width, pc.height);
+        // 温暖背景
+        pctx.fillStyle = "#FFF5EB";
+        pctx.fillRect(0, 0, 1080, 1080);
 
-        // 星星装饰
-        for (let s = 0; s < 15; s++) {
-          const sx = Math.random() * pc.width;
-          const sy = Math.random() * pc.height * 0.4;
-          const sr = Math.random() * 2 + 1;
-          pctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.3 + 0.2})`;
-          pctx.beginPath();
-          pctx.arc(sx, sy, sr, 0, Math.PI * 2);
-          pctx.fill();
-        }
-
-        // 图片（通过代理加载，解决CORS）
+        // 图片（上方78%，通过代理加载解决CORS）
         if (pages[i].imageUrl) {
           try {
             const img = await loadImageViaProxy(pages[i].imageUrl);
-            const imgMaxW = pc.width - 120;
-            const imgMaxH = pc.height * 0.52;
-            const scale = Math.min(imgMaxW / img.naturalWidth, imgMaxH / img.naturalHeight);
+            const imgMaxH = 1080 * 0.78;
+            const scale = Math.min(1080 / img.naturalWidth, imgMaxH / img.naturalHeight);
             const w = img.naturalWidth * scale;
             const h = img.naturalHeight * scale;
-            const x = (pc.width - w) / 2;
-            const y = 180;
-            pctx.save();
-            pctx.beginPath();
-            pctx.roundRect(x, y, w, h, 20);
-            pctx.clip();
+            const x = (1080 - w) / 2;
+            const y = (imgMaxH - h) / 2;
             pctx.drawImage(img, x, y, w, h);
-            pctx.restore();
           } catch {
-            pctx.fillStyle = "rgba(100,80,150,0.3)";
-            pctx.fillRect(60, 180, pc.width - 120, pc.height * 0.52);
+            pctx.fillStyle = "#f3f4f6";
+            pctx.fillRect(0, 0, 1080, 1080 * 0.78);
           }
         }
 
-        // 文字区域渐变遮罩
-        const textGradient = pctx.createLinearGradient(0, pc.height * 0.62, 0, pc.height);
-        textGradient.addColorStop(0, "rgba(0,0,0,0)");
-        textGradient.addColorStop(0.25, "rgba(0,0,0,0.5)");
-        textGradient.addColorStop(1, "rgba(0,0,0,0.85)");
-        pctx.fillStyle = textGradient;
-        pctx.fillRect(0, pc.height * 0.62, pc.width, pc.height * 0.38);
-
-        // 文字
+        // 文字区域（下方22%）
         pctx.fillStyle = "rgba(255,255,255,0.95)";
+        pctx.fillRect(0, 1080 * 0.78, 1080, 1080 * 0.22);
+        pctx.fillStyle = "#333";
         pctx.textAlign = "center";
         pctx.textBaseline = "top";
-        pctx.font = '42px "PingFang SC", "Microsoft YaHei", sans-serif';
-        drawWrappedText(pctx, pages[i].text || "", pc.width / 2, pc.height * 0.68, pc.width - 160, 60, 6);
+        pctx.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';
+        drawWrappedText(pctx, pages[i].text || "", 540, 1080 * 0.78 + 20, 960, 42, 4);
 
         // 页码
-        pctx.fillStyle = "rgba(255,255,255,0.5)";
-        pctx.font = '28px sans-serif';
-        pctx.fillText(`${i + 1} / ${pages.length}`, pc.width / 2, pc.height - 80);
-
+        pctx.font = "18px sans-serif";
+        pctx.fillStyle = "#aaa";
+        pctx.fillText(`${i + 1} / ${pages.length}`, 540, 1060);
         // 品牌
-        pctx.fillStyle = "rgba(255,217,61,0.8)";
-        pctx.font = 'bold 32px "PingFang SC", sans-serif';
-        pctx.fillText("\u{1F4D6} 是我呀", pc.width / 2, pc.height - 130);
+        pctx.font = "14px sans-serif";
+        pctx.fillStyle = "#ccc";
+        pctx.fillText("itsmebook.com", 540, 20);
 
         pageCanvases.push(pc);
-        setVideoExportProgress(Math.round(((i + 1) / pages.length) * 25));
+        setVideoExportProgress(Math.round(((i + 1) / pages.length) * 20));
       }
 
-      // ====== 第2步：生成TTS音频 ======
+      // ====== 第2步：预生成TTS音频URL ======
       setExportStatus("正在生成配音...");
-      setVideoExportProgress(28);
-      const audioBuffers: (AudioBuffer | null)[] = new Array(pages.length).fill(null);
-
-      try {
-        const ttsResponse = await fetch("/api/admin/export-video", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pages: pages.map(p => ({ text: p.text })) }),
-        });
-
-        if (ttsResponse.ok) {
-          const ttsData = await ttsResponse.json();
-          if (ttsData.success && ttsData.audioData) {
-            const tmpAudioCtx = new AudioContext();
-            for (const [idx, audioBase64] of Object.entries(ttsData.audioData)) {
-              const i = parseInt(idx);
-              if (isNaN(i) || i >= pages.length) continue;
-              try {
-                const b64 = (audioBase64 as string).split(",")[1];
-                if (!b64) continue;
-                const rawBytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-                const audioBuf = await tmpAudioCtx.decodeAudioData(rawBytes.buffer.slice(0));
-                audioBuffers[i] = audioBuf;
-              } catch {
-                // 单页音频解码失败，继续
-              }
-              setVideoExportProgress(28 + Math.round(((i + 1) / pages.length) * 12));
-            }
-            tmpAudioCtx.close();
+      setVideoExportProgress(22);
+      const audioUrls: (string | null)[] = new Array(pages.length).fill(null);
+      for (let i = 0; i < pages.length; i++) {
+        try {
+          const ttsRes = await fetch("/api/voice/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: pages[i].text }),
+          });
+          if (ttsRes.ok) {
+            const ttsData = await ttsRes.json();
+            if (ttsData.success && ttsData.audioUrl) audioUrls[i] = ttsData.audioUrl;
           }
-        }
-      } catch {
-        // TTS整体失败，视频无声音但继续生成
+        } catch {}
+        setVideoExportProgress(22 + Math.round(((i + 1) / pages.length) * 18));
       }
 
       // ====== 第3步：录制视频+音频 ======
@@ -500,7 +435,7 @@ export default function StoryPlayerPage() {
 
       const recordCanvas = document.createElement("canvas");
       recordCanvas.width = 1080;
-      recordCanvas.height = 1920;
+      recordCanvas.height = 1080;
       const recordCtx = recordCanvas.getContext("2d")!;
 
       // 创建AudioContext用于音频录制
@@ -515,7 +450,15 @@ export default function StoryPlayerPage() {
         ...audioDest.stream.getAudioTracks(),
       ]);
 
-      const mimeType = getSupportedVideoMimeType();
+      // 选择最佳格式
+      let mimeType = "video/webm";
+      if (typeof MediaRecorder !== "undefined") {
+        if (MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")) mimeType = "video/mp4;codecs=avc1";
+        else if (MediaRecorder.isTypeSupported("video/mp4")) mimeType = "video/mp4";
+        else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
+        else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
+      }
+
       const recorder = new MediaRecorder(combinedStream, {
         mimeType,
         videoBitsPerSecond: 2500000,
@@ -536,38 +479,48 @@ export default function StoryPlayerPage() {
 
       recorder.start(1000);
 
-      // 逐页播放
+      // ====== 第4步：逐页播放 ======
       for (let i = 0; i < pages.length; i++) {
-        // 复制预渲染画面到录制Canvas
         recordCtx.drawImage(pageCanvases[i], 0, 0);
-
         setVideoExportProgress(45 + Math.round((i / pages.length) * 50));
         setExportStatus(`正在录制第 ${i + 1}/${pages.length} 页...`);
 
-        // 播放该页音频
-        let pageDuration = 5; // 默认每页5秒
-        if (audioBuffers[i]) {
+        if (audioUrls[i]) {
+          // 有音频：播放Audio元素，用createMediaElementSource捕获到录制流
           try {
-            const source = audioCtx.createBufferSource();
-            source.buffer = audioBuffers[i];
+            const audio = new Audio(audioUrls[i]!);
+            const source = audioCtx.createMediaElementSource(audio);
             source.connect(audioDest);
-            source.start(0);
-            pageDuration = audioBuffers[i]!.duration + 1.5;
-          } catch {
-            pageDuration = 5;
-          }
-        }
+            source.connect(audioCtx.destination);
 
-        // 等待该页时长
-        await new Promise(resolve => setTimeout(resolve, pageDuration * 1000));
+            await new Promise<void>((resolve) => {
+              audio.oncanplaythrough = () => {
+                audio.play().then(resolve).catch(resolve);
+              };
+              audio.onerror = () => resolve();
+              setTimeout(resolve, 5000); // 超时5秒
+            });
+
+            // 等音频播完
+            await new Promise<void>((resolve) => {
+              audio.onended = () => resolve();
+              setTimeout(resolve, 15000); // 保底15秒
+            });
+          } catch {
+            await new Promise(r => setTimeout(r, 5000));
+          }
+        } else {
+          // 没音频：默认5秒
+          await new Promise(r => setTimeout(r, 5000));
+        }
       }
 
       // 停止录制
       setVideoExportProgress(96);
       recorder.stop();
       const videoBlob = await recordingDone;
+      audioCtx.close();
 
-      // 下载
       const ext = mimeType.includes("mp4") ? "mp4" : "webm";
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement("a");
@@ -576,7 +529,6 @@ export default function StoryPlayerPage() {
       a.click();
       URL.revokeObjectURL(url);
 
-      audioCtx.close();
       setVideoExportProgress(100);
       setExportStatus("");
       setIsExportingVideo(false);

@@ -7,6 +7,36 @@ import { STORY_THEMES } from "@/lib/story";
 import { v4 as uuidv4 } from "uuid";
 import { convertWebmToMp4 } from "@/lib/video-converter";
 
+// 通过代理加载图片（解决dashscope OSS不支持CORS的问题）
+const loadImageViaProxy = (url: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    if (!url) { reject(new Error("No URL")); return; }
+    const needsProxy = url.includes("aliyuncs.com") || url.includes("dashscope");
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = needsProxy ? `/api/admin/image-proxy?url=${encodeURIComponent(url)}` : url;
+    const timeout = setTimeout(() => reject(new Error("Image load timeout")), 12000);
+    img.onload = () => { clearTimeout(timeout); if (img.naturalWidth > 0) resolve(img); else reject(new Error("No dimensions")); };
+    img.onerror = () => { clearTimeout(timeout); reject(new Error("Load failed")); };
+  });
+};
+
+// Canvas中文自动换行
+const drawWrappedText = (ctx: CanvasRenderingContext2D, text: string, x: number, startY: number, maxWidth: number, lineHeight: number, maxLines: number = 6): number => {
+  const chars = text.split("");
+  let lines: string[] = [];
+  let currentLine = "";
+  for (const char of chars) {
+    const testLine = currentLine + char;
+    if (ctx.measureText(testLine).width > maxWidth) { lines.push(currentLine); currentLine = char; }
+    else { currentLine = testLine; }
+  }
+  if (currentLine) lines.push(currentLine);
+  let y = startY;
+  for (const line of lines.slice(0, maxLines)) { ctx.fillText(line, x, y); y += lineHeight; }
+  return y;
+};
+
 // Admin 密码保护
 const ADMIN_PASSWORD = "itsmebook2026";
 const AUTH_KEY = "itsmebook_admin_auth";
@@ -541,10 +571,7 @@ export default function AdminPage() {
         localStorage.setItem("itsmebook_books", JSON.stringify(books.slice(0, 50)));
       } catch {}
       
-      // 自动跳转到绘本阅读页面
-      setTimeout(() => {
-        router.push("/story/player");
-      }, 500);
+      // 不跳转，留在admin页面，用户可以直接查看和下载
       
     } catch (error: any) {
       console.error("生成失败:", error);
@@ -638,14 +665,7 @@ export default function AdminPage() {
         
         if (page.imageUrl) {
           try {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.src = page.imageUrl;
-            await new Promise<void>((resolve, reject) => {
-              img.onload = () => resolve();
-              img.onerror = () => reject();
-              setTimeout(() => reject(), 15000);
-            });
+            const img = await loadImageViaProxy(page.imageUrl);
             
             const imgSize = 800;
             const scale = Math.min(imgSize / img.naturalWidth, imgSize / img.naturalHeight);
@@ -666,7 +686,7 @@ export default function AdminPage() {
             ctx.fillStyle = "#9ca3af";
             ctx.font = "24px sans-serif";
             ctx.textAlign = "center";
-            ctx.fillText("\u56FE\u7247\u52A0\u8F7D\u5931\u8D25", 512, 360);
+            ctx.fillText("图片加载失败", 512, 360);
           }
         }
         
@@ -716,9 +736,11 @@ export default function AdminPage() {
 
   // 查看生成的绘本
   const viewBook = () => {
-    if (completedBookId) {
-      router.push(`/story/player?bookId=${completedBookId}`);
-    }
+    if (!completedStory) return;
+    const playerData = { ...completedStory, voiceUrl: "" };
+    sessionStorage.setItem("bedtime_story", JSON.stringify(playerData));
+    localStorage.setItem("itsmebook_last_story", JSON.stringify(playerData));
+    router.push("/story/player");
   };
   
   // 获取分享链接
@@ -739,230 +761,190 @@ export default function AdminPage() {
   // 下载状态
   const [downloading, setDownloading] = useState({ images: false, pdf: false, video: false });
 
-  // 服务端PDF下载
+  // 客户端Canvas渲染+jsPDF图片方式（不需要中文字体，Canvas原生渲染中文）
   const downloadPDF = async () => {
     if (!completedStory || downloading.pdf) return;
     setDownloading(prev => ({ ...prev, pdf: true }));
     try {
-      const response = await fetch("/api/admin/export-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: completedStory.title,
-          childName: completedStory.childName,
-          childAge: form.childAge,
-          pages: completedStory.pages,
-        }),
-      });
-      if (!response.ok) throw new Error("PDF生成失败");
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${completedStory.title}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert("PDF生成失败，请重试");
-    } finally {
-      setDownloading(prev => ({ ...prev, pdf: false }));
-    }
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = 297, pageHeight = 210;
+      for (let i = 0; i < completedStory.pages.length; i++) {
+        if (i > 0) pdf.addPage();
+        const page = completedStory.pages[i];
+        const isCover = i === 0;
+        const isBack = i === completedStory.pages.length - 1;
+        // Canvas渲染这一页
+        const canvas = document.createElement("canvas");
+        canvas.width = 1440; canvas.height = 1018;
+        const ctx = canvas.getContext("2d")!;
+        // 背景
+        ctx.fillStyle = (isCover || isBack) ? "#fff5eb" : "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // 图片
+        if (page.imageUrl) {
+          try {
+            const img = await loadImageViaProxy(page.imageUrl);
+            const maxW = canvas.width - 80, maxH = canvas.height * 0.6;
+            const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
+            const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+            const x = (canvas.width - w) / 2, y = 25;
+            ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, w, h, 12); ctx.clip(); ctx.drawImage(img, x, y, w, h); ctx.restore();
+          } catch { ctx.fillStyle = "#f3f4f6"; ctx.fillRect(40, 25, canvas.width - 80, canvas.height * 0.6); }
+        }
+        // 文字
+        ctx.fillStyle = "#333333"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+        if (isCover) {
+          ctx.font = 'bold 52px "PingFang SC", "Microsoft YaHei", sans-serif';
+          drawWrappedText(ctx, page.text || "", canvas.width / 2, canvas.height * 0.67, canvas.width - 160, 64, 3);
+          if (completedStory.childName) { ctx.font = '36px "PingFang SC", "Microsoft YaHei", sans-serif'; ctx.fillStyle = "#666666"; ctx.fillText(`${completedStory.childName} 的专属绘本`, canvas.width / 2, canvas.height * 0.82); }
+        } else {
+          ctx.font = '34px "PingFang SC", "Microsoft YaHei", sans-serif';
+          drawWrappedText(ctx, page.text || "", canvas.width / 2, canvas.height * 0.67, canvas.width - 160, 46, 5);
+        }
+        // 页码
+        if (!isCover && !isBack) { ctx.fillStyle = "#cccccc"; ctx.font = "20px sans-serif"; ctx.fillText(`${i + 1} / ${completedStory.pages.length}`, canvas.width / 2, canvas.height - 22); }
+        // AI标注
+        ctx.fillStyle = "#dddddd"; ctx.font = "14px sans-serif"; ctx.fillText("AI Generated Content | AI生成内容  itsmebook.com", canvas.width / 2, canvas.height - 6);
+        // Canvas转JPEG加到PDF
+        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+        pdf.addImage(imgData, "JPEG", 0, 0, pageWidth, pageHeight);
+      }
+      pdf.save(`${completedStory.title}.pdf`);
+    } catch (e) { console.error("PDF生成失败:", e); alert("PDF生成失败，请重试"); }
+    finally { setDownloading(prev => ({ ...prev, pdf: false })); }
   };
 
-  // 视频录制下载（改进版：带音频合并）
+  // 视频录制：图片代理加载 + TTS音频 + Canvas录制
   const downloadVideo = async () => {
     if (!completedStory || downloading.video) return;
     setDownloading(prev => ({ ...prev, video: true }));
-    
     try {
-      // 先从服务端获取音频数据（解决CORS问题）
-      let audioDataMap: Record<number, string> = {};
-      try {
-        const audioRes = await fetch("/api/admin/export-video", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pages: completedStory.pages, title: completedStory.title }),
-        });
-        if (audioRes.ok) {
-          const audioResult = await audioRes.json();
-          if (audioResult.success && audioResult.audioData) {
-            audioDataMap = audioResult.audioData;
-          }
+      const pages = completedStory.pages;
+      // 1. 预渲染所有页面到Canvas数组（通过代理加载图片）
+      const pageCanvases: HTMLCanvasElement[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const pc = document.createElement("canvas");
+        pc.width = 1080; pc.height = 1080;
+        const pctx = pc.getContext("2d")!;
+        // 背景
+        pctx.fillStyle = "#FFF5EB";
+        pctx.fillRect(0, 0, 1080, 1080);
+        // 图片（上方78%）
+        if (pages[i].imageUrl) {
+          try {
+            const img = await loadImageViaProxy(pages[i].imageUrl);
+            const imgMaxH = 1080 * 0.78;
+            const scale = Math.min(1080 / img.naturalWidth, imgMaxH / img.naturalHeight);
+            const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+            const x = (1080 - w) / 2, y = (imgMaxH - h) / 2;
+            pctx.drawImage(img, x, y, w, h);
+          } catch { pctx.fillStyle = "#f3f4f6"; pctx.fillRect(0, 0, 1080, 1080 * 0.78); }
         }
-      } catch {}
+        // 文字区域（下方22%）
+        pctx.fillStyle = "rgba(255,255,255,0.95)";
+        pctx.fillRect(0, 1080 * 0.78, 1080, 1080 * 0.22);
+        pctx.fillStyle = "#333"; pctx.textAlign = "center"; pctx.textBaseline = "top";
+        pctx.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';
+        drawWrappedText(pctx, pages[i].text || "", 540, 1080 * 0.78 + 20, 960, 42, 4);
+        // 页码
+        pctx.font = "18px sans-serif"; pctx.fillStyle = "#aaa";
+        pctx.fillText(`${i + 1} / ${pages.length}`, 540, 1060);
+        pctx.font = "14px sans-serif"; pctx.fillStyle = "#ccc";
+        pctx.fillText("itsmebook.com", 540, 20);
+        pageCanvases.push(pc);
+      }
 
-      // Canvas录制
-      const canvas = document.createElement("canvas");
-      canvas.width = 1080;
-      canvas.height = 1080;
-      const ctx = canvas.getContext("2d")!;
-      
-      const stream = canvas.captureStream(30);
+      // 2. 预生成TTS音频URL
+      const audioUrls: (string | null)[] = new Array(pages.length).fill(null);
+      for (let i = 0; i < pages.length; i++) {
+        try {
+          const ttsRes = await fetch("/api/voice/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: pages[i].text }),
+          });
+          if (ttsRes.ok) {
+            const ttsData = await ttsRes.json();
+            if (ttsData.success && ttsData.audioUrl) audioUrls[i] = ttsData.audioUrl;
+          }
+        } catch {}
+      }
+
+      // 3. 录制视频+音频
+      const recordCanvas = document.createElement("canvas");
+      recordCanvas.width = 1080; recordCanvas.height = 1080;
+      const recordCtx = recordCanvas.getContext("2d")!;
+
       const audioCtx = new AudioContext();
+      await audioCtx.resume();
       const audioDest = audioCtx.createMediaStreamDestination();
-      const audioTrack = audioDest.stream.getAudioTracks()[0];
-      if (audioTrack) stream.addTrack(audioTrack);
+      const videoStream = recordCanvas.captureStream(1);
+      const combinedStream = new MediaStream([
+        ...videoStream.getVideoTracks(),
+        ...audioDest.stream.getAudioTracks(),
+      ]);
 
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-        ? "video/webm;codecs=vp9,opus"
-        : MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
-        ? "video/webm;codecs=vp8,opus"
-        : "video/webm";
+      // 选择格式
+      let mimeType = "video/webm";
+      if (MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")) mimeType = "video/mp4;codecs=avc1";
+      else if (MediaRecorder.isTypeSupported("video/mp4")) mimeType = "video/mp4";
+      else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
+      else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
 
-      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5000000 });
+      const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 2500000 });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      
-      const recordingDone = new Promise<Blob>((resolve) => {
-        recorder.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }));
+      const recordingDone = new Promise<Blob>((resolve, reject) => {
+        recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+        recorder.onerror = () => reject(new Error("Recording error"));
       });
-      
-      recorder.start(100);
+      recorder.start(1000);
 
-      // 预加载图片
-      const images: HTMLImageElement[] = [];
-      for (let i = 0; i < completedStory.pages.length; i++) {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        try {
-          await new Promise<void>((resolve) => {
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
-            img.src = completedStory.pages[i].imageUrl;
-          });
-        } catch {}
-        images.push(img);
-      }
-
-      // 逐页渲染
-      const fps = 30;
-      const framesPerPage = 4 * fps; // 4秒每页
-      const textAreaHeight = 0.22;
-
-      for (let pi = 0; pi < completedStory.pages.length; pi++) {
+      // 4. 逐页播放
+      for (let i = 0; i < pages.length; i++) {
+        recordCtx.drawImage(pageCanvases[i], 0, 0);
         // 播放音频
-        let audioSource: AudioBufferSourceNode | null = null;
-        const audioB64 = audioDataMap[pi];
-        if (audioB64) {
+        let pageDuration = 5;
+        const audioUrl = audioUrls[i];
+        if (audioUrl) {
           try {
-            const binaryStr = atob(audioB64.split(",")[1] || audioB64);
-            const bytes = new Uint8Array(binaryStr.length);
-            for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
-            const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
-            audioSource = audioCtx.createBufferSource();
-            audioSource.buffer = audioBuffer;
-            audioSource.connect(audioDest);
-            audioSource.connect(audioCtx.destination);
-            audioSource.start(0);
-          } catch {}
-        }
-
-        const img = images[pi];
-        const page = completedStory.pages[pi];
-        
-        for (let frame = 0; frame < framesPerPage; frame++) {
-          ctx.fillStyle = "#FFF5EB";
-          ctx.fillRect(0, 0, 1080, 1080);
-
-          // 绘制图片（上方78%）
-          const imageAreaHeight = 1080 * (1 - textAreaHeight);
-          if (img.complete && img.naturalWidth > 0) {
-            const imgAspect = img.naturalWidth / img.naturalHeight;
-            const canvasAspect = 1080 / imageAreaHeight;
-            let dw, dh;
-            if (imgAspect > canvasAspect) {
-              dw = 1080; dh = 1080 / imgAspect;
-            } else {
-              dh = imageAreaHeight; dw = imageAreaHeight * imgAspect;
-            }
-            const dx = (1080 - dw) / 2;
-            const dy = (imageAreaHeight - dh) / 2;
-            ctx.drawImage(img, dx, dy, dw, dh);
+            const audio = new Audio(audioUrl);
+            const source = audioCtx.createMediaElementSource(audio);
+            source.connect(audioDest);
+            source.connect(audioCtx.destination);
+            audio.onloadedmetadata = () => {
+              if (audio.duration && isFinite(audio.duration)) pageDuration = audio.duration + 1;
+            };
+            await new Promise<void>((resolve) => {
+              audio.oncanplaythrough = () => { audio.play(); resolve(); };
+              audio.onerror = () => resolve();
+              setTimeout(resolve, 3000); // 超时3秒
+            });
+            // 等待音频播放完
+            await new Promise<void>((resolve) => {
+              audio.onended = () => resolve();
+              setTimeout(resolve, pageDuration * 1000); // 保底超时
+            });
+          } catch {
+            await new Promise(r => setTimeout(r, 5000));
           }
-
-          // 绘制字幕区域
-          const textY = 1080 * (1 - textAreaHeight);
-          ctx.fillStyle = "rgba(255,255,255,0.95)";
-          ctx.fillRect(0, textY, 1080, 1080 * textAreaHeight);
-
-          // 绘制文字
-          ctx.fillStyle = "#333";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';
-          
-          const maxWidth = 960;
-          const lineHeight = 42;
-          const chars = (page.text || "").split("");
-          let lines: string[] = [];
-          let currentLine = "";
-          for (const char of chars) {
-            const test = currentLine + char;
-            if (ctx.measureText(test).width > maxWidth) { lines.push(currentLine); currentLine = char; }
-            else { currentLine = test; }
-          }
-          if (currentLine) lines.push(currentLine);
-
-          const totalTextH = lines.length * lineHeight;
-          const startY = textY + (1080 * textAreaHeight - totalTextH) / 2 + lineHeight / 2;
-          lines.slice(0, 4).forEach((line, li) => {
-            ctx.fillText(line, 540, startY + li * lineHeight);
-          });
-
-          // 页码
-          ctx.font = "18px sans-serif";
-          ctx.fillStyle = "#aaa";
-          ctx.fillText(`${pi + 1} / ${completedStory.pages.length}`, 540, 1060);
-
-          // 品牌
-          ctx.font = "14px sans-serif";
-          ctx.fillStyle = "#ccc";
-          ctx.fillText("itsmebook.com", 540, 20);
-
-          await new Promise(r => setTimeout(r, 1000 / fps));
-        }
-
-        // 停止音频
-        if (audioSource) {
-          try { audioSource.stop(); } catch {}
+        } else {
+          await new Promise(r => setTimeout(r, 5000));
         }
       }
 
-      // 完成录制
       recorder.stop();
       const videoBlob = await recordingDone;
       audioCtx.close();
 
-      // 用ffmpeg.wasm转MP4（浏览器内转换，全平台兼容）
-      let finalBlob: Blob = videoBlob;
-      let finalExt = "webm";
-      
-      try {
-        const mp4Blob = await convertWebmToMp4(videoBlob, (msg) => {
-          // 可以用setStatus显示转换进度
-          console.log("MP4转换:", msg);
-        });
-        if (mp4Blob.size > 1000) {
-          finalBlob = mp4Blob;
-          finalExt = "mp4";
-        }
-      } catch (convertErr) {
-        console.log("MP4转换失败，使用WebM格式:", convertErr);
-      }
-
-      // 下载
-      const url = URL.createObjectURL(finalBlob);
+      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+      const url = URL.createObjectURL(videoBlob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `${completedStory.title}.${finalExt}`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-    } catch (e) {
-      alert("视频生成失败，请重试");
-    } finally {
-      setDownloading(prev => ({ ...prev, video: false }));
-    }
+      a.href = url; a.download = `${completedStory.title}.${ext}`;
+      a.click(); URL.revokeObjectURL(url);
+    } catch (e) { console.error("视频生成失败:", e); alert("视频生成失败，请重试"); }
+    finally { setDownloading(prev => ({ ...prev, video: false })); }
   };
 
   return (
