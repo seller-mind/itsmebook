@@ -7,6 +7,26 @@ import { STORY_THEMES } from "@/lib/story";
 import { v4 as uuidv4 } from "uuid";
 import { convertWebmToMp4 } from "@/lib/video-converter";
 
+// 带重试的fetch（解决网络波动导致的"Failed to fetch"）
+const fetchWithRetry = async (url: string, options: RequestInit, maxRetries: number = 3): Promise<Response> => {
+  let lastError: Error = new Error("Unknown error");
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch (err: any) {
+      lastError = err;
+      if (err.message?.includes("Failed to fetch") && attempt < maxRetries) {
+        // 网络错误，等1-3秒后重试
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+};
+
 // 通过代理加载图片（解决dashscope OSS不支持CORS的问题）
 const loadImageViaProxy = (url: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
@@ -460,7 +480,7 @@ export default function AdminPage() {
       // ====== 步骤1: init ======
       setGenerationStep("generating_story");
       setGenerationProgress(10);
-      const initRes = await fetch("/api/admin/generate-step", {
+      const initRes = await fetchWithRetry("/api/admin/generate-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -472,7 +492,7 @@ export default function AdminPage() {
       
       // ====== 步骤2: 生成故事 ======
       setGenerationProgress(12);
-      const storyRes = await fetch("/api/admin/generate-step", {
+      const storyRes = await fetchWithRetry("/api/admin/generate-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -498,7 +518,7 @@ export default function AdminPage() {
         const from = batch;
         const to = Math.min(batch + batchSize - 1, storyPages.length - 1);
         
-        const imgRes = await fetch("/api/admin/generate-step", {
+        const imgRes = await fetchWithRetry("/api/admin/generate-step", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -520,7 +540,7 @@ export default function AdminPage() {
       // ====== 步骤4: 保存完成 ======
       setGenerationStep("completed");
       setGenerationProgress(95);
-      const completeRes = await fetch("/api/admin/generate-step", {
+      const completeRes = await fetchWithRetry("/api/admin/generate-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -576,9 +596,17 @@ export default function AdminPage() {
     } catch (error: any) {
       console.error("生成失败:", error);
       setGenerationStep("failed");
-      setGenerationError(error.message || "生成过程中出现错误");
+      const errorMsg = error.message || "未知错误";
+      const isNetworkError = errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError") || errorMsg.includes("Load failed");
+      setGenerationError(isNetworkError 
+        ? "网络连接失败，请检查网络后重试" 
+        : errorMsg);
       setIsGenerating(false);
-      alert(`生成失败：${error.message || "未知错误"}\n\n请重试`);
+      if (isNetworkError) {
+        alert(`网络连接失败，请检查网络后重试。\n\n提示：如果持续失败，请尝试刷新页面后再生成。`);
+      } else {
+        alert(`生成失败：${errorMsg}\n\n请重试`);
+      }
     }
   };
   
