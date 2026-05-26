@@ -440,6 +440,8 @@ async function saveBookToSupabase(bookData: {
 export async function POST(request: NextRequest) {
   // 创建SSE流
   const encoder = new TextEncoder();
+  // sessionId提到try外面，确保catch也能访问
+  let sessionId = `admin_${Date.now()}`;
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -461,7 +463,10 @@ export async function POST(request: NextRequest) {
           orderNote,
         } = body;
         
-        const sessionId = body.sessionId || `admin_${Date.now()}`;
+        // 使用前端传来的sessionId或默认值
+        if (body.sessionId) {
+          sessionId = body.sessionId;
+        }
 
         // 验证参数
         if (!childName || !themeId) {
