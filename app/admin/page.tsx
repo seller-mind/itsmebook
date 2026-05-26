@@ -531,13 +531,16 @@ export default function AdminPage() {
               <span className="animate-spin">⏳</span> 生成进度
             </h3>
             <div className="mb-4">
-              <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-600">{generationProgress < 10 ? '准备中...' : generationProgress < 30 ? '正在生成故事...' : generationProgress < 60 ? '正在绘制插画...' : generationProgress < 80 ? '正在合成配音...' : generationProgress < 95 ? '正在合成视频...' : '即将完成！'}</span>
+                <span className="text-2xl font-bold text-orange-600">{generationProgress}%</span>
+              </div>
+              <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-gradient-to-r from-orange-400 to-primary-orange transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-500 rounded-full"
                   style={{ width: `${generationProgress}%` }}
                 />
               </div>
-              <p className="text-sm text-gray-600 mt-2">{generationProgress}%</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {["idle", "uploading_voice", "cloning_voice", "uploading_photo", "generating_story", "generating_images", "generating_audio", "generating_video"].map((step) => (
