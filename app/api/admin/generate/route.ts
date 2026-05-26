@@ -46,26 +46,20 @@ async function updateSupabaseProgress(sessionId: string, data: {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // 先尝试更新已有记录
-    const { error: updateError } = await supabase
-      .from("story_generations")
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq("session_id", sessionId);
+    // 直接用upsert（有则更新，无则插入）
+    const { error } = await supabase.from("story_generations").upsert({
+      session_id: sessionId,
+      status: data.status || cached?.status || "generating",
+      progress: data.progress ?? cached?.progress ?? 0,
+      step: data.step || cached?.step || "",
+      result: data.result || cached?.result || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "session_id" });
     
-    // 如果没有记录，创建一条
-    if (updateError) {
-      await supabase.from("story_generations").upsert({
-        session_id: sessionId,
-        status: data.status || "generating",
-        progress: data.progress || 0,
-        step: data.step || "",
-        params: {},
-        ...data,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "session_id" });
+    if (error) {
+      console.error("[AdminGenerate] Supabase upsert失败:", error.message);
     }
   } catch (err) {
-    // 不影响主流程
     console.error("[AdminGenerate] Supabase进度更新失败:", err);
   }
 }
@@ -619,7 +613,7 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(
           `data: ${JSON.stringify({ type: "completed", bookId, title: story.title, pages: pagesWithAudio })}\n\n`
         ));
-        await updateSupabaseProgress(sessionId, { status: "completed", progress: 100, step: "生成完成", result: { bookId, title: story.title } });
+        await updateSupabaseProgress(sessionId, { status: "completed", progress: 100, step: "生成完成", result: { bookId, title: story.title, pages: pagesWithAudio } });
 
       } catch (error: any) {
         console.error("生成失败:", error);

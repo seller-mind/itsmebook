@@ -2,12 +2,12 @@
  * 生成状态查询API - 是我呀
  * GET /api/story/generation-status?sessionId=xxx
  * 
- * 优先从内存缓存读取（同进程内可靠），fallback到Supabase
+ * Supabase优先（跨实例可靠），内存缓存作为补充
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
-// 内存中的生成状态缓存（进程内共享）
+// 内存中的生成状态缓存（同进程内可靠）
 export const generationCache = new Map<string, {
   status: string;
   progress: number;
@@ -15,16 +15,6 @@ export const generationCache = new Map<string, {
   result?: any;
   updatedAt: number;
 }>();
-
-// 清理超过30分钟的缓存
-function cleanOldCache() {
-  const now = Date.now();
-  generationCache.forEach((value, key) => {
-    if (now - value.updatedAt > 30 * 60 * 1000) {
-      generationCache.delete(key);
-    }
-  });
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,22 +25,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: "缺少sessionId参数" }, { status: 400 });
     }
 
-    cleanOldCache();
+    // 清理过期缓存
+    const now = Date.now();
+    generationCache.forEach((value, key) => {
+      if (now - value.updatedAt > 30 * 60 * 1000) generationCache.delete(key);
+    });
 
-    // 优先从内存缓存读取
-    const cached = generationCache.get(sessionId);
-    if (cached) {
-      return NextResponse.json({
-        success: true,
-        exists: true,
-        status: cached.status,
-        progress: cached.progress,
-        step: cached.step,
-        result: cached.result || null,
-      });
-    }
-
-    // 内存中没有，尝试从Supabase读取
+    // 优先从Supabase读取（跨serverless实例可靠）
     try {
       const { createClient } = await import("@supabase/supabase-js");
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -64,6 +45,15 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (!error && data) {
+        // 同步到内存缓存
+        generationCache.set(sessionId, {
+          status: data.status,
+          progress: data.progress || 0,
+          step: data.step || "",
+          result: data.result,
+          updatedAt: now,
+        });
+        
         return NextResponse.json({
           success: true,
           exists: true,
@@ -74,10 +64,23 @@ export async function GET(request: NextRequest) {
         });
       }
     } catch (supabaseErr) {
-      // Supabase不可用，忽略
+      console.error("[GenerationStatus] Supabase查询失败:", supabaseErr);
     }
 
-    // 都没有，返回不存在
+    // Supabase没数据，尝试内存缓存
+    const cached = generationCache.get(sessionId);
+    if (cached) {
+      return NextResponse.json({
+        success: true,
+        exists: true,
+        status: cached.status,
+        progress: cached.progress,
+        step: cached.step,
+        result: cached.result || null,
+      });
+    }
+
+    // 都没有
     return NextResponse.json({
       success: true,
       exists: false,

@@ -456,14 +456,71 @@ export default function AdminPage() {
         setGenerationProgress(25);
       }
       
-      // 步骤3: 创建服务端生成记录（持久化，切走页面不丢失）
+      // 步骤3: 启动生成 + 纯轮询进度（不依赖SSE流，手机兼容）
       const sessionId = uuidv4();
       setCurrentSessionId(sessionId);
+      sessionStorage.setItem("itsmebook_generating_session", sessionId);
       
       setGenerationStep("generating_story");
-      // Progress will be driven by SSE events
+      setGenerationProgress(5);
       
-      const generateResponse = await fetch("/api/admin/generate", {
+      // 先启动轮询（在任何fetch之前，确保轮询一定在运行）
+      const pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/story/generation-status?sessionId=${sessionId}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.success || !data.exists) return;
+          
+          if (data.status === "completed") {
+            clearInterval(pollInterval);
+            pollingIntervalRef.current = null;
+            setGenerationProgress(100);
+            setGenerationStep("completed");
+            setIsGenerating(false);
+            if (data.result?.bookId) setCompletedBookId(data.result.bookId);
+            if (data.result?.pages) saveCompletedStory(data.result);
+            sessionStorage.removeItem("itsmebook_generating_session");
+          } else if (data.status === "failed") {
+            clearInterval(pollInterval);
+            pollingIntervalRef.current = null;
+            setGenerationStep("failed");
+            setGenerationError(data.step || "生成失败");
+            setIsGenerating(false);
+            sessionStorage.removeItem("itsmebook_generating_session");
+          } else {
+            setGenerationProgress(data.progress || 0);
+            if (data.step) {
+              const stepMap: Record<string, GenerationStep> = {
+                "正在生成故事文本...": "generating_story",
+                "故事文本生成完成": "generating_story",
+                "正在生成配图": "generating_images",
+                "正在生成配图 (1/8)": "generating_images",
+                "正在生成配图 (2/8)": "generating_images",
+                "正在生成配图 (3/8)": "generating_images",
+                "正在生成配图 (4/8)": "generating_images",
+                "正在生成配图 (5/8)": "generating_images",
+                "正在生成配图 (6/8)": "generating_images",
+                "正在生成配图 (7/8)": "generating_images",
+                "正在生成配图 (8/8)": "generating_images",
+                "配图生成完成": "generating_images",
+                "正在生成配音": "generating_audio",
+                "配音生成完成": "generating_audio",
+                "正在保存绘本": "generating_story",
+                "生成完成": "completed",
+              };
+              setGenerationStep(stepMap[data.step] || "generating_story");
+            }
+          }
+        } catch (e) {
+          console.error("轮询状态失败:", e);
+        }
+      }, 2000); // 每2秒轮询
+      
+      pollingIntervalRef.current = pollInterval;
+      
+      // fire-and-forget发送生成请求（不await，不阻塞轮询）
+      fetch("/api/admin/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -483,143 +540,15 @@ export default function AdminPage() {
           customerEmail: form.customerEmail,
           orderNote: form.orderNote,
         }),
-      });
-      
-      if (!generateResponse.ok) {
-        throw new Error("生成请求发送失败");
-      }
-      
-      // 同时将sessionId存到sessionStorage，用于页面恢复
-      sessionStorage.setItem("itsmebook_generating_session", sessionId);
-      
-      // 处理SSE流 - 使用轮询方式读取后端进度（比ReadableStream更兼容手机浏览器）
-      try {
-        // 方案：轮询 /api/admin/generate-status 获取进度
-        // 同时启动一个轻量fetch作为"心跳"保持连接
-        const pollInterval = setInterval(async () => {
-          try {
-            const res = await fetch(`/api/story/generation-status?sessionId=${sessionId}`);
-            if (!res.ok) return;
-            const data = await res.json();
-            if (!data.success || !data.exists) return;
-            
-            if (data.status === "completed") {
-              clearInterval(pollInterval);
-              setGenerationProgress(100);
-              setGenerationStep("completed");
-              setIsGenerating(false);
-              if (data.result?.bookId) setCompletedBookId(data.result.bookId);
-              if (data.result?.pages) saveCompletedStory(data.result);
-              sessionStorage.removeItem("itsmebook_generating_session");
-            } else if (data.status === "failed") {
-              clearInterval(pollInterval);
-              setGenerationStep("failed");
-              setGenerationError(data.step || "生成失败");
-              setIsGenerating(false);
-              sessionStorage.removeItem("itsmebook_generating_session");
-            } else {
-              // 仍在生成中
-              setGenerationProgress(data.progress || 0);
-              if (data.step) {
-                const stepMap: Record<string, GenerationStep> = {
-                  "正在生成故事文本...": "generating_story",
-                  "故事文本生成完成": "generating_story",
-                  "正在生成配图": "generating_images",
-                  "正在生成配图 (1/8)": "generating_images",
-                  "正在生成配图 (2/8)": "generating_images",
-                  "正在生成配图 (3/8)": "generating_images",
-                  "正在生成配图 (4/8)": "generating_images",
-                  "正在生成配图 (5/8)": "generating_images",
-                  "正在生成配图 (6/8)": "generating_images",
-                  "正在生成配图 (7/8)": "generating_images",
-                  "正在生成配图 (8/8)": "generating_images",
-                  "配图生成完成": "generating_images",
-                  "正在生成配音": "generating_audio",
-                  "配音生成完成": "generating_audio",
-                  "正在保存绘本": "generating_story",
-                  "生成完成": "completed",
-                };
-                setGenerationStep(stepMap[data.step] || "generating_story");
-              }
-            }
-          } catch (e) {
-            console.error("轮询状态失败:", e);
-          }
-        }, 3000); // 每3秒轮询一次
-        
-        // 保存轮询ID以便清理
-        pollingIntervalRef.current = pollInterval;
-        
-        // 同时也尝试用ReadableStream读取（如果浏览器支持的话，作为实时进度补充）
-        try {
-          const reader = generateResponse.body?.getReader();
-          if (reader) {
-            const decoder = new TextDecoder();
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              const chunk = decoder.decode(value);
-              const lines = chunk.split("\n");
-              for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                  try {
-                    const data = JSON.parse(line.slice(6));
-                    if (data.type === "progress") {
-                      setGenerationProgress(data.progress);
-                      if (data.step && data.step !== "completed") {
-                        setGenerationStep(data.step as GenerationStep);
-                      }
-                    } else if (data.type === "completed") {
-                      clearInterval(pollInterval);
-                      pollingIntervalRef.current = null;
-                      setGenerationProgress(100);
-                      setGenerationStep("completed");
-                      setIsGenerating(false);
-                      if (data.bookId) setCompletedBookId(data.bookId);
-                      saveCompletedStory(data);
-                      sessionStorage.removeItem("itsmebook_generating_session");
-                    } else if (data.type === "error") {
-                      clearInterval(pollInterval);
-                      pollingIntervalRef.current = null;
-                      throw new Error(data.message);
-                    }
-                  } catch (parseErr: any) {
-                    if (parseErr instanceof Error && !parseErr.message.includes("JSON")) {
-                      throw parseErr;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        } catch (streamErr) {
-          // ReadableStream失败不影响，轮询会接管
-          console.log("ReadableStream读取失败，轮询接管:", streamErr);
-        }
-        
-        // SSE流结束 - 如果轮询还在，等轮询来标记完成
-        if (pollingIntervalRef.current) {
-          // 轮询还在运行，等它来标记完成
-        } else {
-          // 轮询已停（说明已经通过SSE完成了）
-          if (!sseCompletedRef.current) {
-            setGenerationStep("completed");
-            setGenerationProgress(100);
-          }
-          setIsGenerating(false);
-          sessionStorage.removeItem("itsmebook_generating_session");
-        }
-      } catch (error: any) {
-        console.error("生成流处理失败:", error);
+      }).catch(err => {
+        // fetch本身失败（网络错误等）
+        clearInterval(pollInterval);
+        pollingIntervalRef.current = null;
         setGenerationStep("failed");
-        setGenerationError(error.message || "生成过程中出现错误");
+        setGenerationError("网络请求失败: " + (err.message || "请检查网络"));
         setIsGenerating(false);
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
         sessionStorage.removeItem("itsmebook_generating_session");
-      }
+      });
       
     } catch (error: any) {
       console.error("生成失败:", error);
