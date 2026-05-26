@@ -199,8 +199,7 @@ export default function AdminPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const uploadSectionRef = useRef<HTMLDivElement | null>(null);
-  const sseCompletedRef = useRef(false); // 标记SSE是否已收到completed事件
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null); // 轮询定时器
+  // SSE和轮询相关refs已移除（改用分步调用）
   const completedSectionRef = useRef<HTMLDivElement | null>(null); // 完成区域ref
   
   // 已通过密码验证，不需要再检查 admin 模式
@@ -245,27 +244,17 @@ export default function AdminPage() {
     }
   }, []);
 
-  // 页面加载时检查是否有进行中的生成任务
+  // 页面加载时检查是否有进行中的生成任务（仅恢复场景用）
   useEffect(() => {
     const savedSessionId = sessionStorage.getItem("itsmebook_generating_session");
     if (savedSessionId) {
-      setCurrentSessionId(savedSessionId);
-      setIsGenerating(true);
+      // 有保存的session，检查是否已完成
       pollGenerationStatus(savedSessionId);
     }
   }, [pollGenerationStatus]);
 
-  // 有进行中的任务时，每5秒轮询一次状态
-  useEffect(() => {
-    if (!currentSessionId || !isGenerating) return;
-    if (generationStep === "completed" || generationStep === "failed") return;
-    
-    const interval = setInterval(() => {
-      pollGenerationStatus(currentSessionId);
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, [currentSessionId, isGenerating, generationStep, pollGenerationStatus]);
+  // 轮询已禁用 - 分步调用模式下不需要轮询
+  // 进度由每个步骤的API响应直接更新，不再从Supabase读旧数据覆盖
 
   // 监听套餐变化 - 自动滚动到上传区域
   useEffect(() => {
