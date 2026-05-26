@@ -673,89 +673,28 @@ export default function AdminPage() {
     }
   };
 
-  // 下载带文字的高清图片（每页一张）
-  const downloadImagesWithText = async () => {
+  // 下载原图（通过代理，直接下载不渲染）
+  const downloadImages = async () => {
     if (!completedStory || downloading.images) return;
     setDownloading(prev => ({ ...prev, images: true }));
-    
     try {
-      // 通过服务端API获取图片（解决CORS）
       for (let i = 0; i < completedStory.pages.length; i++) {
         const page = completedStory.pages[i];
-        
-        const canvas = document.createElement("canvas");
-        canvas.width = 1024;
-        canvas.height = 1024;
-        const ctx = canvas.getContext("2d")!;
-        
-        ctx.fillStyle = "#fff8f0";
-        ctx.fillRect(0, 0, 1024, 1024);
-        
-        if (page.imageUrl) {
-          try {
-            const img = await loadImageViaProxy(page.imageUrl);
-            
-            const imgSize = 800;
-            const scale = Math.min(imgSize / img.naturalWidth, imgSize / img.naturalHeight);
-            const w = img.naturalWidth * scale;
-            const h = img.naturalHeight * scale;
-            const x = (1024 - w) / 2;
-            const y = 60;
-            
-            ctx.save();
-            ctx.beginPath();
-            ctx.roundRect(x, y, w, h, 16);
-            ctx.clip();
-            ctx.drawImage(img, x, y, w, h);
-            ctx.restore();
-          } catch {
-            ctx.fillStyle = "#e5e7eb";
-            ctx.fillRect(112, 60, 800, 600);
-            ctx.fillStyle = "#9ca3af";
-            ctx.font = "24px sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText("图片加载失败", 512, 360);
-          }
-        }
-        
-        ctx.fillStyle = "#fff8f0";
-        ctx.fillRect(0, 720, 1024, 304);
-        
-        ctx.fillStyle = "#333";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.font = '32px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif';
-        
-        const maxWidth = 900;
-        const lineHeight = 44;
-        const chars = (page.text || "").split("");
-        let lines: string[] = [];
-        let currentLine = "";
-        for (const char of chars) {
-          const testLine = currentLine + char;
-          if (ctx.measureText(testLine).width > maxWidth) { lines.push(currentLine); currentLine = char; }
-          else { currentLine = testLine; }
-        }
-        if (currentLine) lines.push(currentLine);
-        
-        const startY = 740;
-        lines.slice(0, 5).forEach((line, li) => {
-          ctx.fillText(line, 512, startY + li * lineHeight);
-        });
-        
-        ctx.fillStyle = "#aaa";
-        ctx.font = "20px sans-serif";
-        ctx.fillText(`${i + 1} / ${completedStory.pages.length}`, 512, 990);
-        
-        const dataUrl = canvas.toDataURL("image/png");
-        const link = document.createElement("a");
-        link.href = dataUrl;
-        link.download = `${completedStory.title}_${i + 1}.png`;
-        link.click();
-        
-        if (i < completedStory.pages.length - 1) {
-          await new Promise(r => setTimeout(r, 800));
-        }
+        if (!page.imageUrl) continue;
+        try {
+          // 通过代理下载图片blob
+          const proxyUrl = `/api/admin/image-proxy?url=${encodeURIComponent(page.imageUrl)}`;
+          const res = await fetch(proxyUrl);
+          if (!res.ok) throw new Error("fetch failed");
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${completedStory.title}_${i + 1}.png`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch {}
+        if (i < completedStory.pages.length - 1) await new Promise(r => setTimeout(r, 500));
       }
     } finally {
       setDownloading(prev => ({ ...prev, images: false }));
@@ -843,63 +782,68 @@ export default function AdminPage() {
     finally { setDownloading(prev => ({ ...prev, pdf: false })); }
   };
 
-  // 视频录制：图片代理加载 + TTS音频 + Canvas录制
+  // 视频录制：图片代理 + TTS音频 + Canvas录制（确保有声音）
   const downloadVideo = async () => {
     if (!completedStory || downloading.video) return;
     setDownloading(prev => ({ ...prev, video: true }));
     try {
       const pages = completedStory.pages;
-      // 1. 预渲染所有页面到Canvas数组（通过代理加载图片）
+
+      // 1. 预渲染所有页面到Canvas
       const pageCanvases: HTMLCanvasElement[] = [];
       for (let i = 0; i < pages.length; i++) {
         const pc = document.createElement("canvas");
         pc.width = 1080; pc.height = 1080;
         const pctx = pc.getContext("2d")!;
-        // 背景
         pctx.fillStyle = "#FFF5EB";
         pctx.fillRect(0, 0, 1080, 1080);
-        // 图片（上方78%）
         if (pages[i].imageUrl) {
           try {
             const img = await loadImageViaProxy(pages[i].imageUrl);
             const imgMaxH = 1080 * 0.78;
             const scale = Math.min(1080 / img.naturalWidth, imgMaxH / img.naturalHeight);
             const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
-            const x = (1080 - w) / 2, y = (imgMaxH - h) / 2;
-            pctx.drawImage(img, x, y, w, h);
+            pctx.drawImage(img, (1080 - w) / 2, (imgMaxH - h) / 2, w, h);
           } catch { pctx.fillStyle = "#f3f4f6"; pctx.fillRect(0, 0, 1080, 1080 * 0.78); }
         }
-        // 文字区域（下方22%）
         pctx.fillStyle = "rgba(255,255,255,0.95)";
         pctx.fillRect(0, 1080 * 0.78, 1080, 1080 * 0.22);
         pctx.fillStyle = "#333"; pctx.textAlign = "center"; pctx.textBaseline = "top";
         pctx.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';
         drawWrappedText(pctx, pages[i].text || "", 540, 1080 * 0.78 + 20, 960, 42, 4);
-        // 页码
         pctx.font = "18px sans-serif"; pctx.fillStyle = "#aaa";
         pctx.fillText(`${i + 1} / ${pages.length}`, 540, 1060);
-        pctx.font = "14px sans-serif"; pctx.fillStyle = "#ccc";
-        pctx.fillText("itsmebook.com", 540, 20);
         pageCanvases.push(pc);
       }
 
-      // 2. 预生成TTS音频URL
-      const audioUrls: (string | null)[] = new Array(pages.length).fill(null);
+      // 2. 预生成TTS音频并下载为AudioBuffer
+      const audioBuffers: (AudioBuffer | null)[] = new Array(pages.length).fill(null);
+      const tmpAudioCtx = new AudioContext();
       for (let i = 0; i < pages.length; i++) {
         try {
-          const ttsRes = await fetch("/api/voice/tts", {
+          const ttsRes = await fetchWithRetry("/api/voice/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: pages[i].text }),
           });
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json();
-            if (ttsData.success && ttsData.audioUrl) audioUrls[i] = ttsData.audioUrl;
+            if (ttsData.success && ttsData.audioUrl) {
+              // 下载音频文件并解码为AudioBuffer
+              const audioRes = await fetchWithRetry(ttsData.audioUrl, {});
+              if (audioRes.ok) {
+                const arrayBuffer = await audioRes.arrayBuffer();
+                try {
+                  audioBuffers[i] = await tmpAudioCtx.decodeAudioData(arrayBuffer);
+                } catch {}
+              }
+            }
           }
         } catch {}
       }
+      tmpAudioCtx.close();
 
-      // 3. 录制视频+音频
+      // 3. 设置录制
       const recordCanvas = document.createElement("canvas");
       recordCanvas.width = 1080; recordCanvas.height = 1080;
       const recordCtx = recordCanvas.getContext("2d")!;
@@ -913,12 +857,10 @@ export default function AdminPage() {
         ...audioDest.stream.getAudioTracks(),
       ]);
 
-      // 选择格式
       let mimeType = "video/webm";
-      if (MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")) mimeType = "video/mp4;codecs=avc1";
-      else if (MediaRecorder.isTypeSupported("video/mp4")) mimeType = "video/mp4";
-      else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
+      if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
       else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
+      else if (MediaRecorder.isTypeSupported("video/webm")) mimeType = "video/webm";
 
       const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 2500000 });
       const chunks: Blob[] = [];
@@ -929,30 +871,21 @@ export default function AdminPage() {
       });
       recorder.start(1000);
 
-      // 4. 逐页播放
+      // 4. 逐页播放（用AudioBufferSourceNode播放音频，这是最可靠的方式）
       for (let i = 0; i < pages.length; i++) {
         recordCtx.drawImage(pageCanvases[i], 0, 0);
-        // 播放音频
-        let pageDuration = 5;
-        const audioUrl = audioUrls[i];
-        if (audioUrl) {
+
+        if (audioBuffers[i]) {
           try {
-            const audio = new Audio(audioUrl);
-            const source = audioCtx.createMediaElementSource(audio);
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffers[i];
             source.connect(audioDest);
-            source.connect(audioCtx.destination);
-            audio.onloadedmetadata = () => {
-              if (audio.duration && isFinite(audio.duration)) pageDuration = audio.duration + 1;
-            };
+            // 不连接audioCtx.destination避免外放声音（只录制）
+            const duration = audioBuffers[i]!.duration;
             await new Promise<void>((resolve) => {
-              audio.oncanplaythrough = () => { audio.play(); resolve(); };
-              audio.onerror = () => resolve();
-              setTimeout(resolve, 3000); // 超时3秒
-            });
-            // 等待音频播放完
-            await new Promise<void>((resolve) => {
-              audio.onended = () => resolve();
-              setTimeout(resolve, pageDuration * 1000); // 保底超时
+              source.onended = () => resolve();
+              source.start(0);
+              setTimeout(resolve, (duration + 1) * 1000); // 保底超时
             });
           } catch {
             await new Promise(r => setTimeout(r, 5000));
@@ -966,10 +899,9 @@ export default function AdminPage() {
       const videoBlob = await recordingDone;
       audioCtx.close();
 
-      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement("a");
-      a.href = url; a.download = `${completedStory.title}.${ext}`;
+      a.href = url; a.download = `${completedStory.title}.webm`;
       a.click(); URL.revokeObjectURL(url);
     } catch (e) { console.error("视频生成失败:", e); alert("视频生成失败，请重试"); }
     finally { setDownloading(prev => ({ ...prev, video: false })); }
@@ -1100,7 +1032,7 @@ export default function AdminPage() {
                   <p className="font-medium text-sm">带文字高清图片</p>
                   <p className="text-xs text-gray-500 mb-3">每页图片+文字合成</p>
                   <button
-                    onClick={() => downloadImagesWithText()}
+                    onClick={() => downloadImages()}
                     disabled={downloading.images}
                     className="w-full px-3 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 transition-colors disabled:opacity-50"
                   >

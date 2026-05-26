@@ -167,83 +167,28 @@ export default function StoryPlayerPage() {
   const shareText = getShareText();
 
   // ============ 下载功能1：高清图片 ============
-  const downloadImagesWithText = async () => {
+  const downloadImages = async () => {
     if (!story) return;
     setShowDownloadOptions(false);
-    setExportStatus("正在生成图片...");
-    setIsGeneratingPDF(true);
 
     try {
       for (let i = 0; i < story.pages.length; i++) {
         const page = story.pages[i];
-        const canvas = document.createElement("canvas");
-        canvas.width = 1024;
-        canvas.height = 1024;
-        const ctx = canvas.getContext("2d")!;
-
-        // 背景
-        ctx.fillStyle = "#fff8f0";
-        ctx.fillRect(0, 0, 1024, 1024);
-
-        // 图片（上方70%区域）
-        if (page.imageUrl) {
-          try {
-            const img = await loadImageViaProxy(page.imageUrl);
-            const maxW = 900, maxH = 640;
-            const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
-            const w = img.naturalWidth * scale;
-            const h = img.naturalHeight * scale;
-            const x = (1024 - w) / 2;
-            const y = 50;
-            ctx.save();
-            ctx.beginPath();
-            ctx.roundRect(x, y, w, h, 16);
-            ctx.clip();
-            ctx.drawImage(img, x, y, w, h);
-            ctx.restore();
-          } catch {
-            // 图片加载失败，画占位
-            ctx.fillStyle = "#f3f4f6";
-            ctx.fillRect(62, 50, 900, 640);
-            ctx.fillStyle = "#9ca3af";
-            ctx.font = '24px "PingFang SC", "Microsoft YaHei", sans-serif';
-            ctx.textAlign = "center";
-            ctx.fillText("图片加载失败", 512, 370);
-          }
-        }
-
-        // 文字（下方30%区域）
-        ctx.fillStyle = "#fff8f0";
-        ctx.fillRect(0, 710, 1024, 314);
-        ctx.fillStyle = "#333333";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.font = '32px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif';
-        drawWrappedText(ctx, page.text || "", 512, 730, 900, 44, 5);
-
-        // 页码
-        ctx.fillStyle = "#aaaaaa";
-        ctx.font = "20px sans-serif";
-        ctx.fillText(`${i + 1} / ${story.pages.length}`, 512, 990);
-
-        // 下载
-        const link = document.createElement("a");
-        link.href = canvas.toDataURL("image/png");
-        link.download = `${story.title}_${i + 1}.png`;
-        link.click();
-
-        // 间隔避免浏览器拦截
-        if (i < story.pages.length - 1) {
-          setExportStatus(`正在生成图片 ${i + 2}/${story.pages.length}...`);
-          await new Promise(r => setTimeout(r, 600));
-        }
+        if (!page.imageUrl) continue;
+        try {
+          const proxyUrl = `/api/admin/image-proxy?url=${encodeURIComponent(page.imageUrl)}`;
+          const res = await fetch(proxyUrl);
+          if (!res.ok) throw new Error("fetch failed");
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${story.title}_${i + 1}.png`;
+          a.click(); URL.revokeObjectURL(url);
+        } catch {}
+        if (i < story.pages.length - 1) await new Promise(r => setTimeout(r, 500));
       }
-    } catch (err) {
-      console.error("图片下载失败:", err);
+    } catch {
       alert("图片下载失败，请重试");
-    } finally {
-      setIsGeneratingPDF(false);
-      setExportStatus("");
     }
   };
 
@@ -363,57 +308,35 @@ export default function StoryPlayerPage() {
       const pageCanvases: HTMLCanvasElement[] = [];
       for (let i = 0; i < pages.length; i++) {
         const pc = document.createElement("canvas");
-        pc.width = 1080;
-        pc.height = 1080;
+        pc.width = 1080; pc.height = 1080;
         const pctx = pc.getContext("2d")!;
-
-        // 温暖背景
         pctx.fillStyle = "#FFF5EB";
         pctx.fillRect(0, 0, 1080, 1080);
-
-        // 图片（上方78%，通过代理加载解决CORS）
         if (pages[i].imageUrl) {
           try {
             const img = await loadImageViaProxy(pages[i].imageUrl);
             const imgMaxH = 1080 * 0.78;
             const scale = Math.min(1080 / img.naturalWidth, imgMaxH / img.naturalHeight);
-            const w = img.naturalWidth * scale;
-            const h = img.naturalHeight * scale;
-            const x = (1080 - w) / 2;
-            const y = (imgMaxH - h) / 2;
-            pctx.drawImage(img, x, y, w, h);
-          } catch {
-            pctx.fillStyle = "#f3f4f6";
-            pctx.fillRect(0, 0, 1080, 1080 * 0.78);
-          }
+            const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+            pctx.drawImage(img, (1080 - w) / 2, (imgMaxH - h) / 2, w, h);
+          } catch { pctx.fillStyle = "#f3f4f6"; pctx.fillRect(0, 0, 1080, 1080 * 0.78); }
         }
-
-        // 文字区域（下方22%）
         pctx.fillStyle = "rgba(255,255,255,0.95)";
         pctx.fillRect(0, 1080 * 0.78, 1080, 1080 * 0.22);
-        pctx.fillStyle = "#333";
-        pctx.textAlign = "center";
-        pctx.textBaseline = "top";
+        pctx.fillStyle = "#333"; pctx.textAlign = "center"; pctx.textBaseline = "top";
         pctx.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';
         drawWrappedText(pctx, pages[i].text || "", 540, 1080 * 0.78 + 20, 960, 42, 4);
-
-        // 页码
-        pctx.font = "18px sans-serif";
-        pctx.fillStyle = "#aaa";
+        pctx.font = "18px sans-serif"; pctx.fillStyle = "#aaa";
         pctx.fillText(`${i + 1} / ${pages.length}`, 540, 1060);
-        // 品牌
-        pctx.font = "14px sans-serif";
-        pctx.fillStyle = "#ccc";
-        pctx.fillText("itsmebook.com", 540, 20);
-
         pageCanvases.push(pc);
         setVideoExportProgress(Math.round(((i + 1) / pages.length) * 20));
       }
 
-      // ====== 第2步：预生成TTS音频URL ======
+      // ====== 第2步：预生成TTS音频并下载为AudioBuffer ======
       setExportStatus("正在生成配音...");
       setVideoExportProgress(22);
-      const audioUrls: (string | null)[] = new Array(pages.length).fill(null);
+      const audioBuffers: (AudioBuffer | null)[] = new Array(pages.length).fill(null);
+      const tmpAudioCtx = new AudioContext();
       for (let i = 0; i < pages.length; i++) {
         try {
           const ttsRes = await fetch("/api/voice/tts", {
@@ -423,111 +346,85 @@ export default function StoryPlayerPage() {
           });
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json();
-            if (ttsData.success && ttsData.audioUrl) audioUrls[i] = ttsData.audioUrl;
+            if (ttsData.success && ttsData.audioUrl) {
+              const audioRes = await fetch(ttsData.audioUrl);
+              if (audioRes.ok) {
+                const arrayBuffer = await audioRes.arrayBuffer();
+                try { audioBuffers[i] = await tmpAudioCtx.decodeAudioData(arrayBuffer); } catch {}
+              }
+            }
           }
         } catch {}
         setVideoExportProgress(22 + Math.round(((i + 1) / pages.length) * 18));
       }
+      tmpAudioCtx.close();
 
       // ====== 第3步：录制视频+音频 ======
       setExportStatus("正在录制视频...");
       setVideoExportProgress(42);
 
       const recordCanvas = document.createElement("canvas");
-      recordCanvas.width = 1080;
-      recordCanvas.height = 1080;
+      recordCanvas.width = 1080; recordCanvas.height = 1080;
       const recordCtx = recordCanvas.getContext("2d")!;
 
-      // 创建AudioContext用于音频录制
       const audioCtx = new AudioContext();
       await audioCtx.resume();
       const audioDest = audioCtx.createMediaStreamDestination();
 
-      // 合并视频流和音频流
       const videoStream = recordCanvas.captureStream(1);
       const combinedStream = new MediaStream([
         ...videoStream.getVideoTracks(),
         ...audioDest.stream.getAudioTracks(),
       ]);
 
-      // 选择最佳格式
       let mimeType = "video/webm";
-      if (typeof MediaRecorder !== "undefined") {
-        if (MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")) mimeType = "video/mp4;codecs=avc1";
-        else if (MediaRecorder.isTypeSupported("video/mp4")) mimeType = "video/mp4";
-        else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
-        else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
-      }
+      if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
+      else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
+      else if (MediaRecorder.isTypeSupported("video/webm")) mimeType = "video/webm";
 
-      const recorder = new MediaRecorder(combinedStream, {
-        mimeType,
-        videoBitsPerSecond: 2500000,
-      });
+      const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 2500000 });
       const chunks: Blob[] = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       const recordingDone = new Promise<Blob>((resolve, reject) => {
-        recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: mimeType });
-          resolve(blob);
-        };
+        recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
         recorder.onerror = () => reject(new Error("MediaRecorder error"));
       });
-
       recorder.start(1000);
 
-      // ====== 第4步：逐页播放 ======
+      // ====== 第4步：逐页播放（用AudioBufferSourceNode，最可靠） ======
       for (let i = 0; i < pages.length; i++) {
         recordCtx.drawImage(pageCanvases[i], 0, 0);
         setVideoExportProgress(45 + Math.round((i / pages.length) * 50));
         setExportStatus(`正在录制第 ${i + 1}/${pages.length} 页...`);
 
-        if (audioUrls[i]) {
-          // 有音频：播放Audio元素，用createMediaElementSource捕获到录制流
+        if (audioBuffers[i]) {
           try {
-            const audio = new Audio(audioUrls[i]!);
-            const source = audioCtx.createMediaElementSource(audio);
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffers[i];
             source.connect(audioDest);
-            source.connect(audioCtx.destination);
-
+            const duration = audioBuffers[i]!.duration;
             await new Promise<void>((resolve) => {
-              audio.oncanplaythrough = () => {
-                audio.play().then(resolve).catch(resolve);
-              };
-              audio.onerror = () => resolve();
-              setTimeout(resolve, 5000); // 超时5秒
-            });
-
-            // 等音频播完
-            await new Promise<void>((resolve) => {
-              audio.onended = () => resolve();
-              setTimeout(resolve, 15000); // 保底15秒
+              source.onended = () => resolve();
+              source.start(0);
+              setTimeout(resolve, (duration + 1) * 1000);
             });
           } catch {
             await new Promise(r => setTimeout(r, 5000));
           }
         } else {
-          // 没音频：默认5秒
           await new Promise(r => setTimeout(r, 5000));
         }
       }
 
-      // 停止录制
       setVideoExportProgress(96);
       recorder.stop();
       const videoBlob = await recordingDone;
       audioCtx.close();
 
-      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `${story.title}.${ext}`;
-      a.click();
-      URL.revokeObjectURL(url);
+      a.href = url; a.download = `${story.title}.webm`;
+      a.click(); URL.revokeObjectURL(url);
 
       setVideoExportProgress(100);
       setExportStatus("");
@@ -662,7 +559,7 @@ export default function StoryPlayerPage() {
             </div>
             <div className="space-y-3">
               {/* 1. 带文字的高清图片 */}
-              <button onClick={downloadImagesWithText} className="w-full py-4 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl flex items-center gap-3 hover:opacity-90 transition-opacity active:scale-[0.98]">
+              <button onClick={downloadImages} className="w-full py-4 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl flex items-center gap-3 hover:opacity-90 transition-opacity active:scale-[0.98]">
                 <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl">🖼️</div>
                 <div className="text-left">
                   <p className="font-bold">下载高清图片</p>
