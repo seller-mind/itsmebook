@@ -525,7 +525,7 @@ export default function AdminPage() {
       setGenerationStep("completed");
       setIsGenerating(false);
       
-      // 保存到localStorage
+      // 保存到localStorage（供player页面读取）
       const playerData = { ...finalStory, voiceUrl: "" };
       sessionStorage.setItem("bedtime_story", JSON.stringify(playerData));
       localStorage.setItem("itsmebook_last_story", JSON.stringify(playerData));
@@ -540,6 +540,11 @@ export default function AdminPage() {
         });
         localStorage.setItem("itsmebook_books", JSON.stringify(books.slice(0, 50)));
       } catch {}
+      
+      // 自动跳转到绘本阅读页面
+      setTimeout(() => {
+        router.push("/story/player");
+      }, 500);
       
     } catch (error: any) {
       console.error("生成失败:", error);

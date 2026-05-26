@@ -183,7 +183,7 @@ export default function StoryPlayerPage() {
         a.click();
         URL.revokeObjectURL(url);
         setIsExportingVideo(false);
-        alert('视频已保存！如需其他格式可使用视频转换工具。');
+        // Video saved silently
       };
       
       recorder.onerror = () => {
@@ -353,6 +353,109 @@ export default function StoryPlayerPage() {
     }
   };
 
+
+  // 下载带文字的高清图片
+  const downloadImagesWithText = async () => {
+    if (!story) return;
+    setShowDownloadOptions(false);
+    
+    for (let i = 0; i < story.pages.length; i++) {
+      const page = story.pages[i];
+      const canvas = document.createElement("canvas");
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext("2d")!;
+      
+      ctx.fillStyle = "#fff8f0";
+      ctx.fillRect(0, 0, 1024, 1024);
+      
+      if (page.imageUrl) {
+        try {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = page.imageUrl;
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject();
+            setTimeout(() => reject(), 10000);
+          });
+          const imgSize = 800;
+          const scale = Math.min(imgSize / img.naturalWidth, imgSize / img.naturalHeight);
+          const w = img.naturalWidth * scale;
+          const h = img.naturalHeight * scale;
+          const x = (1024 - w) / 2;
+          const y = 60;
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(x, y, w, h, 16);
+          ctx.clip();
+          ctx.drawImage(img, x, y, w, h);
+          ctx.restore();
+        } catch {
+          ctx.fillStyle = "#e5e7eb";
+          ctx.fillRect(112, 60, 800, 600);
+        }
+      }
+      
+      ctx.fillStyle = "#fff8f0";
+      ctx.fillRect(0, 720, 1024, 304);
+      ctx.fillStyle = "#333";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.font = '32px "PingFang SC", "Microsoft YaHei", sans-serif';
+      const maxWidth = 900;
+      const lineHeight = 44;
+      const chars = (page.text || "").split("");
+      let lines: string[] = [];
+      let currentLine = "";
+      for (const char of chars) {
+        const testLine = currentLine + char;
+        if (ctx.measureText(testLine).width > maxWidth) { lines.push(currentLine); currentLine = char; }
+        else { currentLine = testLine; }
+      }
+      if (currentLine) lines.push(currentLine);
+      const startY = 740;
+      lines.slice(0, 5).forEach((line, li) => ctx.fillText(line, 512, startY + li * lineHeight));
+      ctx.fillStyle = "#aaa";
+      ctx.font = "20px sans-serif";
+      ctx.fillText(`${i + 1} / ${story.pages.length}`, 512, 990);
+      
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = `${story.title}_${i + 1}.png`;
+      link.click();
+      if (i < story.pages.length - 1) await new Promise(r => setTimeout(r, 800));
+    }
+  };
+
+  // 下载PDF（服务端生成）
+  const downloadPDF = async () => {
+    if (!story) return;
+    setShowDownloadOptions(false);
+    try {
+      const response = await fetch("/api/admin/export-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: story.title,
+          childName: story.childName,
+          childAge: 5,
+          pages: story.pages,
+        }),
+      });
+      if (!response.ok) throw new Error("PDF生成失败");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${story.title}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("PDF生成失败，请重试");
+    }
+  };
+
   const copyToClipboard = () => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(shareText);
@@ -518,33 +621,37 @@ export default function StoryPlayerPage() {
             </div>
             
             <div className="space-y-3">
+              {/* 1. 带文字的高清图片 */}
               <button
-                onClick={exportVideo}
-                className="w-full py-4 px-4 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl flex items-center gap-3 hover:opacity-90 transition-opacity"
+                onClick={downloadImagesWithText}
+                className="w-full py-4 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl flex items-center gap-3 hover:opacity-90 transition-opacity"
               >
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </div>
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl">🖼️</div>
                 <div className="text-left">
-                  <p className="font-bold">导出视频</p>
-                  <p className="text-sm text-white/70">生成短视频，适合分享到朋友圈</p>
+                  <p className="font-bold">下载高清图片</p>
+                  <p className="text-sm text-white/70">每页图片+文字合成</p>
                 </div>
               </button>
-              
+              {/* 2. PDF绘本 */}
               <button
-                onClick={handleDownloadHTML}
+                onClick={downloadPDF}
+                className="w-full py-4 px-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl flex items-center gap-3 hover:opacity-90 transition-opacity"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl">📄</div>
+                <div className="text-left">
+                  <p className="font-bold">下载PDF绘本</p>
+                  <p className="text-sm text-white/70">A4横向，可直接打印</p>
+                </div>
+              </button>
+              {/* 3. 有声视频 */}
+              <button
+                onClick={exportVideo}
                 className="w-full py-4 px-4 bg-gradient-to-r from-orange-400 to-amber-400 text-white rounded-2xl flex items-center gap-3 hover:opacity-90 transition-opacity"
               >
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl">🎬</div>
                 <div className="text-left">
-                  <p className="font-bold">下载绘本</p>
-                  <p className="text-sm text-white/70">离线HTML文件，可添加到手机桌面</p>
+                  <p className="font-bold">导出有声视频</p>
+                  <p className="text-sm text-white/70">配音+字幕+翻页动画</p>
                 </div>
               </button>
             </div>
