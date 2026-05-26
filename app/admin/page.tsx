@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // Admin 密码保护
 const ADMIN_PASSWORD = "itsmebook2026";
+const FC_MP4_CONVERTER_URL = process.env.NEXT_PUBLIC_FC_MP4_URL || "";
 const AUTH_KEY = "itsmebook_admin_auth";
 
 // 风格选项
@@ -1010,11 +1011,39 @@ export default function AdminPage() {
       const videoBlob = await recordingDone;
       audioCtx.close();
 
+      // 尝试转MP4
+      let finalBlob = videoBlob;
+      let finalExt = "webm";
+      
+      if (FC_MP4_CONVERTER_URL) {
+        try {
+          // 上传WebM到阿里云FC转MP4
+          const formData = new FormData();
+          formData.append("video", videoBlob, "video.webm");
+          
+          const convertRes = await fetch(FC_MP4_CONVERTER_URL, {
+            method: "POST",
+            body: videoBlob,
+            headers: { "Content-Type": "video/webm" },
+          });
+          
+          if (convertRes.ok) {
+            const mp4Blob = await convertRes.blob();
+            if (mp4Blob.size > 1000 && mp4Blob.type.includes("mp4")) {
+              finalBlob = mp4Blob;
+              finalExt = "mp4";
+            }
+          }
+        } catch (convertErr) {
+          console.log("MP4转换失败，使用WebM格式:", convertErr);
+        }
+      }
+
       // 下载
-      const url = URL.createObjectURL(videoBlob);
+      const url = URL.createObjectURL(finalBlob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${completedStory.title}.webm`;
+      a.download = `${completedStory.title}.${finalExt}`;
       a.click();
       URL.revokeObjectURL(url);
 
@@ -1182,7 +1211,10 @@ export default function AdminPage() {
                   >
                     {downloading.video ? "录制中..." : "下载视频"}
                   </button>
-                  <p className="text-xs text-gray-400 mt-2">WebM格式，安卓/电脑可用</p>
+                  {FC_MP4_CONVERTER_URL ? 
+                    <p className="text-xs text-green-600 mt-2">MP4格式，全平台兼容</p> : 
+                    <p className="text-xs text-gray-400 mt-2">WebM格式，安卓/电脑可用</p>
+                  }
                 </div>
               </div>
             </div>
