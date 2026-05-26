@@ -119,16 +119,17 @@ export async function POST(request: NextRequest) {
             temperature: 0.8,
             max_tokens: 3000,
           }),
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(50000),
         });
 
         if (!response.ok) {
-          const errText = await response.text();
           throw new Error(`故事生成API错误: ${response.status}`);
         }
 
         const result = await response.json();
         let content = result.choices?.[0]?.message?.content;
+        // 豆包推理模型可能返回reasoning_content，确保content是干净的
+        console.log(`[Story] 生成完成, content长度: ${content?.length || 0}`);
         if (!content) throw new Error("故事生成返回为空");
 
         // 解析JSON（增强版）
@@ -188,17 +189,20 @@ export async function POST(request: NextRequest) {
         const model = useProModel ? "wan2.7-image-pro" : "wan2.7-image";
         const updatedPages = [...pages];
 
+        // 并行生成当前批次的图片
+        const batchIndices = [];
         for (let i = fromIndex; i <= Math.min(toIndex, pages.length - 1); i++) {
+          if (pages[i]?.image_prompt) batchIndices.push(i);
+        }
+
+        const progressBase = 20 + Math.floor((fromIndex / pages.length) * 60);
+        await supabase.from("story_generations").update({
+          progress: progressBase,
+          step: `正在生成配图 (${fromIndex + 1}-${Math.min(toIndex + 1, pages.length)}/${pages.length})...`
+        }).eq("session_id", sessionId);
+
+        await Promise.all(batchIndices.map(async (i) => {
           const page = pages[i];
-          if (!page.image_prompt) continue;
-
-          const progressPercent = 20 + Math.floor(((i + 1) / pages.length) * 60);
-
-          await supabase.from("story_generations").update({
-            progress: progressPercent,
-            step: `正在生成配图 (${i + 1}/${pages.length})...`
-          }).eq("session_id", sessionId);
-
           try {
             const fullPrompt = `${page.image_prompt}，${styleConfig.chinesePrompt}`;
             const contentParts: any[] = [{ text: fullPrompt }];
@@ -214,7 +218,7 @@ export async function POST(request: NextRequest) {
                   input: { messages: [{ role: "user", content: contentParts }] },
                   parameters: { size: "768*768", n: 1 },
                 }),
-                signal: AbortSignal.timeout(30000),
+                signal: AbortSignal.timeout(25000),
               }
             );
 
@@ -229,7 +233,7 @@ export async function POST(request: NextRequest) {
             console.error(`第${i + 1}页图片生成失败:`, imgErr);
             updatedPages[i] = { ...page, image_url: `https://placehold.co/768x768/FFB6C1/ffffff?text=Page+${i + 1}` };
           }
-        }
+        }))
 
         // 更新Supabase中的结果
         const { data: current } = await supabase.from("story_generations")
