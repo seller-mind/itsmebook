@@ -11,6 +11,10 @@ import dynamic from "next/dynamic";
 const PDFExport = dynamic(() => import("@/components/admin/PDFExport"), { ssr: false });
 const VideoExport = dynamic(() => import("@/components/admin/VideoExport"), { ssr: false });
 
+// Admin 密码保护
+const ADMIN_PASSWORD = "itsmebook2026";
+const AUTH_KEY = "itsmebook_admin_auth";
+
 // 风格选项
 const STYLES = [
   { id: "watercolor", name: "水彩风", emoji: "🎨" },
@@ -95,6 +99,64 @@ type GenerationStep =
 export default function AdminPage() {
   const router = useRouter();
   
+  // 密码验证状态
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  
+  // 检查已保存的认证状态
+  useEffect(() => {
+    const saved = sessionStorage.getItem(AUTH_KEY);
+    if (saved === "true") {
+      setIsAuthenticated(true);
+    }
+  }, []);
+  
+  // 密码验证
+  const handleLogin = () => {
+    if (passwordInput === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      sessionStorage.setItem(AUTH_KEY, "true");
+      setPasswordError("");
+    } else {
+      setPasswordError("密码错误");
+    }
+  };
+  
+  // 未认证时显示密码页面
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full mx-4">
+          <div className="text-center mb-6">
+            <div className="text-4xl mb-3">🔒</div>
+            <h1 className="text-xl font-bold text-gray-800">管理后台</h1>
+            <p className="text-sm text-gray-500 mt-1">请输入管理密码</p>
+          </div>
+          <div className="space-y-4">
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              placeholder="管理密码"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-400 focus:outline-none transition-colors"
+            />
+            {passwordError && (
+              <p className="text-red-500 text-sm text-center">{passwordError}</p>
+            )}
+            <button
+              onClick={handleLogin}
+              className="w-full py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors"
+            >
+              进入后台
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   // 表单状态
   const [form, setForm] = useState<OrderForm>({
     customerName: "",
@@ -133,12 +195,7 @@ export default function AdminPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   
-  // 非admin模式下跳转回首页
-  useEffect(() => {
-    if (!isAdminMode()) {
-      router.replace("/");
-    }
-  }, [router]);
+  // 已通过密码验证，不需要再检查 admin 模式
 
   // 监听套餐变化
   useEffect(() => {
