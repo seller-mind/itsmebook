@@ -464,6 +464,8 @@ export default function AdminPage() {
       console.error("生成失败:", error);
       setGenerationStep("failed");
       setGenerationError(error.message || "生成过程中出现错误");
+      // 显示错误弹窗
+      alert(`生成失败：${error.message || "未知错误"}\n\n请检查网络连接后重试`);
     } finally {
       setIsGenerating(false);
     }
@@ -1029,6 +1031,30 @@ export default function AdminPage() {
         </div>
       </div>
     </div>
+    {/* 浮动进度条 - 生成时固定在底部 */}
+    {isGenerating && (
+      <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.15)] z-50 px-4 py-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-gray-700">
+            {generationStep === "generating_story" ? "✍️ 生成故事中..." :
+             generationStep === "generating_images" ? "🎨 绘制插画中..." :
+             generationStep === "generating_audio" ? "🔊 合成配音中..." :
+             generationStep === "cloning_voice" ? "🎙️ 克隆声音中..." :
+             generationStep === "uploading_voice" ? "📤 上传语音中..." :
+             generationStep === "uploading_photo" ? "📷 上传照片中..." :
+             "⏳ 准备中..."}
+          </span>
+          <span className="text-xl font-bold text-orange-600">{generationProgress}%</span>
+        </div>
+        <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-500 rounded-full"
+            style={{ width: `${generationProgress}%` }}
+          />
+        </div>
+      </div>
+    )}
+    
     </AdminAuthGuard>
   );
 }
