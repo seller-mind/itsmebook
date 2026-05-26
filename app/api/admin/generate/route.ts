@@ -285,7 +285,33 @@ async function generateImage(
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`万相API错误 ${response.status}:`, errorText);
-    // 返回占位图而不是失败
+    // 重试一次
+    console.log(`第${index + 1}页图片生成失败，重试中...`);
+    try {
+      await new Promise(r => setTimeout(r, 2000));
+      const retryController = new AbortController();
+      const retryTimeout = setTimeout(() => retryController.abort(), 55000);
+      const retryResponse = await fetch(
+        "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(requestBody),
+          signal: retryController.signal,
+        }
+      );
+      clearTimeout(retryTimeout);
+      if (retryResponse.ok) {
+        const retryResult = await retryResponse.json();
+        const retryUrl = retryResult.output?.choices?.[0]?.message?.content?.[0]?.image;
+        if (retryUrl) return retryUrl;
+      }
+    } catch (retryErr) {
+      console.error(`第${index + 1}页重试也失败:`, retryErr);
+    }
     return `https://placehold.co/800x800/FFB6C1/ffffff?text=Page+${index + 1}`;
   }
 

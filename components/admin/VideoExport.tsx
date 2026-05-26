@@ -217,9 +217,15 @@ export default function VideoExport({
       
       const stream = canvas.captureStream(30);
       
-      // 获取音频轨道
-      let audioTrack: MediaStreamTrack | null = null;
+      // 创建音频上下文和目标，用于将音频录入视频
       const audioContext = new AudioContext();
+      const audioDestination = audioContext.createMediaStreamDestination();
+      
+      // 将音频轨道添加到录制流
+      const audioTrack = audioDestination.stream.getAudioTracks()[0];
+      if (audioTrack) {
+        stream.addTrack(audioTrack);
+      }
 
       // 创建MediaRecorder
       const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
@@ -250,16 +256,23 @@ export default function VideoExport({
       for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
         if (cancelRef.current) break;
 
-        // 播放配音（如果有）
+        // 播放配音并录入视频流
         const pageAudioUrl = pages[pageIndex].audioUrl;
         let audioStartTime = 0;
 
         if (pageAudioUrl) {
           try {
-            const audio = new Audio(pageAudioUrl);
-            audioRef.current = audio;
+            const audioResponse = await fetch(pageAudioUrl);
+            const audioArrayBuffer = await audioResponse.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
+            
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioDestination); // 连接到录制流
+            source.connect(audioContext.destination); // 同时播放
+            source.start(0);
+            audioRef.current = { source, buffer: audioBuffer } as any;
             audioStartTime = Date.now();
-            await audio.play();
           } catch (e) {
             console.error("音频播放失败:", e);
           }
@@ -282,7 +295,9 @@ export default function VideoExport({
 
         // 停止配音
         if (audioRef.current) {
-          audioRef.current.pause();
+          try {
+            (audioRef.current as any).source?.stop();
+          } catch {}
           audioRef.current = null;
         }
       }

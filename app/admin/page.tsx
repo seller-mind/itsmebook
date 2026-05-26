@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { ADMIN_PLANS, getPlanConfig, AdminGenerateParams, AdminFeatures, addClonedVoice, VoiceOption } from "@/lib/admin";
 import { STORY_THEMES } from "@/lib/story";
 import { v4 as uuidv4 } from "uuid";
+import dynamic from "next/dynamic";
+
+// 动态导入导出组件
+const PDFExport = dynamic(() => import("@/components/admin/PDFExport"), { ssr: false });
+const VideoExport = dynamic(() => import("@/components/admin/VideoExport"), { ssr: false });
+
 
 // Admin 密码保护
 const ADMIN_PASSWORD = "itsmebook2026";
@@ -190,7 +196,7 @@ export default function AdminPage() {
   const [completedBookId, setCompletedBookId] = useState<string | null>(null);
   const [completedStory, setCompletedStory] = useState<{
     title: string; childName: string;
-    pages: Array<{ pageNumber: number; text: string; imageUrl: string; audioUrl: string | null }>;
+    pages: Array<{ pageNumber: number; text: string; imageUrl: string; audioUrl?: string }>;
   } | null>(null);
   
   // Refs
@@ -651,13 +657,143 @@ export default function AdminPage() {
         pageNumber: p.page_number,
         text: p.text,
         imageUrl: p.image_url,
-        audioUrl: p.audio_url || null,
+        audioUrl: p.audio_url || undefined,
       })),
     };
     setCompletedStory(storyData);
     const playerData = { ...storyData, voiceUrl: "" };
     sessionStorage.setItem("bedtime_story", JSON.stringify(playerData));
     localStorage.setItem("itsmebook_last_story", JSON.stringify(playerData));
+    
+    // 存入绘本列表（个人中心可见）
+    try {
+      const booksStr = localStorage.getItem("itsmebook_books");
+      const books = booksStr ? JSON.parse(booksStr) : [];
+      const bookRecord = {
+        id: data.bookId || completedBookId || Date.now().toString(),
+        title: storyData.title,
+        childName: storyData.childName,
+        pages: storyData.pages,
+        createdAt: new Date().toISOString(),
+        isAdminGenerated: true,
+        voiceId: form.voiceId,
+        themeId: form.themeId,
+        styleId: form.styleId,
+        planId: form.planId,
+        customerName: form.customerName,
+        customerPhone: form.customerPhone,
+        customerEmail: form.customerEmail,
+      };
+      books.unshift(bookRecord);
+      localStorage.setItem("itsmebook_books", JSON.stringify(books.slice(0, 50)));
+    } catch (e) {
+      console.error("保存绘本列表失败:", e);
+    }
+  };
+
+  // 下载带文字的高清图片（每页一张）
+  const downloadImagesWithText = async () => {
+    if (!completedStory) return;
+    
+    for (let i = 0; i < completedStory.pages.length; i++) {
+      const page = completedStory.pages[i];
+      
+      const canvas = document.createElement("canvas");
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext("2d")!;
+      
+      // 绘制背景
+      ctx.fillStyle = "#fff8f0";
+      ctx.fillRect(0, 0, 1024, 1024);
+      
+      // 加载并绘制图片
+      if (page.imageUrl) {
+        try {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = page.imageUrl;
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject();
+            setTimeout(() => reject(), 10000);
+          });
+          
+          // 图片占上半部分
+          const imgSize = 800;
+          const scale = Math.min(imgSize / img.naturalWidth, imgSize / img.naturalHeight);
+          const w = img.naturalWidth * scale;
+          const h = img.naturalHeight * scale;
+          const x = (1024 - w) / 2;
+          const y = 60;
+          
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(x, y, w, h, 16);
+          ctx.clip();
+          ctx.drawImage(img, x, y, w, h);
+          ctx.restore();
+        } catch {
+          // 图片加载失败，画占位
+          ctx.fillStyle = "#e5e7eb";
+          ctx.fillRect(112, 60, 800, 600);
+          ctx.fillStyle = "#9ca3af";
+          ctx.font = "24px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("图片加载失败", 512, 360);
+        }
+      }
+      
+      // 绘制文字区域背景
+      ctx.fillStyle = "#fff8f0";
+      ctx.fillRect(0, 720, 1024, 304);
+      
+      // 绘制文字
+      ctx.fillStyle = "#333";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      const fontSize = 32;
+      ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif`;
+      
+      // 自动换行
+      const maxWidth = 900;
+      const lineHeight = 44;
+      const chars = page.text.split("");
+      let lines: string[] = [];
+      let currentLine = "";
+      for (const char of chars) {
+        const testLine = currentLine + char;
+        if (ctx.measureText(testLine).width > maxWidth) {
+          lines.push(currentLine);
+          currentLine = char;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      
+      const startY = 740;
+      lines.slice(0, 5).forEach((line, li) => {
+        ctx.fillText(line, 512, startY + li * lineHeight);
+      });
+      
+      // 页码
+      ctx.fillStyle = "#aaa";
+      ctx.font = "20px sans-serif";
+      ctx.fillText(`${i + 1} / ${completedStory.pages.length}`, 512, 990);
+      
+      // 下载
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `${completedStory.title}_第${i + 1}页.png`;
+      link.click();
+      
+      // 间隔避免浏览器拦截
+      if (i < completedStory.pages.length - 1) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
   };
 
   // 查看生成的绘本
@@ -776,7 +912,7 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex gap-3 flex-wrap mb-4">
               <button
                 onClick={viewBook}
                 className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
@@ -795,6 +931,50 @@ export default function AdminPage() {
               >
                 ➕ 新建订单
               </button>
+            </div>
+            
+            {/* 下载区域 */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">📦 下载交付物</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 1. 带文字的高清图片 */}
+                <div className="border rounded-xl p-4 text-center">
+                  <div className="text-3xl mb-2">🖼️</div>
+                  <p className="font-medium text-sm">带文字高清图片</p>
+                  <p className="text-xs text-gray-500 mb-3">每页图片+文字合成</p>
+                  <button
+                    onClick={() => downloadImagesWithText()}
+                    className="w-full px-3 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 transition-colors"
+                  >
+                    下载图片
+                  </button>
+                </div>
+                {/* 2. PDF */}
+                <div className="border rounded-xl p-4 text-center">
+                  <div className="text-3xl mb-2">📄</div>
+                  <p className="font-medium text-sm">完整PDF绘本</p>
+                  <p className="text-xs text-gray-500 mb-3">含所有页面的PDF</p>
+                  <PDFExport
+                    bookId={completedBookId || ""}
+                    title={completedStory.title}
+                    characterName={completedStory.childName}
+                    characterAge={form.childAge}
+                    pages={completedStory.pages}
+                  />
+                </div>
+                {/* 3. 带语音的视频 */}
+                <div className="border rounded-xl p-4 text-center">
+                  <div className="text-3xl mb-2">🎬</div>
+                  <p className="font-medium text-sm">有声绘本视频</p>
+                  <p className="text-xs text-gray-500 mb-3">配音+字幕+翻页</p>
+                  <VideoExport
+                    bookId={completedBookId || ""}
+                    title={completedStory.title}
+                    pages={completedStory.pages}
+                    pageDuration={4}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         )}
