@@ -199,6 +199,7 @@ export default function AdminPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const uploadSectionRef = useRef<HTMLDivElement | null>(null);
+  const sseCompletedRef = useRef(false); // 标记SSE是否已收到completed事件
   
   // 已通过密码验证，不需要再检查 admin 模式
 
@@ -403,6 +404,7 @@ export default function AdminPage() {
     setGenerationStep("idle");
     setGenerationProgress(0);
     setGenerationError(null);
+    sseCompletedRef.current = false;
     
     try {
       // 步骤1: 上传语音并克隆（如果有）
@@ -506,12 +508,20 @@ export default function AdminPage() {
                   const data = JSON.parse(line.slice(6));
                   
                   if (data.type === "progress") {
-                    setGenerationProgress(Math.min(data.progress, 90));
-                    setGenerationStep(data.step as GenerationStep);
+                    // 后端可能在progress事件中发送step="completed"和progress=100
+                    if (data.step === "completed" || data.progress >= 100) {
+                      setGenerationProgress(100);
+                      setGenerationStep("completed");
+                      sseCompletedRef.current = true;
+                    } else {
+                      setGenerationProgress(data.progress);
+                      setGenerationStep(data.step as GenerationStep);
+                    }
                   } else if (data.type === "completed") {
                     setGenerationProgress(100);
                     setGenerationStep("completed");
                     setCompletedBookId(data.bookId);
+                    sseCompletedRef.current = true;
                     sessionStorage.removeItem("itsmebook_generating_session");
                   } else if (data.type === "error") {
                     throw new Error(data.message);
@@ -523,8 +533,11 @@ export default function AdminPage() {
             }
           }
           
-          setGenerationStep("completed");
-          setGenerationProgress(100);
+          // SSE流正常结束，如果还没收到completed事件则标记完成
+          if (!sseCompletedRef.current) {
+            setGenerationStep("completed");
+            setGenerationProgress(100);
+          }
           sessionStorage.removeItem("itsmebook_generating_session");
         }
       } catch (streamError: any) {
@@ -609,7 +622,7 @@ export default function AdminPage() {
             </h3>
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-600">{generationProgress < 10 ? '准备中...' : generationProgress < 30 ? '正在生成故事...' : generationProgress < 60 ? '正在绘制插画...' : generationProgress < 80 ? '正在合成配音...' : generationProgress < 95 ? '正在合成视频...' : '即将完成！'}</span>
+                <span className="text-sm text-gray-600">{generationStep === "completed" ? '✅ 生成完成！' : generationProgress < 10 ? '准备中...' : generationProgress < 30 ? '正在生成故事...' : generationProgress < 60 ? '正在绘制插画...' : generationProgress < 80 ? '正在合成配音...' : generationProgress < 95 ? '正在保存绘本...' : '即将完成！'}</span>
                 <span className="text-2xl font-bold text-orange-600">{generationProgress}%</span>
               </div>
               <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
@@ -1111,7 +1124,8 @@ export default function AdminPage() {
       <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.15)] z-50 px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-700">
-            {generationStep === "generating_story" ? "✍️ 生成故事中..." :
+            {generationStep === "completed" ? "✅ 生成完成！" :
+             generationStep === "generating_story" ? "✍️ 生成故事中..." :
              generationStep === "generating_images" ? "🎨 绘制插画中..." :
              generationStep === "generating_audio" ? "🔊 合成配音中..." :
              generationStep === "cloning_voice" ? "🎙️ 克隆声音中..." :
