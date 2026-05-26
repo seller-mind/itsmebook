@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { generationCache } from "@/app/api/story/generation-status/route";
 
 export const maxDuration = 300; // 允许5分钟执行时间
 
@@ -27,6 +28,16 @@ async function updateSupabaseProgress(sessionId: string, data: {
   step?: string;
   result?: any;
 }) {
+  // 始终写入内存缓存（用于轮询恢复）
+  const cached = generationCache.get(sessionId);
+  generationCache.set(sessionId, {
+    status: data.status || cached?.status || "generating",
+    progress: data.progress ?? cached?.progress ?? 0,
+    step: data.step || cached?.step || "",
+    result: data.result || cached?.result,
+    updatedAt: Date.now(),
+  });
+  
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
