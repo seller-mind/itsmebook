@@ -5,12 +5,6 @@ import { useRouter } from "next/navigation";
 import { ADMIN_PLANS, getPlanConfig, AdminGenerateParams, AdminFeatures, addClonedVoice, VoiceOption } from "@/lib/admin";
 import { STORY_THEMES } from "@/lib/story";
 import { v4 as uuidv4 } from "uuid";
-import dynamic from "next/dynamic";
-
-// 动态导入导出组件
-const PDFExport = dynamic(() => import("@/components/admin/PDFExport"), { ssr: false });
-const VideoExport = dynamic(() => import("@/components/admin/VideoExport"), { ssr: false });
-
 
 // Admin 密码保护
 const ADMIN_PASSWORD = "itsmebook2026";
@@ -206,6 +200,7 @@ export default function AdminPage() {
   const uploadSectionRef = useRef<HTMLDivElement | null>(null);
   const sseCompletedRef = useRef(false); // 标记SSE是否已收到completed事件
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null); // 轮询定时器
+  const completedSectionRef = useRef<HTMLDivElement | null>(null); // 完成区域ref
   
   // 已通过密码验证，不需要再检查 admin 模式
 
@@ -637,6 +632,15 @@ export default function AdminPage() {
     }
   };
   
+  // 生成完成后自动滚动到绘本预览区
+  useEffect(() => {
+    if (completedStory && !isGenerating) {
+      setTimeout(() => {
+        completedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  }, [completedStory, isGenerating]);
+
   // 文件转 Base64
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -693,106 +697,97 @@ export default function AdminPage() {
 
   // 下载带文字的高清图片（每页一张）
   const downloadImagesWithText = async () => {
-    if (!completedStory) return;
+    if (!completedStory || downloading.images) return;
+    setDownloading(prev => ({ ...prev, images: true }));
     
-    for (let i = 0; i < completedStory.pages.length; i++) {
-      const page = completedStory.pages[i];
-      
-      const canvas = document.createElement("canvas");
-      canvas.width = 1024;
-      canvas.height = 1024;
-      const ctx = canvas.getContext("2d")!;
-      
-      // 绘制背景
-      ctx.fillStyle = "#fff8f0";
-      ctx.fillRect(0, 0, 1024, 1024);
-      
-      // 加载并绘制图片
-      if (page.imageUrl) {
-        try {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.src = page.imageUrl;
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject();
-            setTimeout(() => reject(), 10000);
-          });
-          
-          // 图片占上半部分
-          const imgSize = 800;
-          const scale = Math.min(imgSize / img.naturalWidth, imgSize / img.naturalHeight);
-          const w = img.naturalWidth * scale;
-          const h = img.naturalHeight * scale;
-          const x = (1024 - w) / 2;
-          const y = 60;
-          
-          ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(x, y, w, h, 16);
-          ctx.clip();
-          ctx.drawImage(img, x, y, w, h);
-          ctx.restore();
-        } catch {
-          // 图片加载失败，画占位
-          ctx.fillStyle = "#e5e7eb";
-          ctx.fillRect(112, 60, 800, 600);
-          ctx.fillStyle = "#9ca3af";
-          ctx.font = "24px sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText("图片加载失败", 512, 360);
+    try {
+      // 通过服务端API获取图片（解决CORS）
+      for (let i = 0; i < completedStory.pages.length; i++) {
+        const page = completedStory.pages[i];
+        
+        const canvas = document.createElement("canvas");
+        canvas.width = 1024;
+        canvas.height = 1024;
+        const ctx = canvas.getContext("2d")!;
+        
+        ctx.fillStyle = "#fff8f0";
+        ctx.fillRect(0, 0, 1024, 1024);
+        
+        if (page.imageUrl) {
+          try {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = page.imageUrl;
+            await new Promise<void>((resolve, reject) => {
+              img.onload = () => resolve();
+              img.onerror = () => reject();
+              setTimeout(() => reject(), 15000);
+            });
+            
+            const imgSize = 800;
+            const scale = Math.min(imgSize / img.naturalWidth, imgSize / img.naturalHeight);
+            const w = img.naturalWidth * scale;
+            const h = img.naturalHeight * scale;
+            const x = (1024 - w) / 2;
+            const y = 60;
+            
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 16);
+            ctx.clip();
+            ctx.drawImage(img, x, y, w, h);
+            ctx.restore();
+          } catch {
+            ctx.fillStyle = "#e5e7eb";
+            ctx.fillRect(112, 60, 800, 600);
+            ctx.fillStyle = "#9ca3af";
+            ctx.font = "24px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("\u56FE\u7247\u52A0\u8F7D\u5931\u8D25", 512, 360);
+          }
+        }
+        
+        ctx.fillStyle = "#fff8f0";
+        ctx.fillRect(0, 720, 1024, 304);
+        
+        ctx.fillStyle = "#333";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.font = '32px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif';
+        
+        const maxWidth = 900;
+        const lineHeight = 44;
+        const chars = (page.text || "").split("");
+        let lines: string[] = [];
+        let currentLine = "";
+        for (const char of chars) {
+          const testLine = currentLine + char;
+          if (ctx.measureText(testLine).width > maxWidth) { lines.push(currentLine); currentLine = char; }
+          else { currentLine = testLine; }
+        }
+        if (currentLine) lines.push(currentLine);
+        
+        const startY = 740;
+        lines.slice(0, 5).forEach((line, li) => {
+          ctx.fillText(line, 512, startY + li * lineHeight);
+        });
+        
+        ctx.fillStyle = "#aaa";
+        ctx.font = "20px sans-serif";
+        ctx.fillText(`${i + 1} / ${completedStory.pages.length}`, 512, 990);
+        
+        const dataUrl = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = `${completedStory.title}_${i + 1}.png`;
+        link.click();
+        
+        if (i < completedStory.pages.length - 1) {
+          await new Promise(r => setTimeout(r, 800));
         }
       }
-      
-      // 绘制文字区域背景
-      ctx.fillStyle = "#fff8f0";
-      ctx.fillRect(0, 720, 1024, 304);
-      
-      // 绘制文字
-      ctx.fillStyle = "#333";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      const fontSize = 32;
-      ctx.font = `${fontSize}px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif`;
-      
-      // 自动换行
-      const maxWidth = 900;
-      const lineHeight = 44;
-      const chars = page.text.split("");
-      let lines: string[] = [];
-      let currentLine = "";
-      for (const char of chars) {
-        const testLine = currentLine + char;
-        if (ctx.measureText(testLine).width > maxWidth) {
-          lines.push(currentLine);
-          currentLine = char;
-        } else {
-          currentLine = testLine;
-        }
-      }
-      if (currentLine) lines.push(currentLine);
-      
-      const startY = 740;
-      lines.slice(0, 5).forEach((line, li) => {
-        ctx.fillText(line, 512, startY + li * lineHeight);
-      });
-      
-      // 页码
-      ctx.fillStyle = "#aaa";
-      ctx.font = "20px sans-serif";
-      ctx.fillText(`${i + 1} / ${completedStory.pages.length}`, 512, 990);
-      
-      // 下载
-      const dataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = `${completedStory.title}_第${i + 1}页.png`;
-      link.click();
-      
-      // 间隔避免浏览器拦截
-      if (i < completedStory.pages.length - 1) {
-        await new Promise(r => setTimeout(r, 500));
-      }
+    } finally {
+      setDownloading(prev => ({ ...prev, images: false }));
     }
   };
 
@@ -816,6 +811,218 @@ export default function AdminPage() {
     const link = getShareLink();
     navigator.clipboard.writeText(link);
     alert("分享链接已复制到剪贴板");
+  };
+
+  // 下载状态
+  const [downloading, setDownloading] = useState({ images: false, pdf: false, video: false });
+
+  // 服务端PDF下载
+  const downloadPDF = async () => {
+    if (!completedStory || downloading.pdf) return;
+    setDownloading(prev => ({ ...prev, pdf: true }));
+    try {
+      const response = await fetch("/api/admin/export-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: completedStory.title,
+          childName: completedStory.childName,
+          childAge: form.childAge,
+          pages: completedStory.pages,
+        }),
+      });
+      if (!response.ok) throw new Error("PDF生成失败");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${completedStory.title}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("PDF生成失败，请重试");
+    } finally {
+      setDownloading(prev => ({ ...prev, pdf: false }));
+    }
+  };
+
+  // 视频录制下载（改进版：带音频合并）
+  const downloadVideo = async () => {
+    if (!completedStory || downloading.video) return;
+    setDownloading(prev => ({ ...prev, video: true }));
+    
+    try {
+      // 先从服务端获取音频数据（解决CORS问题）
+      let audioDataMap: Record<number, string> = {};
+      try {
+        const audioRes = await fetch("/api/admin/export-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pages: completedStory.pages, title: completedStory.title }),
+        });
+        if (audioRes.ok) {
+          const audioResult = await audioRes.json();
+          if (audioResult.success && audioResult.audioData) {
+            audioDataMap = audioResult.audioData;
+          }
+        }
+      } catch {}
+
+      // Canvas录制
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1080;
+      const ctx = canvas.getContext("2d")!;
+      
+      const stream = canvas.captureStream(30);
+      const audioCtx = new AudioContext();
+      const audioDest = audioCtx.createMediaStreamDestination();
+      const audioTrack = audioDest.stream.getAudioTracks()[0];
+      if (audioTrack) stream.addTrack(audioTrack);
+
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+        ? "video/webm;codecs=vp9,opus"
+        : MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
+        ? "video/webm;codecs=vp8,opus"
+        : "video/webm";
+
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5000000 });
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      
+      const recordingDone = new Promise<Blob>((resolve) => {
+        recorder.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }));
+      });
+      
+      recorder.start(100);
+
+      // 预加载图片
+      const images: HTMLImageElement[] = [];
+      for (let i = 0; i < completedStory.pages.length; i++) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        try {
+          await new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = completedStory.pages[i].imageUrl;
+          });
+        } catch {}
+        images.push(img);
+      }
+
+      // 逐页渲染
+      const fps = 30;
+      const framesPerPage = 4 * fps; // 4秒每页
+      const textAreaHeight = 0.22;
+
+      for (let pi = 0; pi < completedStory.pages.length; pi++) {
+        // 播放音频
+        let audioSource: AudioBufferSourceNode | null = null;
+        const audioB64 = audioDataMap[pi];
+        if (audioB64) {
+          try {
+            const binaryStr = atob(audioB64.split(",")[1] || audioB64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
+            const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
+            audioSource = audioCtx.createBufferSource();
+            audioSource.buffer = audioBuffer;
+            audioSource.connect(audioDest);
+            audioSource.connect(audioCtx.destination);
+            audioSource.start(0);
+          } catch {}
+        }
+
+        const img = images[pi];
+        const page = completedStory.pages[pi];
+        
+        for (let frame = 0; frame < framesPerPage; frame++) {
+          ctx.fillStyle = "#FFF5EB";
+          ctx.fillRect(0, 0, 1080, 1080);
+
+          // 绘制图片（上方78%）
+          const imageAreaHeight = 1080 * (1 - textAreaHeight);
+          if (img.complete && img.naturalWidth > 0) {
+            const imgAspect = img.naturalWidth / img.naturalHeight;
+            const canvasAspect = 1080 / imageAreaHeight;
+            let dw, dh;
+            if (imgAspect > canvasAspect) {
+              dw = 1080; dh = 1080 / imgAspect;
+            } else {
+              dh = imageAreaHeight; dw = imageAreaHeight * imgAspect;
+            }
+            const dx = (1080 - dw) / 2;
+            const dy = (imageAreaHeight - dh) / 2;
+            ctx.drawImage(img, dx, dy, dw, dh);
+          }
+
+          // 绘制字幕区域
+          const textY = 1080 * (1 - textAreaHeight);
+          ctx.fillStyle = "rgba(255,255,255,0.95)";
+          ctx.fillRect(0, textY, 1080, 1080 * textAreaHeight);
+
+          // 绘制文字
+          ctx.fillStyle = "#333";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';
+          
+          const maxWidth = 960;
+          const lineHeight = 42;
+          const chars = (page.text || "").split("");
+          let lines: string[] = [];
+          let currentLine = "";
+          for (const char of chars) {
+            const test = currentLine + char;
+            if (ctx.measureText(test).width > maxWidth) { lines.push(currentLine); currentLine = char; }
+            else { currentLine = test; }
+          }
+          if (currentLine) lines.push(currentLine);
+
+          const totalTextH = lines.length * lineHeight;
+          const startY = textY + (1080 * textAreaHeight - totalTextH) / 2 + lineHeight / 2;
+          lines.slice(0, 4).forEach((line, li) => {
+            ctx.fillText(line, 540, startY + li * lineHeight);
+          });
+
+          // 页码
+          ctx.font = "18px sans-serif";
+          ctx.fillStyle = "#aaa";
+          ctx.fillText(`${pi + 1} / ${completedStory.pages.length}`, 540, 1060);
+
+          // 品牌
+          ctx.font = "14px sans-serif";
+          ctx.fillStyle = "#ccc";
+          ctx.fillText("itsmebook.com", 540, 20);
+
+          await new Promise(r => setTimeout(r, 1000 / fps));
+        }
+
+        // 停止音频
+        if (audioSource) {
+          try { audioSource.stop(); } catch {}
+        }
+      }
+
+      // 完成录制
+      recorder.stop();
+      const videoBlob = await recordingDone;
+      audioCtx.close();
+
+      // 下载
+      const url = URL.createObjectURL(videoBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${completedStory.title}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+    } catch (e) {
+      alert("视频生成失败，请重试");
+    } finally {
+      setDownloading(prev => ({ ...prev, video: false }));
+    }
   };
 
   return (
@@ -896,7 +1103,7 @@ export default function AdminPage() {
 
         {/* 完成预览 - 独立于生成状态，不会因isGenerating变化而消失 */}
         {completedStory && !isGenerating && (
-          <div className="mb-6 bg-white rounded-2xl shadow-lg p-6">
+          <div ref={completedSectionRef} className="mb-6 bg-white rounded-2xl shadow-lg p-6">
             <h3 className="text-lg font-semibold mb-4">✅ {completedStory.title}</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
               {completedStory.pages.map((page, idx) => (
@@ -944,35 +1151,38 @@ export default function AdminPage() {
                   <p className="text-xs text-gray-500 mb-3">每页图片+文字合成</p>
                   <button
                     onClick={() => downloadImagesWithText()}
-                    className="w-full px-3 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 transition-colors"
+                    disabled={downloading.images}
+                    className="w-full px-3 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 transition-colors disabled:opacity-50"
                   >
-                    下载图片
+                    {downloading.images ? "下载中..." : "下载图片"}
                   </button>
                 </div>
                 {/* 2. PDF */}
                 <div className="border rounded-xl p-4 text-center">
                   <div className="text-3xl mb-2">📄</div>
                   <p className="font-medium text-sm">完整PDF绘本</p>
-                  <p className="text-xs text-gray-500 mb-3">含所有页面的PDF</p>
-                  <PDFExport
-                    bookId={completedBookId || ""}
-                    title={completedStory.title}
-                    characterName={completedStory.childName}
-                    characterAge={form.childAge}
-                    pages={completedStory.pages}
-                  />
+                  <p className="text-xs text-gray-500 mb-3">A4横向，高清PDF文件</p>
+                  <button
+                    onClick={() => downloadPDF()}
+                    disabled={downloading.pdf}
+                    className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:opacity-50"
+                  >
+                    {downloading.pdf ? "生成中..." : "下载PDF"}
+                  </button>
                 </div>
                 {/* 3. 带语音的视频 */}
                 <div className="border rounded-xl p-4 text-center">
                   <div className="text-3xl mb-2">🎬</div>
                   <p className="font-medium text-sm">有声绘本视频</p>
                   <p className="text-xs text-gray-500 mb-3">配音+字幕+翻页</p>
-                  <VideoExport
-                    bookId={completedBookId || ""}
-                    title={completedStory.title}
-                    pages={completedStory.pages}
-                    pageDuration={4}
-                  />
+                  <button
+                    onClick={() => downloadVideo()}
+                    disabled={downloading.video}
+                    className="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50"
+                  >
+                    {downloading.video ? "录制中..." : "下载视频"}
+                  </button>
+                  <p className="text-xs text-gray-400 mt-2">WebM格式，安卓/电脑可用</p>
                 </div>
               </div>
             </div>
