@@ -391,174 +391,173 @@ export default function AdminPage() {
       alert("请输入孩子名字");
       return;
     }
-    
     if (form.useClonedVoice && !form.parentVoiceFile) {
       alert("请先录制家长语音片段");
       return;
     }
-    
     if (form.useChildPhoto && !form.childPhotoFile) {
       alert("请先上传孩子照片");
       return;
     }
     
     setIsGenerating(true);
-    setGenerationStep("idle");
+    setGenerationStep("generating_story");
     setGenerationProgress(0);
     setGenerationError(null);
-    sseCompletedRef.current = false;
+    setCompletedStory(null);
     
     try {
-      // 步骤1: 上传语音并克隆（如果有）
-      let clonedVoiceId = form.voiceId;
-      
-      if (form.useClonedVoice && form.parentVoiceFile) {
-        setGenerationStep("uploading_voice");
-        setGenerationProgress(5);
-        
-        const voiceBase64 = await fileToBase64(form.parentVoiceFile);
-        
-        setGenerationStep("cloning_voice");
-        setGenerationProgress(10);
-        
-        const cloneResponse = await fetch("/api/voice/clone", {
-          method: "POST",
-          body: voiceBase64,
-          headers: { "Content-Type": "text/plain" },
-        });
-        
-        if (!cloneResponse.ok) {
-          throw new Error("声音克隆失败");
-        }
-        
-        const cloneResult = await cloneResponse.json();
-        if (cloneResult.success && cloneResult.voice_id) {
-          clonedVoiceId = cloneResult.voice_id;
-          addClonedVoice(clonedVoiceId, `克隆-${form.customerName || "家长"}`);
-          setVoices(prev => [...prev, {
-            id: clonedVoiceId,
-            name: `克隆-${form.customerName || "家长"}`,
-            emoji: "🎙️",
-            description: "家长克隆声音",
-            isCloned: true,
-          }]);
-        }
-        setGenerationProgress(15);
-      }
-      
-      // 步骤2: 上传照片（如果有）
-      let photoBase64: string | undefined;
-      
-      if (form.useChildPhoto && form.childPhotoFile) {
-        setGenerationStep("uploading_photo");
-        setGenerationProgress(20);
-        photoBase64 = await fileToBase64(form.childPhotoFile);
-        setGenerationProgress(25);
-      }
-      
-      // 步骤3: 启动生成 + 纯轮询进度（不依赖SSE流，手机兼容）
       const sessionId = uuidv4();
       setCurrentSessionId(sessionId);
-      sessionStorage.setItem("itsmebook_generating_session", sessionId);
       
-      setGenerationStep("generating_story");
-      setGenerationProgress(5);
-      
-      // 先启动轮询（在任何fetch之前，确保轮询一定在运行）
-      const pollInterval = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/story/generation-status?sessionId=${sessionId}`);
-          if (!res.ok) return;
-          const data = await res.json();
-          if (!data.success || !data.exists) return;
-          
-          if (data.status === "completed") {
-            clearInterval(pollInterval);
-            pollingIntervalRef.current = null;
-            setGenerationProgress(100);
-            setGenerationStep("completed");
-            setIsGenerating(false);
-            if (data.result?.bookId) setCompletedBookId(data.result.bookId);
-            if (data.result?.pages) saveCompletedStory(data.result);
-            sessionStorage.removeItem("itsmebook_generating_session");
-          } else if (data.status === "failed") {
-            clearInterval(pollInterval);
-            pollingIntervalRef.current = null;
-            setGenerationStep("failed");
-            setGenerationError(data.step || "生成失败");
-            setIsGenerating(false);
-            sessionStorage.removeItem("itsmebook_generating_session");
-          } else {
-            setGenerationProgress(data.progress || 0);
-            if (data.step) {
-              const stepMap: Record<string, GenerationStep> = {
-                "正在生成故事文本...": "generating_story",
-                "故事文本生成完成": "generating_story",
-                "正在生成配图": "generating_images",
-                "正在生成配图 (1/8)": "generating_images",
-                "正在生成配图 (2/8)": "generating_images",
-                "正在生成配图 (3/8)": "generating_images",
-                "正在生成配图 (4/8)": "generating_images",
-                "正在生成配图 (5/8)": "generating_images",
-                "正在生成配图 (6/8)": "generating_images",
-                "正在生成配图 (7/8)": "generating_images",
-                "正在生成配图 (8/8)": "generating_images",
-                "配图生成完成": "generating_images",
-                "正在生成配音": "generating_audio",
-                "配音生成完成": "generating_audio",
-                "正在保存绘本": "generating_story",
-                "生成完成": "completed",
-              };
-              setGenerationStep(stepMap[data.step] || "generating_story");
-            }
+      // 上传语音（如果有）
+      let clonedVoiceId = form.voiceId;
+      if (form.useClonedVoice && form.parentVoiceFile) {
+        setGenerationStep("cloning_voice");
+        setGenerationProgress(3);
+        const voiceBase64 = await fileToBase64(form.parentVoiceFile);
+        const cloneResponse = await fetch("/api/voice/clone", {
+          method: "POST", body: voiceBase64, headers: { "Content-Type": "text/plain" },
+        });
+        if (cloneResponse.ok) {
+          const cloneResult = await cloneResponse.json();
+          if (cloneResult.success && cloneResult.voice_id) {
+            clonedVoiceId = cloneResult.voice_id;
+            addClonedVoice(clonedVoiceId, `克隆-${form.customerName || "家长"}`);
+            setVoices(prev => [...prev, { id: clonedVoiceId, name: `克隆-${form.customerName || "家长"}`, emoji: "🎙️", description: "家长克隆声音", isCloned: true }]);
           }
-        } catch (e) {
-          console.error("轮询状态失败:", e);
         }
-      }, 2000); // 每2秒轮询
+        setGenerationProgress(5);
+      }
       
-      pollingIntervalRef.current = pollInterval;
+      // 上传照片（如果有）
+      let photoBase64: string | undefined;
+      if (form.useChildPhoto && form.childPhotoFile) {
+        setGenerationStep("uploading_photo");
+        photoBase64 = await fileToBase64(form.childPhotoFile);
+        setGenerationProgress(8);
+      }
       
-      // fire-and-forget发送生成请求（不await，不阻塞轮询）
-      fetch("/api/admin/generate", {
+      // ====== 步骤1: init ======
+      setGenerationStep("generating_story");
+      setGenerationProgress(10);
+      const initRes = await fetch("/api/admin/generate-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sessionId,
-          childName: form.childName,
-          childAge: form.childAge,
-          childGender: form.childGender,
-          themeId: form.themeId,
-          styleId: form.styleId,
-          pageCount: form.pageCount,
-          voiceId: clonedVoiceId,
-          useClonedVoice: form.useClonedVoice,
-          photoBase64,
-          useChildPhoto: form.useChildPhoto,
-          customerName: form.customerName,
-          customerPhone: form.customerPhone,
-          customerEmail: form.customerEmail,
-          orderNote: form.orderNote,
+          step: "init", sessionId,
+          params: { childName: form.childName, childAge: form.childAge, themeId: form.themeId, styleId: form.styleId }
         }),
-      }).catch(err => {
-        // fetch本身失败（网络错误等）
-        clearInterval(pollInterval);
-        pollingIntervalRef.current = null;
-        setGenerationStep("failed");
-        setGenerationError("网络请求失败: " + (err.message || "请检查网络"));
-        setIsGenerating(false);
-        sessionStorage.removeItem("itsmebook_generating_session");
       });
+      if (!initRes.ok) throw new Error("初始化失败");
+      
+      // ====== 步骤2: 生成故事 ======
+      setGenerationProgress(12);
+      const storyRes = await fetch("/api/admin/generate-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: "story", sessionId,
+          childName: form.childName, childAge: form.childAge,
+          childGender: form.childGender, themeId: form.themeId,
+          pageCount: form.pageCount,
+        }),
+      });
+      if (!storyRes.ok) throw new Error("故事生成请求失败");
+      const storyData = await storyRes.json();
+      if (!storyData.success) throw new Error(storyData.message || "故事生成失败");
+      
+      const storyPages = storyData.story.pages;
+      const storyTitle = storyData.story.title;
+      setGenerationProgress(20);
+      setGenerationStep("generating_images");
+      
+      // ====== 步骤3: 生成图片（分批，每批4张，每批<25秒）======
+      const batchSize = 4;
+      let currentPages = storyPages;
+      for (let batch = 0; batch < storyPages.length; batch += batchSize) {
+        const from = batch;
+        const to = Math.min(batch + batchSize - 1, storyPages.length - 1);
+        
+        const imgRes = await fetch("/api/admin/generate-step", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            step: "images", sessionId,
+            pages: currentPages, fromIndex: from, toIndex: to,
+            styleId: form.styleId, refImageBase64: photoBase64,
+          }),
+        });
+        
+        if (!imgRes.ok) throw new Error(`图片生成请求失败 (页${from+1}-${to+1})`);
+        const imgData = await imgRes.json();
+        if (imgData.success && imgData.pages) {
+          currentPages = imgData.pages;
+        }
+        
+        setGenerationProgress(imgData.progress || 50);
+      }
+      
+      // ====== 步骤4: 保存完成 ======
+      setGenerationStep("completed");
+      setGenerationProgress(95);
+      const completeRes = await fetch("/api/admin/generate-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: "complete", sessionId,
+          pages: currentPages, title: storyTitle,
+          params: {
+            childName: form.childName, childAge: form.childAge,
+            themeId: form.themeId, styleId: form.styleId,
+          },
+        }),
+      });
+      
+      if (!completeRes.ok) throw new Error("保存失败");
+      const completeData = await completeRes.json();
+      if (!completeData.success) throw new Error(completeData.message || "保存失败");
+      
+      // ====== 完成 ======
+      const finalStory = {
+        title: storyTitle,
+        childName: form.childName,
+        pages: currentPages.map((p: any, i: number) => ({
+          pageNumber: p.page_number || i + 1,
+          text: p.text,
+          imageUrl: p.image_url,
+          audioUrl: undefined,
+        })),
+      };
+      
+      setCompletedStory(finalStory);
+      setCompletedBookId(completeData.bookId);
+      setGenerationProgress(100);
+      setGenerationStep("completed");
+      setIsGenerating(false);
+      
+      // 保存到localStorage
+      const playerData = { ...finalStory, voiceUrl: "" };
+      sessionStorage.setItem("bedtime_story", JSON.stringify(playerData));
+      localStorage.setItem("itsmebook_last_story", JSON.stringify(playerData));
+      
+      // 存入绘本列表
+      try {
+        const booksStr = localStorage.getItem("itsmebook_books");
+        const books = booksStr ? JSON.parse(booksStr) : [];
+        books.unshift({
+          id: completeData.bookId, title: storyTitle, childName: form.childName,
+          pages: finalStory.pages, createdAt: new Date().toISOString(), isAdminGenerated: true,
+        });
+        localStorage.setItem("itsmebook_books", JSON.stringify(books.slice(0, 50)));
+      } catch {}
       
     } catch (error: any) {
       console.error("生成失败:", error);
       setGenerationStep("failed");
       setGenerationError(error.message || "生成过程中出现错误");
       setIsGenerating(false);
-      alert(`生成失败：${error.message || "未知错误"}
-
-请检查网络连接后重试`);
-      sessionStorage.removeItem("itsmebook_generating_session");
+      alert(`生成失败：${error.message || "未知错误"}\n\n请重试`);
     }
   };
   
