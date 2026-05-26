@@ -20,6 +20,45 @@ function sendProgress(step: string, progress: number, data: any = {}): string {
   return `data: ${JSON.stringify({ type: "progress", step, progress, ...data })}\n\n`;
 }
 
+// 更新Supabase生成进度（用于切走页面后恢复）
+async function updateSupabaseProgress(sessionId: string, data: {
+  status?: string;
+  progress?: number;
+  step?: string;
+  result?: any;
+}) {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) return;
+    
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // 先尝试更新已有记录
+    const { error: updateError } = await supabase
+      .from("story_generations")
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq("session_id", sessionId);
+    
+    // 如果没有记录，创建一条
+    if (updateError) {
+      await supabase.from("story_generations").upsert({
+        session_id: sessionId,
+        status: data.status || "generating",
+        progress: data.progress || 0,
+        step: data.step || "",
+        params: {},
+        ...data,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+    }
+  } catch (err) {
+    // 不影响主流程
+    console.error("[AdminGenerate] Supabase进度更新失败:", err);
+  }
+}
+
 // 风格配置映射
 const STYLE_CONFIGS: Record<string, { chinesePrompt: string }> = {
   watercolor: {
@@ -421,17 +460,23 @@ export async function POST(request: NextRequest) {
           customerEmail,
           orderNote,
         } = body;
+        
+        const sessionId = body.sessionId || `admin_${Date.now()}`;
 
         // 验证参数
         if (!childName || !themeId) {
           throw new Error("缺少必要参数");
         }
 
+        // 创建Supabase生成记录
+        await updateSupabaseProgress(sessionId, { status: "generating", progress: 0, step: "准备开始生成..." });
+
         // 步骤1: 克隆声音（如果有）
         let finalVoiceId = voiceId || "longhuhu_v3";
 
         if (useClonedVoice && body.voiceBase64) {
           controller.enqueue(encoder.encode(sendProgress("cloning_voice", 5)));
+          await updateSupabaseProgress(sessionId, { progress: 5, step: "克隆声音中..." });
           try {
             finalVoiceId = await cloneVoice(body.voiceBase64, customerName || "家长");
             controller.enqueue(encoder.encode(sendProgress("cloning_voice", 10)));
@@ -443,6 +488,7 @@ export async function POST(request: NextRequest) {
 
         // 步骤2: 生成故事
         controller.enqueue(encoder.encode(sendProgress("generating_story", 15)));
+        await updateSupabaseProgress(sessionId, { progress: 15, step: "正在生成故事文本..." });
         const story = await generateStory({
           childName,
           childAge,
@@ -451,9 +497,11 @@ export async function POST(request: NextRequest) {
           pageCount: pageCount || 8,
         });
         controller.enqueue(encoder.encode(sendProgress("generating_story", 25)));
+        await updateSupabaseProgress(sessionId, { progress: 25, step: "故事文本生成完成" });
 
         // 步骤3: 生成配图
         controller.enqueue(encoder.encode(sendProgress("generating_images", 30)));
+        await updateSupabaseProgress(sessionId, { progress: 30, step: "正在生成配图..." });
         const pagesWithImages = await Promise.all(
           story.pages.map(async (page, index) => {
             const progress = 30 + Math.floor((index / story.pages.length) * 40);
@@ -468,6 +516,9 @@ export async function POST(request: NextRequest) {
               index,
               refImage
             );
+            
+            // 每页生成后更新进度
+            await updateSupabaseProgress(sessionId, { progress, step: `正在生成配图 (${index + 1}/${story.pages.length})...` });
 
             return {
               ...page,
@@ -477,12 +528,14 @@ export async function POST(request: NextRequest) {
         );
 
         controller.enqueue(encoder.encode(sendProgress("generating_images", 70)));
+        await updateSupabaseProgress(sessionId, { progress: 70, step: "配图生成完成" });
 
         // 步骤4: 生成配音（如果有声音选项）
         let pagesWithAudio: any[] = pagesWithImages;
 
         if (voiceId && voiceId !== "none") {
           controller.enqueue(encoder.encode(sendProgress("generating_audio", 75)));
+          await updateSupabaseProgress(sessionId, { progress: 75, step: "正在生成配音..." });
           pagesWithAudio = await Promise.all(
             pagesWithImages.map(async (page, index) => {
               const progress = 75 + Math.floor((index / pagesWithImages.length) * 10);
@@ -499,9 +552,11 @@ export async function POST(request: NextRequest) {
         }
 
         controller.enqueue(encoder.encode(sendProgress("generating_audio", 85)));
+        await updateSupabaseProgress(sessionId, { progress: 85, step: "配音生成完成" });
 
         // 步骤5: 保存绘本
         controller.enqueue(encoder.encode(sendProgress("saving_book", 90)));
+        await updateSupabaseProgress(sessionId, { progress: 90, step: "正在保存绘本..." });
         const bookId = await saveBookToSupabase({
           title: story.title,
           childName,
@@ -522,12 +577,14 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(
           `data: ${JSON.stringify({ type: "completed", bookId, title: story.title })}\n\n`
         ));
+        await updateSupabaseProgress(sessionId, { status: "completed", progress: 100, step: "生成完成", result: { bookId, title: story.title } });
 
       } catch (error: any) {
         console.error("生成失败:", error);
         controller.enqueue(encoder.encode(
           `data: ${JSON.stringify({ type: "error", message: error.message })}\n\n`
         ));
+        await updateSupabaseProgress(sessionId, { status: "failed", step: `生成失败: ${error.message}` });
       } finally {
         controller.close();
       }

@@ -158,6 +158,9 @@ function AdminAuthGuard({ children }: { children: React.ReactNode }) {
 export default function AdminPage() {
   const router = useRouter();
   
+  // 当前生成任务ID（用于后台恢复）
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  
   // 表单状态
   const [form, setForm] = useState<OrderForm>({
     customerName: "",
@@ -198,6 +201,29 @@ export default function AdminPage() {
   const uploadSectionRef = useRef<HTMLDivElement | null>(null);
   
   // 已通过密码验证，不需要再检查 admin 模式
+
+  // 页面加载时检查是否有进行中的生成任务
+  useEffect(() => {
+    const savedSessionId = sessionStorage.getItem("itsmebook_generating_session");
+    if (savedSessionId) {
+      setCurrentSessionId(savedSessionId);
+      setIsGenerating(true);
+      // 立即查一次
+      pollGenerationStatus(savedSessionId);
+    }
+  }, [pollGenerationStatus]);
+
+  // 有进行中的任务时，每5秒轮询一次状态
+  useEffect(() => {
+    if (!currentSessionId || !isGenerating) return;
+    if (generationStep === "completed" || generationStep === "failed") return;
+    
+    const interval = setInterval(() => {
+      pollGenerationStatus(currentSessionId);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [currentSessionId, isGenerating, generationStep, pollGenerationStatus]);
 
   // 监听套餐变化 - 自动滚动到上传区域
   useEffect(() => {
@@ -347,19 +373,15 @@ export default function AdminPage() {
         setGenerationStep("uploading_voice");
         setGenerationProgress(5);
         
-        // 读取语音文件为 base64
         const voiceBase64 = await fileToBase64(form.parentVoiceFile);
         
         setGenerationStep("cloning_voice");
         setGenerationProgress(10);
         
-        // 调用声音克隆API
         const cloneResponse = await fetch("/api/voice/clone", {
           method: "POST",
-          body: voiceBase64, // 直接传 base64 字符串
-          headers: {
-            "Content-Type": "text/plain",
-          },
+          body: voiceBase64,
+          headers: { "Content-Type": "text/plain" },
         });
         
         if (!cloneResponse.ok) {
@@ -369,7 +391,6 @@ export default function AdminPage() {
         const cloneResult = await cloneResponse.json();
         if (cloneResult.success && cloneResult.voice_id) {
           clonedVoiceId = cloneResult.voice_id;
-          // 添加到声音列表
           addClonedVoice(clonedVoiceId, `克隆-${form.customerName || "家长"}`);
           setVoices(prev => [...prev, {
             id: clonedVoiceId,
@@ -388,16 +409,16 @@ export default function AdminPage() {
       if (form.useChildPhoto && form.childPhotoFile) {
         setGenerationStep("uploading_photo");
         setGenerationProgress(20);
-        
         photoBase64 = await fileToBase64(form.childPhotoFile);
         setGenerationProgress(25);
       }
       
-      // 步骤3: 生成故事
+      // 步骤3: 创建服务端生成记录（持久化，切走页面不丢失）
+      const sessionId = uuidv4();
+      setCurrentSessionId(sessionId);
+      
       setGenerationStep("generating_story");
       setGenerationProgress(30);
-      
-      const sessionId = uuidv4();
       
       const generateResponse = await fetch("/api/admin/generate", {
         method: "POST",
@@ -422,60 +443,110 @@ export default function AdminPage() {
       });
       
       if (!generateResponse.ok) {
-        throw new Error("生成失败");
+        throw new Error("生成请求发送失败");
       }
       
-      // 处理SSE流
-      const reader = generateResponse.body?.getReader();
-      if (!reader) throw new Error("无法读取响应流");
+      // 同时将sessionId存到sessionStorage，用于页面恢复
+      sessionStorage.setItem("itsmebook_generating_session", sessionId);
       
-      const decoder = new TextDecoder();
-      let result = "";
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value);
-        result += chunk;
-        
-        // 解析SSE数据
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              if (data.type === "progress") {
-                setGenerationProgress(Math.min(data.progress, 90));
-                setGenerationStep(data.step as GenerationStep);
-              } else if (data.type === "completed") {
-                setGenerationProgress(100);
-                setGenerationStep("completed");
-                setCompletedBookId(data.bookId);
-              } else if (data.type === "error") {
-                throw new Error(data.message);
+      // 处理SSE流 - 如果连接断了，自动切换到轮询
+      try {
+        const reader = generateResponse.body?.getReader();
+        if (reader) {
+          const decoder = new TextDecoder();
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split("\n");
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  
+                  if (data.type === "progress") {
+                    setGenerationProgress(Math.min(data.progress, 90));
+                    setGenerationStep(data.step as GenerationStep);
+                  } else if (data.type === "completed") {
+                    setGenerationProgress(100);
+                    setGenerationStep("completed");
+                    setCompletedBookId(data.bookId);
+                    sessionStorage.removeItem("itsmebook_generating_session");
+                  } else if (data.type === "error") {
+                    throw new Error(data.message);
+                  }
+                } catch (e) {
+                  // 忽略JSON解析错误
+                }
               }
-            } catch (e) {
-              // 忽略解析错误
             }
           }
+          
+          setGenerationStep("completed");
+          setGenerationProgress(100);
+          sessionStorage.removeItem("itsmebook_generating_session");
         }
+      } catch (streamError: any) {
+        // SSE流断了（比如切走页面），不需要报错，服务端还在继续生成
+        console.log("SSE流断开，服务端仍在生成中，可通过轮询恢复");
       }
-      
-      setGenerationStep("completed");
-      setGenerationProgress(100);
       
     } catch (error: any) {
       console.error("生成失败:", error);
       setGenerationStep("failed");
       setGenerationError(error.message || "生成过程中出现错误");
-      // 显示错误弹窗
       alert(`生成失败：${error.message || "未知错误"}\n\n请检查网络连接后重试`);
+      sessionStorage.removeItem("itsmebook_generating_session");
     } finally {
-      setIsGenerating(false);
+      // 只有完成或失败才停止，进行中不停止
+      if (generationStep === "completed" || generationStep === "failed") {
+        setIsGenerating(false);
+      }
     }
   };
+  
+  // 轮询恢复进行中的生成任务
+  const pollGenerationStatus = useCallback(async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/story/generation-status?sessionId=${sessionId}`);
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      if (!data.success || !data.exists) return;
+      
+      if (data.status === "completed") {
+        setGenerationProgress(100);
+        setGenerationStep("completed");
+        setIsGenerating(false);
+        if (data.result?.bookId) {
+          setCompletedBookId(data.result.bookId);
+        }
+        sessionStorage.removeItem("itsmebook_generating_session");
+        setCurrentSessionId(null);
+      } else if (data.status === "failed") {
+        setGenerationStep("failed");
+        setGenerationError(data.step || "生成失败");
+        setIsGenerating(false);
+        sessionStorage.removeItem("itsmebook_generating_session");
+        setCurrentSessionId(null);
+      } else if (data.status === "generating" || data.status === "pending") {
+        setIsGenerating(true);
+        setGenerationProgress(data.progress || 0);
+        // 把服务端step映射到前端GenerationStep
+        const stepMap: Record<string, GenerationStep> = {
+          "正在生成故事文本...": "generating_story",
+          "故事文本生成完成": "generating_story",
+          "语音生成完成": "generating_audio",
+          "配图生成完成": "generating_images",
+        };
+        setGenerationStep(stepMap[data.step] || "generating_story");
+      }
+    } catch (e) {
+      console.error("轮询生成状态失败:", e);
+    }
+  }, []);
   
   // 文件转 Base64
   const fileToBase64 = (file: File): Promise<string> => {
