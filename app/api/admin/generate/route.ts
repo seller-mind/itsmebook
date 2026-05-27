@@ -23,19 +23,22 @@ function sendProgress(step: string, progress: number, data: any = {}): string {
 
 // 更新Supabase生成进度（用于切走页面后恢复）
 async function updateSupabaseProgress(sessionId: string, data: {
-  status?: string;
+  status?: 'pending' | 'generating' | 'completed' | 'failed';
   progress?: number;
   step?: string;
   result?: any;
 }) {
   // 始终写入内存缓存（用于轮询恢复）
   const cached = generationCache.get(sessionId);
+  const newStatus: 'pending' | 'generating' | 'completed' | 'failed' = data.status || cached?.status || "generating";
+  const now = Date.now();
   generationCache.set(sessionId, {
-    status: data.status || cached?.status || "generating",
+    status: newStatus,
     progress: data.progress ?? cached?.progress ?? 0,
     step: data.step || cached?.step || "",
     result: data.result || cached?.result,
-    updatedAt: Date.now(),
+    updatedAt: now,
+    createdAt: cached?.createdAt || now,
   });
   
   try {

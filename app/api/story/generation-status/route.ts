@@ -39,11 +39,12 @@ export async function GET(request: NextRequest) {
       if (!error && data) {
         // 同步到内存缓存
         generationCache.set(sessionId, {
-          status: data.status,
+          status: data.status as 'pending' | 'generating' | 'completed' | 'failed',
           progress: data.progress || 0,
           step: data.step || "",
           result: data.result,
           updatedAt: now,
+          createdAt: now,
         });
         
         return NextResponse.json({

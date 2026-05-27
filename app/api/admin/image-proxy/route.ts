@@ -1,51 +1,63 @@
 /**
- * 图片代理API - 是我呀
+ * 图片代理API - 是我呀 V2（兼容层）
+ * 
+ * 主要用途：兼容旧数据中的dashscope临时URL
+ * 新生成的图片已存储在Supabase Storage，直接访问无需代理
+ * 
  * GET /api/admin/image-proxy?url=XXX
- * POST /api/admin/image-proxy  body: { url: "XXX" }
+ * GET /api/admin/image-proxy?b64=XXX  (base64编码的URL，避免&参数截断)
  * 
- * 解决dashscope OSS图片不支持CORS的问题
- * 服务端中转图片并添加CORS头，使Canvas可以读取图片数据
- * 
- * 推荐使用POST方式传递URL，避免GET query中OSS签名参数被截断
+ * 使用说明：
+ * - 新图片：存储在Supabase Storage，有CORS支持，直接使用无需代理
+ * - 旧图片：dashscope临时URL走此代理解决CORS问题
  */
 
 import { NextRequest, NextResponse } from "next/server";
+
+// 允许的域名
+const ALLOWED_HOSTS = [
+  "dashscope-result-bj.oss-cn-beijing.aliyuncs.com",
+  "dashscope-7c2c.oss-accelerate.aliyuncs.com",
+  ".oss-cn-beijing.aliyuncs.com",
+  ".oss-accelerate.aliyuncs.com",
+  ".aliyuncs.com",
+  "dashscope",
+];
 
 // 校验URL是否来自允许的域名
 function isUrlAllowed(url: string): boolean {
   try {
     const urlObj = new URL(url);
-    const allowedPatterns = [
-      "dashscope-result-bj.oss-cn-beijing.aliyuncs.com",
-      "dashscope-7c2c.oss-accelerate.aliyuncs.com",
-      ".oss-cn-beijing.aliyuncs.com",
-      ".oss-accelerate.aliyuncs.com",
-      ".aliyuncs.com",
-      "placehold.co",
-      "images.unsplash.com",
-    ];
-    return allowedPatterns.some(pattern => urlObj.hostname.includes(pattern));
+    const hostname = urlObj.hostname;
+    return ALLOWED_HOSTS.some(pattern => hostname.includes(pattern));
   } catch {
     return false;
   }
 }
 
-// 实际获取图片的逻辑
-async function fetchImage(url: string) {
+// 获取图片数据
+async function fetchImage(url: string): Promise<NextResponse> {
   if (!isUrlAllowed(url)) {
     return NextResponse.json({ error: "Host not allowed" }, { status: 403 });
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     const response = await fetch(url, {
-      signal: AbortSignal.timeout(15000),
+      signal: controller.signal,
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; ItsMeBook/1.0)",
       },
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return NextResponse.json({ error: "Upstream fetch failed" }, { status: response.status });
+      return NextResponse.json(
+        { error: `Upstream fetch failed: ${response.status}` },
+        { status: response.status }
+      );
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
@@ -57,20 +69,24 @@ async function fetchImage(url: string) {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400, immutable",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Max-Age": "86400",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      return NextResponse.json({ error: "Image fetch timeout" }, { status: 504 });
+    }
     return NextResponse.json({ error: "Image fetch failed" }, { status: 500 });
   }
 }
 
+// GET方式：支持url参数或base64编码的b64参数
 export async function GET(request: NextRequest) {
   let url = request.nextUrl.searchParams.get("url");
   const b64 = request.nextUrl.searchParams.get("b64");
-  
-  // 优先用base64编码的URL（避免OSS签名参数被截断）
+
+  // 优先用base64编码的URL（避免OSS签名参数&被截断）
   if (b64) {
     try {
       url = Buffer.from(b64, "base64url").toString("utf-8");
@@ -78,14 +94,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid base64 URL" }, { status: 400 });
     }
   }
-  
+
   if (!url) {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400 });
   }
+
   return fetchImage(url);
 }
 
-// POST方式：body中传URL，避免GET query中OSS签名参数被截断
+// POST方式：body中传URL
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -99,13 +116,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 处理CORS预检请求
+// CORS预检请求
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Max-Age": "86400",
     },
   });
