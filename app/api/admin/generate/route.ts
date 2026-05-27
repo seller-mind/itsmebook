@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { generationCache } from "@/app/api/story/generation-status/route";
+import { getGenerationCache } from "@/app/api/story/generation-status/route";
 
 export const maxDuration = 60; // Vercel Hobby上限60秒
 
@@ -29,6 +29,7 @@ async function updateSupabaseProgress(sessionId: string, data: {
   result?: any;
 }) {
   // 始终写入内存缓存（用于轮询恢复）
+  const generationCache = getGenerationCache();
   const cached = generationCache.get(sessionId);
   generationCache.set(sessionId, {
     status: data.status || cached?.status || "generating",

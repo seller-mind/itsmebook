@@ -82,8 +82,6 @@ export async function POST(request: NextRequest) {
         if (!apiKey) throw new Error("缺少故事生成API密钥");
 
         const theme = STORY_THEMES.find(t => t.id === themeId) || STORY_THEMES[0];
-        const genderWord = childGender === "boy" ? "他" : "她";
-        const genderWord2 = childGender === "boy" ? "男孩" : "女孩";
 
         await supabase.from("story_generations").update({
           progress: 10, step: "正在生成故事文本..."

@@ -8,13 +8,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // 内存中的生成状态缓存（同进程内可靠）
-export const generationCache = new Map<string, {
+// 使用 as const 断言避免 Next.js Route 类型检查报错
+const generationCache = new Map<string, {
   status: string;
   progress: number;
   step: string;
   result?: any;
   updatedAt: number;
 }>();
+
+// 导出给其他模块使用（通过 getter 函数而非直接 export 变量）
+export function getGenerationCache() { return generationCache; }
 
 export async function GET(request: NextRequest) {
   try {

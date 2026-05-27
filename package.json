@@ -25,7 +25,8 @@
     "react": "^18",
     "react-dom": "^18",
     "react-dropzone": "^14.2.3",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "vercel": "^54.5.0"
   },
   "devDependencies": {
     "@types/node": "^20",
