@@ -52,6 +52,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'dashscope.aliyuncs.com',
       },
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+      },
     ],
   },
 };

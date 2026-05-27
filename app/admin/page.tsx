@@ -560,14 +560,21 @@ export default function AdminPage() {
       const imgH = pageW - 80; // 正方形图片
       const textY = imgY + imgH + 40;
 
-      // 动态创建canvas（避免重复DOM）
+      // 动态创建canvas
       const canvas = document.createElement("canvas");
       canvas.width = pageW;
       canvas.height = pageH;
       const ctx = canvas.getContext("2d")!;
 
+      // 创建PDF（一次实例，逐页添加）
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+
       for (let i = 0; i < pages.length; i++) {
         const p = pages[i];
+
+        // 第一页之后的页面需要addPage
+        if (i > 0) pdf.addPage();
 
         // 白色背景
         ctx.fillStyle = "#ffffff";
@@ -577,7 +584,7 @@ export default function AdminPage() {
         const imgUrl = getImageSrc(p.imageUrl);
         if (imgUrl && !imgUrl.includes("placehold.co")) {
           try {
-            await new Promise<void>((resolve, reject) => {
+            await new Promise<void>((resolve) => {
               const img = new Image();
               img.crossOrigin = "anonymous";
               img.src = imgUrl;
@@ -585,8 +592,8 @@ export default function AdminPage() {
                 ctx.drawImage(img, 40, imgY, pageW - 80, imgH);
                 resolve();
               };
-              img.onerror = () => resolve(); // 图片失败继续
-              setTimeout(() => resolve(), 3000); // 3秒超时
+              img.onerror = () => resolve();
+              setTimeout(() => resolve(), 5000); // 5秒超时
             });
           } catch {}
         }
@@ -596,38 +603,16 @@ export default function AdminPage() {
         ctx.font = i === 0 ? "bold 24px 'PingFang SC', 'Microsoft YaHei', sans-serif" : "18px 'PingFang SC', 'Microsoft YaHei', sans-serif";
         ctx.textAlign = "center";
         const text = p.text || "";
-        const lines: string[] = [];
-        let currentLine = "";
-        for (const char of text) {
-          const testLine = currentLine + char;
-          if (ctx.measureText(testLine).width > pageW - 100) {
-            lines.push(currentLine);
-            currentLine = char;
-          } else {
-            currentLine = testLine;
-          }
-        }
-        if (currentLine) lines.push(currentLine);
 
-        let y = textY;
-        for (const line of lines.slice(0, 6)) {
-          ctx.fillText(line, pageW / 2, y);
-          y += 28;
-        }
+        // 使用drawWrappedText
+        drawWrappedText(ctx, text, pageW / 2, textY, pageW - 100, 28, 6);
 
-        // 添加到PDF
-        if (i > 0) {
-          const { jsPDF } = await import("jspdf");
-          const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-          const imgData = canvas.toDataURL("image/jpeg", 0.9);
-          pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH);
-          if (i < pages.length - 1) pdf.addPage();
-        }
+        // 将canvas添加到PDF
+        const imgData = canvas.toDataURL("image/jpeg", 0.9);
+        pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH);
       }
 
       // 触发下载
-      const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       pdf.save(`${completedBook.title || "我的绘本"}.pdf`);
     } catch (err) {
       console.error("PDF生成失败:", err);
