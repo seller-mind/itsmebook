@@ -3,19 +3,22 @@
  * POST /api/voice/tts
  * 使用阿里云百炼CosyVoice语音合成，将文本转为MP3音频
  * 
+ * 支持两种模式：
+ * 1. 默认模式：返回音频URL（有效期24h）
+ * 2. returnAudioData=true：直接返回音频base64数据（彻底解决CORS问题）
+ * 
  * API文档: https://help.aliyun.com/zh/model-studio/non-realtime-cosyvoice-api/
  * 端点: POST https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer
- * 返回: JSON { output: { audio: { url: "..." } } } — 音频URL有效期24h
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = 60; // 允许60秒执行时间
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { text, voice } = body;
+    const { text, voice, returnAudioData } = body;
 
     if (!text || text.trim().length === 0) {
       return NextResponse.json(
@@ -43,8 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 调用百炼CosyVoice TTS (非流式)
-    // 注意：v3.5模型不支持v3系列系统音色(如longhuhu_v3)，需使用v3-flash模型
-    const ttsVoice = voice || "longhuhu_v3"; // 默认用龙呼呼：天真烂漫女童(6-10岁)，最适合讲儿童睡前故事
+    const ttsVoice = voice || "longhuhu_v3";
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -60,15 +62,15 @@ export async function POST(request: NextRequest) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "cosyvoice-v3-flash", // v3-flash支持longhuhu_v3系统音色
+            model: "cosyvoice-v3-flash",
             input: {
               text: truncatedText,
               voice: ttsVoice,
               format: "mp3",
               sample_rate: 24000,
-              rate: 0.9, // 稍慢语速，适合讲故事
+              rate: 0.9,
               volume: 50,
-              language_hints: ["zh"], // 中文
+              language_hints: ["zh"],
             },
           }),
           signal: controller.signal,
@@ -87,7 +89,6 @@ export async function POST(request: NextRequest) {
     }
     clearTimeout(timeoutId);
 
-    // 检查响应状态
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[TTS] CosyVoice API error:", response.status, errorText.substring(0, 500));
@@ -107,9 +108,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // CosyVoice非流式API返回JSON，包含output.audio.url
     const result = await response.json();
-    
     const audioUrl = result?.output?.audio?.url;
     
     if (!audioUrl) {
@@ -121,9 +120,39 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 直接返回百炼音频URL（有效期24h）
-    // 前端通过<audio>标签播放，不受CORS限制
-    // 不再在服务端下载转base64，节省Vercel函数运行时间
+    // 如果请求了音频数据，服务端下载后返回base64（彻底解决CORS问题）
+    if (returnAudioData) {
+      try {
+        console.log("[TTS] 下载音频数据用于base64返回...");
+        const audioResponse = await fetch(audioUrl, {
+          signal: AbortSignal.timeout(15000),
+        });
+        if (!audioResponse.ok) {
+          throw new Error(`音频下载失败: ${audioResponse.status}`);
+        }
+        const arrayBuffer = await audioResponse.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString("base64");
+        
+        console.log(`[TTS] 音频数据大小: ${arrayBuffer.byteLength} bytes, base64长度: ${base64.length}`);
+        
+        return NextResponse.json({
+          success: true,
+          audioUrl,          // 仍然返回URL，方便预览播放
+          audioDataBase64: base64,  // base64编码的MP3数据
+          audioFormat: "mp3",
+        });
+      } catch (downloadErr: any) {
+        console.error("[TTS] 音频下载失败，回退到URL模式:", downloadErr);
+        // 降级：返回URL，前端需要通过代理下载
+        return NextResponse.json({
+          success: true,
+          audioUrl,
+          message: "音频数据下载失败，已回退到URL模式",
+        });
+      }
+    }
+
+    // 默认模式：只返回URL
     return NextResponse.json({
       success: true,
       audioUrl: audioUrl,

@@ -253,62 +253,122 @@ export default function AdminPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const uploadSectionRef = useRef<HTMLDivElement | null>(null);
-  // SSE和轮询相关refs已移除（改用分步调用）
-  const completedSectionRef = useRef<HTMLDivElement | null>(null); // 完成区域ref
+  const completedSectionRef = useRef<HTMLDivElement | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null); // 轮询定时器
   
   // 已通过密码验证，不需要再检查 admin 模式
 
-  // 轮询恢复进行中的生成任务（定义在useEffect前面，避免hoisting问题）
-  const pollGenerationStatus = useCallback(async (sid: string) => {
-    try {
-      const response = await fetch(`/api/story/generation-status?sessionId=${sid}`);
-      if (!response.ok) return;
-      
-      const data = await response.json();
-      if (!data.success || !data.exists) return;
-      
-      if (data.status === "completed") {
-        setGenerationProgress(100);
-        setGenerationStep("completed");
-        setIsGenerating(false);
-        if (data.result?.bookId) {
-          setCompletedBookId(data.result.bookId);
-        }
-        sessionStorage.removeItem("itsmebook_generating_session");
-        setCurrentSessionId(null);
-      } else if (data.status === "failed") {
-        setGenerationStep("failed");
-        setGenerationError(data.step || "生成失败");
-        setIsGenerating(false);
-        sessionStorage.removeItem("itsmebook_generating_session");
-        setCurrentSessionId(null);
-      } else if (data.status === "generating" || data.status === "pending") {
-        setIsGenerating(true);
-        setGenerationProgress(data.progress || 0);
-        const stepMap: Record<string, GenerationStep> = {
-          "正在生成故事文本...": "generating_story",
-          "故事文本生成完成": "generating_story",
-          "语音生成完成": "generating_audio",
-          "配图生成完成": "generating_images",
-        };
-        setGenerationStep(stepMap[data.step] || "generating_story");
-      }
-    } catch (e) {
-      console.error("轮询生成状态失败:", e);
+  // ====== Pipeline轮询逻辑 ======
+  
+  // 停止轮询
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
   }, []);
 
-  // 页面加载时检查是否有进行中的生成任务（仅恢复场景用）
-  useEffect(() => {
-    const savedSessionId = sessionStorage.getItem("itsmebook_generating_session");
-    if (savedSessionId) {
-      // 有保存的session，检查是否已完成
-      pollGenerationStatus(savedSessionId);
+  // 处理轮询到的状态数据
+  const handlePollResult = useCallback((data: any, sid: string) => {
+    if (data.status === "completed") {
+      setGenerationProgress(100);
+      setGenerationStep("completed");
+      setIsGenerating(false);
+      stopPolling();
+      localStorage.removeItem("itsmebook_generating_session");
+      
+      // 加载完成的结果
+      if (data.result) {
+        const r = data.result;
+        const storyData = {
+          title: r.title || form.childName + "的绘本",
+          childName: form.childName,
+          pages: (r.pages || []).map((p: any, i: number) => ({
+            pageNumber: p.page_number || i + 1,
+            text: p.text,
+            imageUrl: p.image_url,
+            audioUrl: p.audio_url || undefined,
+          })),
+        };
+        setCompletedStory(storyData);
+        if (r.bookId) setCompletedBookId(r.bookId);
+        
+        // 保存到localStorage
+        const playerData = { ...storyData, voiceUrl: "" };
+        sessionStorage.setItem("bedtime_story", JSON.stringify(playerData));
+        localStorage.setItem("itsmebook_last_story", JSON.stringify(playerData));
+        
+        try {
+          const booksStr = localStorage.getItem("itsmebook_books");
+          const books = booksStr ? JSON.parse(booksStr) : [];
+          books.unshift({
+            id: r.bookId || Date.now().toString(), title: storyData.title,
+            childName: storyData.childName, pages: storyData.pages,
+            createdAt: new Date().toISOString(), isAdminGenerated: true,
+          });
+          localStorage.setItem("itsmebook_books", JSON.stringify(books.slice(0, 50)));
+        } catch {}
+      }
+    } else if (data.status === "failed") {
+      setGenerationStep("failed");
+      setGenerationError(data.step || "生成失败");
+      setIsGenerating(false);
+      stopPolling();
+      localStorage.removeItem("itsmebook_generating_session");
+    } else {
+      // 还在生成中，更新进度
+      setGenerationProgress(data.progress || 0);
+      // 根据进度推断步骤
+      const p = data.progress || 0;
+      if (p < 15) setGenerationStep("generating_story");
+      else if (p < 90) setGenerationStep("generating_images");
+      else setGenerationStep("completed");
     }
-  }, [pollGenerationStatus]);
+  }, [form.childName, stopPolling]);
 
-  // 轮询已禁用 - 分步调用模式下不需要轮询
-  // 进度由每个步骤的API响应直接更新，不再从Supabase读旧数据覆盖
+  // 开始轮询
+  const startPolling = useCallback((sid: string) => {
+    stopPolling(); // 先停止旧的
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/admin/generate-status?sessionId=${sid}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.success) handlePollResult(data, sid);
+      } catch (e) {
+        console.error("轮询失败:", e);
+      }
+    };
+    // 立即执行一次，然后每2秒执行
+    poll();
+    pollingIntervalRef.current = setInterval(poll, 2000);
+  }, [stopPolling, handlePollResult]);
+
+  // 页面加载时恢复进行中的生成任务
+  useEffect(() => {
+    const savedSid = localStorage.getItem("itsmebook_generating_session");
+    if (savedSid) {
+      setIsGenerating(true);
+      setCurrentSessionId(savedSid);
+      startPolling(savedSid);
+    }
+    return () => stopPolling();
+  }, [startPolling, stopPolling]);
+
+  // 页面可见性变化时恢复轮询
+  useEffect(() => {
+    const handleVisibility = () => {
+      const savedSid = localStorage.getItem("itsmebook_generating_session");
+      if (document.visibilityState === "visible" && savedSid && !pollingIntervalRef.current) {
+        // 页面重新可见，恢复轮询
+        setIsGenerating(true);
+        setCurrentSessionId(savedSid);
+        startPolling(savedSid);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [startPolling]);
 
   // 监听套餐变化 - 自动滚动到上传区域
   useEffect(() => {
@@ -428,7 +488,7 @@ export default function AdminPage() {
     setForm(prev => ({ ...prev, childPhotoFile: null }));
   };
   
-  // 生成绘本
+  // 生成绘本 - 使用后台Pipeline + 轮询（解决切换页面后生成中断的问题）
   const generateBook = async () => {
     if (form.planId === "custom-advanced") {
       if (form.customPrompt.trim().length < 10) {
@@ -455,13 +515,16 @@ export default function AdminPage() {
     setGenerationProgress(0);
     setGenerationError(null);
     setCompletedStory(null);
+    setVideoBlobUrl(null);
     
     try {
       const sessionId = uuidv4();
       setCurrentSessionId(sessionId);
       
-      // 上传语音（如果有）
+      // 前置步骤：上传语音/照片（这些需要客户端处理）
       let clonedVoiceId = form.voiceId;
+      let photoBase64: string | undefined;
+      
       if (form.useClonedVoice && form.parentVoiceFile) {
         setGenerationStep("cloning_voice");
         setGenerationProgress(3);
@@ -480,152 +543,52 @@ export default function AdminPage() {
         setGenerationProgress(5);
       }
       
-      // 上传照片（如果有）
-      let photoBase64: string | undefined;
       if (form.useChildPhoto && form.childPhotoFile) {
         setGenerationStep("uploading_photo");
         photoBase64 = await fileToBase64(form.childPhotoFile);
         setGenerationProgress(8);
       }
       
-      // ====== 步骤1: init ======
+      // 保存sessionId到localStorage（页面刷新/切换后可恢复）
+      localStorage.setItem("itsmebook_generating_session", sessionId);
+      
+      // ====== 调用后台Pipeline ======
       setGenerationStep("generating_story");
       setGenerationProgress(10);
-      const initRes = await fetchWithRetry("/api/admin/generate-step", {
+      
+      // 发起pipeline请求（服务端后台执行，不阻塞前端）
+      fetchWithRetry("/api/admin/generate-pipeline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          step: "init", sessionId,
+          sessionId,
           params: {
             childName: form.childName || "自定义",
             childAge: form.childAge,
+            childGender: form.childGender,
             themeId: form.themeId,
             styleId: form.styleId,
             planId: form.planId,
+            pageCount: form.pageCount,
             customPrompt: form.planId === "custom-advanced" ? form.customPrompt : undefined,
-          }
-        }),
-      });
-      if (!initRes.ok) throw new Error("初始化失败");
-      
-      // ====== 步骤2: 生成故事 ======
-      setGenerationProgress(12);
-      const storyRes = await fetchWithRetry("/api/admin/generate-step", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          step: "story", sessionId,
-          childName: form.childName, childAge: form.childAge,
-          childGender: form.childGender, themeId: form.themeId,
-          pageCount: form.pageCount,
-          customPrompt: form.planId === "custom-advanced" ? form.customPrompt : undefined,
-        }),
-      });
-      if (!storyRes.ok) throw new Error("故事生成请求失败");
-      const storyData = await storyRes.json();
-      if (!storyData.success) throw new Error(storyData.message || "故事生成失败");
-      
-      const storyPages = storyData.story.pages;
-      const storyTitle = storyData.story.title;
-      setGenerationProgress(20);
-      setGenerationStep("generating_images");
-      
-      // ====== 步骤3: 生成图片（分批，每批4张，每批<25秒）======
-      const batchSize = 4;
-      let currentPages = storyPages;
-      for (let batch = 0; batch < storyPages.length; batch += batchSize) {
-        const from = batch;
-        const to = Math.min(batch + batchSize - 1, storyPages.length - 1);
-        
-        const imgRes = await fetchWithRetry("/api/admin/generate-step", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            step: "images", sessionId,
-            pages: currentPages, fromIndex: from, toIndex: to,
-            styleId: form.styleId, refImageBase64: photoBase64,
-          }),
-        });
-        
-        if (!imgRes.ok) throw new Error(`图片生成请求失败 (页${from+1}-${to+1})`);
-        const imgData = await imgRes.json();
-        if (imgData.success && imgData.pages) {
-          currentPages = imgData.pages;
-        }
-        
-        setGenerationProgress(imgData.progress || 50);
-      }
-      
-      // ====== 步骤4: 保存完成 ======
-      setGenerationStep("completed");
-      setGenerationProgress(95);
-      const completeRes = await fetchWithRetry("/api/admin/generate-step", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          step: "complete", sessionId,
-          pages: currentPages, title: storyTitle,
-          params: {
-            childName: form.childName, childAge: form.childAge,
-            themeId: form.themeId, styleId: form.styleId,
+            refImageBase64: photoBase64,
+            voiceId: clonedVoiceId,
           },
         }),
+      }).catch(err => {
+        // pipeline请求失败不影响轮询（服务端可能已在运行）
+        console.error("Pipeline请求失败（不影响后台运行）:", err);
       });
       
-      if (!completeRes.ok) throw new Error("保存失败");
-      const completeData = await completeRes.json();
-      if (!completeData.success) throw new Error(completeData.message || "保存失败");
-      
-      // ====== 完成 ======
-      const finalStory = {
-        title: storyTitle,
-        childName: form.childName,
-        pages: currentPages.map((p: any, i: number) => ({
-          pageNumber: p.page_number || i + 1,
-          text: p.text,
-          imageUrl: p.image_url,
-          audioUrl: undefined,
-        })),
-      };
-      
-      setCompletedStory(finalStory);
-      setCompletedBookId(completeData.bookId);
-      setGenerationProgress(100);
-      setGenerationStep("completed");
-      setIsGenerating(false);
-      
-      // 保存到localStorage（供player页面读取）
-      const playerData = { ...finalStory, voiceUrl: "" };
-      sessionStorage.setItem("bedtime_story", JSON.stringify(playerData));
-      localStorage.setItem("itsmebook_last_story", JSON.stringify(playerData));
-      
-      // 存入绘本列表
-      try {
-        const booksStr = localStorage.getItem("itsmebook_books");
-        const books = booksStr ? JSON.parse(booksStr) : [];
-        books.unshift({
-          id: completeData.bookId, title: storyTitle, childName: form.childName,
-          pages: finalStory.pages, createdAt: new Date().toISOString(), isAdminGenerated: true,
-        });
-        localStorage.setItem("itsmebook_books", JSON.stringify(books.slice(0, 50)));
-      } catch {}
-      
-      // 不跳转，留在admin页面，用户可以直接查看和下载
+      // ====== 开始轮询进度 ======
+      startPolling(sessionId);
       
     } catch (error: any) {
-      console.error("生成失败:", error);
+      console.error("生成启动失败:", error);
       setGenerationStep("failed");
-      const errorMsg = error.message || "未知错误";
-      const isNetworkError = errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError") || errorMsg.includes("Load failed");
-      setGenerationError(isNetworkError 
-        ? "网络连接失败，请检查网络后重试" 
-        : errorMsg);
+      setGenerationError(error.message || "未知错误");
       setIsGenerating(false);
-      if (isNetworkError) {
-        alert(`网络连接失败，请检查网络后重试。\n\n提示：如果持续失败，请尝试刷新页面后再生成。`);
-      } else {
-        alert(`生成失败：${errorMsg}\n\n请重试`);
-      }
+      localStorage.removeItem("itsmebook_generating_session");
     }
   };
   
@@ -853,9 +816,7 @@ export default function AdminPage() {
         pageCanvases.push(pc);
       }
 
-      // 2. 预生成TTS音频并通过代理下载为AudioBuffer
-      // 关键修复：TTS返回的音频URL来自aliyuncs.com，浏览器直接fetch会CORS失败
-      // 必须通过image-proxy中转（它支持所有aliyuncs.com域名）
+      // 2. 预生成TTS音频（使用returnAudioData=true直接返回base64，彻底解决CORS问题）
       const audioBuffers: (AudioBuffer | null)[] = new Array(pages.length).fill(null);
       const tmpAudioCtx = new AudioContext();
       await tmpAudioCtx.resume();
@@ -866,12 +827,24 @@ export default function AdminPage() {
           const ttsRes = await fetchWithRetry("/api/voice/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: pages[i].text }),
+            body: JSON.stringify({ text: pages[i].text, returnAudioData: true }),
           });
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json();
-            if (ttsData.success && ttsData.audioUrl) {
-              // 通过代理下载音频文件（解决CORS问题）
+            if (ttsData.success && ttsData.audioDataBase64) {
+              // 直接从base64解码音频（不需要走代理，彻底解决CORS）
+              try {
+                const binaryStr = atob(ttsData.audioDataBase64);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
+                const arrayBuffer = bytes.buffer;
+                audioBuffers[i] = await tmpAudioCtx.decodeAudioData(arrayBuffer);
+                audioSuccessCount++;
+              } catch (decodeErr) {
+                console.error(`第${i+1}页音频解码失败:`, decodeErr);
+              }
+            } else if (ttsData.success && ttsData.audioUrl) {
+              // 降级：使用代理方式
               const proxyAudioUrl = `/api/admin/image-proxy?url=${encodeURIComponent(ttsData.audioUrl)}`;
               const audioRes = await fetchWithRetry(proxyAudioUrl, {});
               if (audioRes.ok) {
@@ -882,8 +855,6 @@ export default function AdminPage() {
                 } catch (decodeErr) {
                   console.error(`第${i+1}页音频解码失败:`, decodeErr);
                 }
-              } else {
-                console.error(`第${i+1}页音频代理下载失败: status=${audioRes.status}`);
               }
             }
           }
@@ -1051,31 +1022,43 @@ export default function AdminPage() {
         pageCanvases.push(pc);
       }
 
-      // 2. TTS音频通过代理下载（解决CORS）
+      // 2. TTS音频（使用returnAudioData=true直接返回base64，彻底解决CORS）
       const audioBuffers: (AudioBuffer | null)[] = new Array(pages.length).fill(null);
       const tmpAudioCtx = new AudioContext();
       await tmpAudioCtx.resume();
+      let audioSuccessCount = 0;
       for (let i = 0; i < pages.length; i++) {
         try {
           const ttsRes = await fetchWithRetry("/api/voice/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: pages[i].text, voice: form.voiceId }),
+            body: JSON.stringify({ text: pages[i].text, voice: form.voiceId, returnAudioData: true }),
           });
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json();
-            if (ttsData.success && ttsData.audioUrl) {
+            if (ttsData.success && ttsData.audioDataBase64) {
+              // 直接从base64解码音频（彻底解决CORS）
+              try {
+                const binaryStr = atob(ttsData.audioDataBase64);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
+                audioBuffers[i] = await tmpAudioCtx.decodeAudioData(bytes.buffer);
+                audioSuccessCount++;
+              } catch (e) { console.error(`第${i+1}页音频解码失败:`, e); }
+            } else if (ttsData.success && ttsData.audioUrl) {
+              // 降级：代理方式
               const proxyAudioUrl = `/api/admin/image-proxy?url=${encodeURIComponent(ttsData.audioUrl)}`;
               const audioRes = await fetchWithRetry(proxyAudioUrl, {});
               if (audioRes.ok) {
                 const arrayBuffer = await audioRes.arrayBuffer();
-                try { audioBuffers[i] = await tmpAudioCtx.decodeAudioData(arrayBuffer); } catch {}
+                try { audioBuffers[i] = await tmpAudioCtx.decodeAudioData(arrayBuffer); audioSuccessCount++; } catch (e) { console.error(`第${i+1}页音频解码失败:`, e); }
               }
             }
           }
-        } catch {}
+        } catch (e) { console.error(`第${i+1}页TTS失败:`, e); }
       }
       tmpAudioCtx.close();
+      console.log(`[视频] 音频准备完成: ${audioSuccessCount}/${pages.length}页成功`);
 
       // 3. 录制
       const recordCanvas = document.createElement("canvas");
