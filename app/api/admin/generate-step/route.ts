@@ -89,8 +89,12 @@ export async function POST(request: NextRequest) {
           progress: 10, step: "正在生成故事文本..."
         }).eq("session_id", sessionId);
 
-        // 自由高阶版：用户自定义需求优先
+        // 自由高阶版：用户自定义需求优先，不需要childName/age/gender
         const isCustomAdvanced = !!customPrompt && customPrompt.trim().length >= 10;
+        const childNameOrDefault = childName || "小朋友";
+        const childAgeOrDefault = childAge || 5;
+        const genderWord = childGender === "boy" ? "他" : (childGender === "girl" ? "她" : "TA");
+        const genderWord2 = childGender === "boy" ? "男孩" : (childGender === "girl" ? "女孩" : "孩子");
         const systemContent = isCustomAdvanced
           ? `你是专业儿童绘本作家，擅长根据用户的个性化需求创作独一无二的儿童故事。
 
@@ -98,18 +102,19 @@ export async function POST(request: NextRequest) {
 ${customPrompt}
 
 写作要求：
-- 主角是名叫"${childName}"的${genderWord2}，年龄${childAge}岁
 - 严格按照用户的自定义需求来创作故事，优先满足用户要求
+- 如果用户需求中指定了主角名字/年龄/性别，请严格遵循
+- 如果用户未指定主角，自行创作合适的主角
 - ${pageCount}页故事，封面+${pageCount - 2}页内容+封底
 - 语言童趣可爱，避免说教
-- 每页配图描述要详细具体，包含场景、角色动作、表情、色调等
+- 每页配图描述要详细具体，包含场景、角色动作、表情、色调、画风等
 
 输出格式（严格JSON，不要任何其他文字）：
 {"title": "故事标题", "pages": [{"page_number": 1, "text": "封面文字", "image_prompt": "封面配图描述"}, ...]}`
           : `你是专业儿童绘本作家，擅长创作温馨感人的儿童故事。
 
 写作要求：
-- 主角是名叫"${childName}"的${genderWord2}，年龄${childAge}岁
+- 主角是名叫"${childNameOrDefault}"的${genderWord2}，年龄${childAgeOrDefault}岁
 - ${theme.prompt}
 - ${pageCount}页故事，封面+${pageCount - 2}页内容+封底
 - 语言童趣可爱，避免说教
@@ -118,8 +123,8 @@ ${customPrompt}
 {"title": "故事标题", "pages": [{"page_number": 1, "text": "封面文字", "image_prompt": "封面配图描述"}, ...]}`;
 
         const userContent = isCustomAdvanced
-          ? `请严格按照以下需求为${childName}创作绘本，${pageCount}页：\n${customPrompt}\n\n只要JSON，不要其他文字。`
-          : `请为${childName}创作一个温馨的${theme.name}故事，${pageCount}页。只要JSON，不要其他文字。`;
+          ? `请严格按照以下需求创作绘本，${pageCount}页：\n${customPrompt}\n\n只要JSON，不要其他文字。`
+          : `请为${childNameOrDefault}创作一个温馨的${theme.name}故事，${pageCount}页。只要JSON，不要其他文字。`;
 
         const response = await fetch(endpoint, {
           method: "POST",

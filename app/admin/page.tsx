@@ -430,13 +430,16 @@ export default function AdminPage() {
   
   // 生成绘本
   const generateBook = async () => {
-    if (!form.childName.trim()) {
-      alert("请输入孩子名字");
-      return;
-    }
-    if (form.planId === "custom-advanced" && form.customPrompt.trim().length < 10) {
-      alert("自由高阶版请至少输入10个字描述你的需求");
-      return;
+    if (form.planId === "custom-advanced") {
+      if (form.customPrompt.trim().length < 10) {
+        alert("自由高阶版请至少输入10个字描述你的需求");
+        return;
+      }
+    } else {
+      if (!form.childName.trim()) {
+        alert("请输入孩子名字");
+        return;
+      }
     }
     if (form.useClonedVoice && !form.parentVoiceFile) {
       alert("请先录制家长语音片段");
@@ -493,7 +496,14 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           step: "init", sessionId,
-          params: { childName: form.childName, childAge: form.childAge, themeId: form.themeId, styleId: form.styleId }
+          params: {
+            childName: form.childName || "自定义",
+            childAge: form.childAge,
+            themeId: form.themeId,
+            styleId: form.styleId,
+            planId: form.planId,
+            customPrompt: form.planId === "custom-advanced" ? form.customPrompt : undefined,
+          }
         }),
       });
       if (!initRes.ok) throw new Error("初始化失败");
@@ -1140,63 +1150,65 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* 孩子信息 */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span>👶</span> 孩子信息
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    孩子名字
-                  </label>
-                  <input
-                    type="text"
-                    value={form.childName}
-                    onChange={(e) => setForm(prev => ({ ...prev, childName: e.target.value }))}
-                    placeholder="输入孩子名字（绘本主角）"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+            {/* 孩子信息（自由高阶版隐藏，全由用户自定义描述） */}
+            {form.planId !== "custom-advanced" && (
+              <div className="bg-white rounded-2xl shadow-md p-6">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <span>👶</span> 孩子信息
+                </h2>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      年龄
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      孩子名字
                     </label>
-                    <select
-                      value={form.childAge}
-                      onChange={(e) => setForm(prev => ({ ...prev, childAge: Number(e.target.value) }))}
+                    <input
+                      type="text"
+                      value={form.childName}
+                      onChange={(e) => setForm(prev => ({ ...prev, childName: e.target.value }))}
+                      placeholder="输入孩子名字（绘本主角）"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
-                    >
-                      {AGE_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      性别
-                    </label>
-                    <div className="flex gap-2">
-                      {GENDER_OPTIONS.map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setForm(prev => ({ ...prev, childGender: opt.value as "boy" | "girl" }))}
-                          className={`flex-1 py-2 rounded-lg border-2 transition-all ${
-                            form.childGender === opt.value
-                              ? "border-orange-400 bg-orange-50 text-orange-700"
-                              : "border-gray-200 text-gray-600 hover:border-gray-300"
-                          }`}
-                        >
-                          {opt.emoji} {opt.label}
-                        </button>
-                      ))}
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        年龄
+                      </label>
+                      <select
+                        value={form.childAge}
+                        onChange={(e) => setForm(prev => ({ ...prev, childAge: Number(e.target.value) }))}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
+                      >
+                        {AGE_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        性别
+                      </label>
+                      <div className="flex gap-2">
+                        {GENDER_OPTIONS.map(opt => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setForm(prev => ({ ...prev, childGender: opt.value as "boy" | "girl" }))}
+                            className={`flex-1 py-2 rounded-lg border-2 transition-all ${
+                              form.childGender === opt.value
+                                ? "border-orange-400 bg-orange-50 text-orange-700"
+                                : "border-gray-200 text-gray-600 hover:border-gray-300"
+                            }`}
+                          >
+                            {opt.emoji} {opt.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* 照片上传（孩子主角） */}
             {(form.planId === "child-hero" || form.useChildPhoto) && (
@@ -1395,51 +1407,55 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* 主题选择 */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span>🎭</span> 故事主题
-              </h2>
-              <div className="grid grid-cols-3 gap-2">
-                {STORY_THEMES.slice(0, 9).map(theme => (
-                  <button
-                    key={theme.id}
-                    onClick={() => setForm(prev => ({ ...prev, themeId: theme.id }))}
-                    className={`p-3 rounded-xl border-2 text-center transition-all ${
-                      form.themeId === theme.id
-                        ? "border-orange-400 bg-orange-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{theme.emoji}</div>
-                    <p className="text-xs font-medium text-gray-700">{theme.name}</p>
-                  </button>
-                ))}
+            {/* 主题选择（自由高阶版隐藏，由用户自定义描述） */}
+            {form.planId !== "custom-advanced" && (
+              <div className="bg-white rounded-2xl shadow-md p-6">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <span>🎭</span> 故事主题
+                </h2>
+                <div className="grid grid-cols-3 gap-2">
+                  {STORY_THEMES.slice(0, 9).map(theme => (
+                    <button
+                      key={theme.id}
+                      onClick={() => setForm(prev => ({ ...prev, themeId: theme.id }))}
+                      className={`p-3 rounded-xl border-2 text-center transition-all ${
+                        form.themeId === theme.id
+                          ? "border-orange-400 bg-orange-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="text-2xl mb-1">{theme.emoji}</div>
+                      <p className="text-xs font-medium text-gray-700">{theme.name}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* 画风选择 */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span>🎨</span> 画风选择
-              </h2>
-              <div className="grid grid-cols-4 gap-2">
-                {STYLES.map(style => (
-                  <button
-                    key={style.id}
-                    onClick={() => setForm(prev => ({ ...prev, styleId: style.id }))}
-                    className={`p-3 rounded-xl border-2 text-center transition-all ${
-                      form.styleId === style.id
-                        ? "border-orange-400 bg-orange-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{style.emoji}</div>
-                    <p className="text-xs font-medium text-gray-700">{style.name}</p>
-                  </button>
-                ))}
+            {/* 画风选择（自由高阶版隐藏，由用户自定义描述） */}
+            {form.planId !== "custom-advanced" && (
+              <div className="bg-white rounded-2xl shadow-md p-6">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <span>🎨</span> 画风选择
+                </h2>
+                <div className="grid grid-cols-4 gap-2">
+                  {STYLES.map(style => (
+                    <button
+                      key={style.id}
+                      onClick={() => setForm(prev => ({ ...prev, styleId: style.id }))}
+                      className={`p-3 rounded-xl border-2 text-center transition-all ${
+                        form.styleId === style.id
+                          ? "border-orange-400 bg-orange-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="text-2xl mb-1">{style.emoji}</div>
+                      <p className="text-xs font-medium text-gray-700">{style.name}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 声音选择 */}
             <div className="bg-white rounded-2xl shadow-md p-6">
@@ -1497,9 +1513,9 @@ export default function AdminPage() {
             {/* 一键生成按钮 */}
             <button
               onClick={generateBook}
-              disabled={isGenerating || !form.childName.trim() || (form.planId === "custom-advanced" && form.customPrompt.trim().length < 10)}
+              disabled={isGenerating || (form.planId === "custom-advanced" ? form.customPrompt.trim().length < 10 : !form.childName.trim())}
               className={`w-full py-4 rounded-2xl text-lg font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${
-                isGenerating || !form.childName.trim() || (form.planId === "custom-advanced" && form.customPrompt.trim().length < 10)
+                isGenerating || (form.planId === "custom-advanced" ? form.customPrompt.trim().length < 10 : !form.childName.trim())
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-gradient-to-r from-orange-500 to-primary-dark text-white hover:shadow-xl"
               }`}
