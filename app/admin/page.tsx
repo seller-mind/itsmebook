@@ -1170,7 +1170,7 @@ export default function AdminPage() {
           <div className="bg-white rounded-2xl shadow-md p-5">
             <h3 className="text-sm font-semibold text-gray-700 mb-4">📦 下载交付物</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button onClick={downloadPDF_Server} disabled={downloading.pdf}
+              <button onClick={downloadPDF} disabled={downloading.pdf}
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 font-medium">
                 {downloading.pdf ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 生成PDF中...</> : <><span className="text-xl">📄</span> 下载PDF绘本</>}
               </button>

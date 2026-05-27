@@ -219,38 +219,45 @@ ${customPrompt}
           step: `正在生成配图 (${batch + 1}-${Math.min(batch + batchSize, pagesNeedingImages.length)}/${pagesNeedingImages.length})...`
         }).eq("session_id", sessionId);
 
-        // 并行生成当前批次
+        // 并行生成当前批次（每张图最多重试2次，超时30秒）
         await Promise.all(batchItems.map(async ({ page, idx }: any) => {
-          try {
-            const fullPrompt = `${page.image_prompt}，${styleConfig.chinesePrompt}`;
-            const contentParts: any[] = [{ text: fullPrompt }];
-            if (refImageBase64) contentParts.push({ image: refImageBase64 });
+          const fullPrompt = `${page.image_prompt}，${styleConfig.chinesePrompt}`;
+          const contentParts: any[] = [{ text: fullPrompt }];
+          if (refImageBase64) contentParts.push({ image: refImageBase64 });
 
-            const imgResponse = await fetch(
-              "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${dashscopeApiKey}` },
-                body: JSON.stringify({
-                  model,
-                  input: { messages: [{ role: "user", content: contentParts }] },
-                  parameters: { size: "768*768", n: 1 },
-                }),
-                signal: AbortSignal.timeout(25000),
+          let imageUrl: string | null = null;
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              if (attempt > 1) {
+                // 重试前等2秒
+                await new Promise(r => setTimeout(r, 2000));
+                console.log(`[Pipeline] 第${idx + 1}页图片重试(${attempt})...`);
               }
-            );
+              const imgResponse = await fetch(
+                "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${dashscopeApiKey}` },
+                  body: JSON.stringify({
+                    model,
+                    input: { messages: [{ role: "user", content: contentParts }] },
+                    parameters: { size: "768*768", n: 1 },
+                  }),
+                  signal: AbortSignal.timeout(30000),
+                }
+              );
 
-            if (imgResponse.ok) {
-              const imgResult = await imgResponse.json();
-              const imageUrl = imgResult.output?.choices?.[0]?.message?.content?.[0]?.image;
-              storyPages[idx] = { ...page, image_url: imageUrl || `https://placehold.co/768x768/FFB6C1/ffffff?text=Page+${idx + 1}` };
-            } else {
-              storyPages[idx] = { ...page, image_url: `https://placehold.co/768x768/FFB6C1/ffffff?text=Page+${idx + 1}` };
+              if (imgResponse.ok) {
+                const imgResult = await imgResponse.json();
+                const url = imgResult.output?.choices?.[0]?.message?.content?.[0]?.image;
+                if (url) { imageUrl = url; break; }
+              }
+              console.error(`[Pipeline] 第${idx + 1}页图片API返回非成功: status=${imgResponse.status}`);
+            } catch (imgErr) {
+              console.error(`[Pipeline] 第${idx + 1}页图片生成失败(尝试${attempt}):`, imgErr);
             }
-          } catch (imgErr) {
-            console.error(`Pipeline: 第${idx + 1}页图片生成失败:`, imgErr);
-            storyPages[idx] = { ...page, image_url: `https://placehold.co/768x768/FFB6C1/ffffff?text=Page+${idx + 1}` };
           }
+          storyPages[idx] = { ...page, image_url: imageUrl || `https://placehold.co/768x768/FFB6C1/ffffff?text=Page+${idx + 1}` };
         }));
 
         // 更新Supabase中的图片进度
