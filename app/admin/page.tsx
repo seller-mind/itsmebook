@@ -629,14 +629,8 @@ export default function AdminPage() {
     }
   };
   
-  // 生成完成后自动滚动到绘本预览区
-  useEffect(() => {
-    if (completedStory && !isGenerating) {
-      setTimeout(() => {
-        completedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 300);
-    }
-  }, [completedStory, isGenerating]);
+  // 生成完成后不再滚动，直接切换到结果视图
+  // useEffect for scroll removed
 
   // 文件转 Base64
   const fileToBase64 = (file: File): Promise<string> => {
@@ -980,6 +974,249 @@ export default function AdminPage() {
     finally { setDownloading(prev => ({ ...prev, video: false })); }
   };
 
+  // 当前套餐是否有视频功能
+  const currentPlan = ADMIN_PLANS.find(p => p.id === form.planId);
+  const hasVideo = currentPlan?.hasVideoExport ?? false;
+
+  // 视频blob URL状态
+  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
+
+  // 服务端PDF下载（最可靠）
+  const downloadPDF_Server = async () => {
+    if (!completedStory || downloading.pdf) return;
+    setDownloading(prev => ({ ...prev, pdf: true }));
+    try {
+      const res = await fetch("/api/admin/export-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: completedStory.title,
+          childName: completedStory.childName || "",
+          childAge: form.childAge || 5,
+          pages: completedStory.pages.map(p => ({
+            text: p.text,
+            imageUrl: p.imageUrl,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error(`PDF生成失败: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${completedStory.title || "绘本"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) {
+      console.error("PDF下载失败:", e);
+      alert("PDF下载失败：" + (e instanceof Error ? e.message : "未知错误"));
+    } finally {
+      setDownloading(prev => ({ ...prev, pdf: false }));
+    }
+  };
+
+  // 生成并下载有声视频（仅有声版/亲子朗读版）
+  const generateAndDownloadVideo = async () => {
+    if (!completedStory || downloading.video) return;
+    setDownloading(prev => ({ ...prev, video: true }));
+    try {
+      const pages = completedStory.pages;
+
+      // 1. 预渲染Canvas
+      const pageCanvases: HTMLCanvasElement[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const pc = document.createElement("canvas");
+        pc.width = 1080; pc.height = 1080;
+        const pctx = pc.getContext("2d")!;
+        pctx.fillStyle = "#FFF5EB";
+        pctx.fillRect(0, 0, 1080, 1080);
+        if (pages[i].imageUrl) {
+          try {
+            const img = await loadImageViaProxy(pages[i].imageUrl);
+            const imgMaxH = 1080 * 0.78;
+            const scale = Math.min(1080 / img.naturalWidth, imgMaxH / img.naturalHeight);
+            const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+            pctx.drawImage(img, (1080 - w) / 2, (imgMaxH - h) / 2, w, h);
+          } catch { pctx.fillStyle = "#f3f4f6"; pctx.fillRect(0, 0, 1080, 1080 * 0.78); }
+        }
+        pctx.fillStyle = "rgba(255,255,255,0.95)";
+        pctx.fillRect(0, 1080 * 0.78, 1080, 1080 * 0.22);
+        pctx.fillStyle = "#333"; pctx.textAlign = "center"; pctx.textBaseline = "top";
+        pctx.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';
+        drawWrappedText(pctx, pages[i].text || "", 540, 1080 * 0.78 + 20, 960, 42, 4);
+        pctx.font = "18px sans-serif"; pctx.fillStyle = "#aaa";
+        pctx.fillText(`${i + 1} / ${pages.length}`, 540, 1060);
+        pageCanvases.push(pc);
+      }
+
+      // 2. TTS音频通过代理下载（解决CORS）
+      const audioBuffers: (AudioBuffer | null)[] = new Array(pages.length).fill(null);
+      const tmpAudioCtx = new AudioContext();
+      await tmpAudioCtx.resume();
+      for (let i = 0; i < pages.length; i++) {
+        try {
+          const ttsRes = await fetchWithRetry("/api/voice/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: pages[i].text, voice: form.voiceId }),
+          });
+          if (ttsRes.ok) {
+            const ttsData = await ttsRes.json();
+            if (ttsData.success && ttsData.audioUrl) {
+              const proxyAudioUrl = `/api/admin/image-proxy?url=${encodeURIComponent(ttsData.audioUrl)}`;
+              const audioRes = await fetchWithRetry(proxyAudioUrl, {});
+              if (audioRes.ok) {
+                const arrayBuffer = await audioRes.arrayBuffer();
+                try { audioBuffers[i] = await tmpAudioCtx.decodeAudioData(arrayBuffer); } catch {}
+              }
+            }
+          }
+        } catch {}
+      }
+      tmpAudioCtx.close();
+
+      // 3. 录制
+      const recordCanvas = document.createElement("canvas");
+      recordCanvas.width = 1080; recordCanvas.height = 1080;
+      const recordCtx = recordCanvas.getContext("2d")!;
+      const audioCtx = new AudioContext();
+      await audioCtx.resume();
+      const audioDest = audioCtx.createMediaStreamDestination();
+      const videoStream = recordCanvas.captureStream(1);
+      const combinedStream = new MediaStream([...videoStream.getVideoTracks(), ...audioDest.stream.getAudioTracks()]);
+      let mimeType = "video/webm";
+      if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
+      else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
+      const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 2500000 });
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      const recordingDone = new Promise<Blob>((resolve) => { recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType })); });
+      recorder.start(1000);
+
+      // 4. 逐页播放
+      for (let i = 0; i < pages.length; i++) {
+        recordCtx.drawImage(pageCanvases[i], 0, 0);
+        if (audioBuffers[i]) {
+          const source = audioCtx.createBufferSource();
+          source.buffer = audioBuffers[i];
+          source.connect(audioDest);
+          source.connect(audioCtx.destination);
+          const duration = audioBuffers[i]!.duration;
+          await new Promise<void>((resolve) => { source.onended = () => resolve(); source.start(0); setTimeout(resolve, (duration + 0.5) * 1000); });
+        } else {
+          await new Promise(r => setTimeout(r, 4000));
+        }
+      }
+
+      recorder.stop();
+      const videoBlob = await recordingDone;
+      audioCtx.close();
+
+      // 保存视频blob用于播放
+      const blobUrl = URL.createObjectURL(videoBlob);
+      setVideoBlobUrl(blobUrl);
+
+      // 同时触发下载
+      const a = document.createElement("a");
+      a.href = blobUrl; a.download = `${completedStory.title || "绘本"}.webm`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } catch (e) {
+      console.error("视频生成失败:", e);
+      alert("视频生成失败：" + (e instanceof Error ? e.message : "未知错误"));
+    } finally {
+      setDownloading(prev => ({ ...prev, video: false }));
+    }
+  };
+
+  // ====== 结果页视图（生成完成后显示，替代表单） ======
+  if (completedStory && !isGenerating) {
+    return (
+      <AdminAuthGuard>
+      <div className="min-h-screen bg-gradient-to-b from-orange-50 via-amber-50 to-purple-50">
+        <div className="bg-white shadow-sm sticky top-0 z-40">
+          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <h1 className="text-lg font-bold text-gray-900 truncate max-w-[60%]">📖 {completedStory.title}</h1>
+            <button
+              onClick={() => { setCompletedStory(null); setGenerationStep("idle"); setGenerationProgress(0); setCompletedBookId(null); setVideoBlobUrl(null); }}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 transition-colors"
+            >
+              ➕ 新建绘本
+            </button>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          {/* 绘本图片网格 */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
+            {completedStory.pages.map((page, idx) => (
+              <div key={idx} className="rounded-xl overflow-hidden border-2 border-gray-100 hover:border-orange-300 transition-colors bg-white shadow-sm">
+                {page.imageUrl ? (
+                  <img 
+                    src={page.imageUrl.startsWith("http") ? `/api/admin/image-proxy?url=${encodeURIComponent(page.imageUrl)}` : page.imageUrl} 
+                    alt={`第${idx+1}页`} 
+                    className="w-full aspect-square object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full aspect-square bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
+                    <div className="text-center">
+                      <div className="text-2xl mb-1">🖼️</div>
+                      <div>第{idx+1}页</div>
+                      <div className="text-xs text-red-400">未生成</div>
+                    </div>
+                  </div>
+                )}
+                <div className="p-2">
+                  <p className="text-xs text-gray-600 line-clamp-2">{page.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 有声视频播放器（仅有声版/亲子朗读版） */}
+          {hasVideo && videoBlobUrl && (
+            <div className="mb-6 bg-white rounded-2xl shadow-md p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">🎬 有声绘本视频</h3>
+              <video src={videoBlobUrl} controls className="w-full rounded-xl" style={{ maxHeight: "400px" }} />
+            </div>
+          )}
+
+          {/* 下载按钮区域 */}
+          <div className="bg-white rounded-2xl shadow-md p-5">
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">📦 下载交付物</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button onClick={downloadPDF_Server} disabled={downloading.pdf}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 font-medium">
+                {downloading.pdf ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 生成PDF中...</> : <><span className="text-xl">📄</span> 下载PDF绘本</>}
+              </button>
+              <button onClick={downloadImages} disabled={downloading.images}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors disabled:opacity-50 font-medium">
+                {downloading.images ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 下载中...</> : <><span className="text-xl">🖼️</span> 下载全部图片</>}
+              </button>
+              {hasVideo && (
+                <button onClick={generateAndDownloadVideo} disabled={downloading.video}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors disabled:opacity-50 font-medium sm:col-span-2">
+                  {downloading.video ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 生成有声视频中...</> : <><span className="text-xl">🎬</span> 生成并下载有声视频</>}
+                </button>
+              )}
+            </div>
+            {completedBookId && (
+              <div className="mt-4 pt-4 border-t flex items-center gap-3">
+                <span className="text-sm text-gray-500">🔗</span>
+                <code className="flex-1 text-xs bg-gray-100 px-3 py-2 rounded-lg break-all">{getShareLink()}</code>
+                <button onClick={copyShareLink} className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">复制</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      </AdminAuthGuard>
+    );
+  }
+
+  // ====== 生成中/表单视图 ======
   return (
     <AdminAuthGuard>
     <div className="min-h-screen bg-gradient-to-b from-orange-50 via-amber-50 to-purple-50">
@@ -1053,94 +1290,6 @@ export default function AdminPage() {
                 <p className="text-green-700 font-medium">✅ 绘本生成完成！绘本预览正在加载...</p>
               </div>
             )}
-          </div>
-        )}
-
-        {/* 完成预览 - 独立于生成状态，不会因isGenerating变化而消失 */}
-        {completedStory && !isGenerating && (
-          <div ref={completedSectionRef} className="mb-6 bg-white rounded-2xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">✅ {completedStory.title}</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              {completedStory.pages.map((page, idx) => (
-                <div key={idx} className="rounded-xl overflow-hidden border-2 border-gray-100 hover:border-orange-300 transition-colors">
-                  {page.imageUrl ? (
-                    <img src={page.imageUrl} alt={`第${idx+1}页`} className="w-full aspect-square object-cover" />
-                  ) : (
-                    <div className="w-full aspect-square bg-gray-100 flex items-center justify-center text-gray-400 text-sm">第{idx+1}页</div>
-                  )}
-                  <div className="p-2">
-                    <p className="text-xs text-gray-600 line-clamp-2">{page.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3 flex-wrap mb-4">
-              <button
-                onClick={viewBook}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-              >
-                📖 查看绘本
-              </button>
-              <button
-                onClick={copyShareLink}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                🔗 复制分享链接
-              </button>
-              <button
-                onClick={() => { setCompletedStory(null); setGenerationStep("idle"); setGenerationProgress(0); }}
-                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-              >
-                ➕ 新建订单
-              </button>
-            </div>
-            
-            {/* 下载区域 */}
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">📦 下载交付物</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* 1. 带文字的高清图片 */}
-                <div className="border rounded-xl p-4 text-center">
-                  <div className="text-3xl mb-2">🖼️</div>
-                  <p className="font-medium text-sm">带文字高清图片</p>
-                  <p className="text-xs text-gray-500 mb-3">每页图片+文字合成</p>
-                  <button
-                    onClick={() => downloadImages()}
-                    disabled={downloading.images}
-                    className="w-full px-3 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 transition-colors disabled:opacity-50"
-                  >
-                    {downloading.images ? "下载中..." : "下载图片"}
-                  </button>
-                </div>
-                {/* 2. PDF */}
-                <div className="border rounded-xl p-4 text-center">
-                  <div className="text-3xl mb-2">📄</div>
-                  <p className="font-medium text-sm">完整PDF绘本</p>
-                  <p className="text-xs text-gray-500 mb-3">A4横向，高清PDF文件</p>
-                  <button
-                    onClick={() => downloadPDF()}
-                    disabled={downloading.pdf}
-                    className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:opacity-50"
-                  >
-                    {downloading.pdf ? "下载中..." : "下载PDF"}
-                  </button>
-                </div>
-                {/* 3. 带语音的视频 */}
-                <div className="border rounded-xl p-4 text-center">
-                  <div className="text-3xl mb-2">🎬</div>
-                  <p className="font-medium text-sm">有声绘本视频</p>
-                  <p className="text-xs text-gray-500 mb-3">配音+字幕+翻页</p>
-                  <button
-                    onClick={() => downloadVideo()}
-                    disabled={downloading.video}
-                    className="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50"
-                  >
-                    {downloading.video ? "录制中..." : "下载视频"}
-                  </button>
-                  <p className="text-xs text-green-600 mt-2">MP4格式，全平台兼容</p>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -1511,7 +1660,8 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* 声音选择 */}
+            {/* 声音选择（仅有声版/亲子朗读版需要） */}
+            {(form.planId === "audio" || form.planId === "parent-voice") && (
             <div className="bg-white rounded-2xl shadow-md p-6">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <span>🔊</span> 朗读声音
@@ -1541,6 +1691,7 @@ export default function AdminPage() {
                 ))}
               </div>
             </div>
+            )}
 
             {/* 页数选择 */}
             <div className="bg-white rounded-2xl shadow-md p-6">
