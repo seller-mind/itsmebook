@@ -445,19 +445,23 @@ ${customPrompt}
         // 生成bookId
         const bookId = `admin_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-        // 保存到books表
-        const { error: bookError } = await supabase.from("books").insert({
-          id: bookId,
-          user_id: "admin",
-          title: title || "我的绘本",
-          character_name: bookParams.childName || "",
-          character_age: bookParams.childAge || 5,
-          theme: bookParams.themeId || "",
-          style: bookParams.styleId || "",
-          pages: finalPages,
-          status: "completed",
-        });
-        if (bookError) console.error("保存books失败:", bookError);
+        // 尝试保存到books表（如果表存在）
+        try {
+          const { error: bookError } = await supabase.from("books").insert({
+            id: bookId,
+            user_id: "admin",
+            title: title || "我的绘本",
+            character_name: bookParams.childName || "",
+            character_age: bookParams.childAge || 5,
+            theme: bookParams.themeId || "",
+            style: bookParams.styleId || "",
+            pages: finalPages,
+            status: "completed",
+          });
+          if (bookError) console.warn("保存books表跳过（表可能不存在）:", bookError.message);
+        } catch (e) {
+          console.warn("保存books表失败，使用story_generations作为主存储:", e);
+        }
 
         await supabase.from("story_generations").update({
           status: "completed", 
