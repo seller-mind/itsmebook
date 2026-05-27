@@ -51,7 +51,7 @@ export function isPublicMode(): boolean {
 /**
  * Admin 模式可用套餐
  */
-export type AdminPlanType = 'basic' | 'premium' | 'audio' | 'parent-voice' | 'child-hero';
+export type AdminPlanType = 'basic' | 'premium' | 'audio' | 'parent-voice' | 'child-hero' | 'custom-advanced';
 
 export interface PlanConfig {
   id: AdminPlanType;
@@ -131,6 +131,19 @@ export const ADMIN_PLANS: PlanConfig[] = [
     hasVoiceover: true,
     hasParentVoice: false,
     hasChildHero: true,
+    hasVideoExport: true,
+  },
+  {
+    id: 'custom-advanced',
+    name: '自由高阶版',
+    emoji: '🔮',
+    description: '自定义需求，AI为你量身打造',
+    price: 169,
+    features: ['12页AI绘本', '自定义故事需求', '自选页数/画风/主题', '配音朗读', '字幕视频', '高清PDF'],
+    pageCount: 12,
+    hasVoiceover: true,
+    hasParentVoice: false,
+    hasChildHero: false,
     hasVideoExport: true,
   },
 ];

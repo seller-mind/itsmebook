@@ -118,7 +118,7 @@ interface OrderForm {
   pageCount: 8 | 12;
   
   // 套餐
-  planId: "basic" | "premium" | "audio" | "parent-voice" | "child-hero";
+  planId: "basic" | "premium" | "audio" | "parent-voice" | "child-hero" | "custom-advanced";
   
   // 声音
   voiceId: string;
@@ -128,6 +128,9 @@ interface OrderForm {
   // 照片
   useChildPhoto: boolean;
   childPhotoFile: File | null;
+  
+  // 自定义需求（自由高阶版）
+  customPrompt: string;
 }
 
 type GenerationStep = 
@@ -225,6 +228,7 @@ export default function AdminPage() {
     parentVoiceFile: null,
     useChildPhoto: false,
     childPhotoFile: null,
+    customPrompt: "",
   });
   
   // UI状态
@@ -430,6 +434,10 @@ export default function AdminPage() {
       alert("请输入孩子名字");
       return;
     }
+    if (form.planId === "custom-advanced" && form.customPrompt.trim().length < 10) {
+      alert("自由高阶版请至少输入10个字描述你的需求");
+      return;
+    }
     if (form.useClonedVoice && !form.parentVoiceFile) {
       alert("请先录制家长语音片段");
       return;
@@ -500,6 +508,7 @@ export default function AdminPage() {
           childName: form.childName, childAge: form.childAge,
           childGender: form.childGender, themeId: form.themeId,
           pageCount: form.pageCount,
+          customPrompt: form.planId === "custom-advanced" ? form.customPrompt : undefined,
         }),
       });
       if (!storyRes.ok) throw new Error("故事生成请求失败");
@@ -1360,6 +1369,32 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* 自定义需求（自由高阶版） */}
+            {form.planId === "custom-advanced" && (
+              <div className="bg-white rounded-2xl shadow-md p-6 border-2 border-purple-300">
+                <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                  <span>🔮</span> 自定义绘本需求
+                </h2>
+                <p className="text-sm text-purple-600 font-medium mb-4">
+                  描述你想要的绘本，AI将根据你的需求量身打造
+                </p>
+                <textarea
+                  value={form.customPrompt}
+                  onChange={(e) => setForm(prev => ({ ...prev, customPrompt: e.target.value }))}
+                  placeholder={"描述你想要的绘本，例如：\n- 故事内容：讲一个关于小兔子去月球找妈妈的故事\n- 主角设定：叫豆豆的5岁女孩，喜欢天文\n- 特殊要求：每页要有星星元素，结尾要有惊喜\n- 教育意义：培养孩子的探索精神\n- 风格偏好：温馨治愈，不要太刺激"}
+                  className="w-full h-40 px-4 py-3 border-2 border-purple-200 rounded-xl focus:border-purple-400 focus:outline-none transition-colors text-sm resize-none"
+                  maxLength={1000}
+                />
+                <div className="flex justify-between mt-2">
+                  <p className="text-xs text-gray-400">越详细，生成效果越好</p>
+                  <p className="text-xs text-gray-400">{form.customPrompt.length}/1000</p>
+                </div>
+                {form.customPrompt.trim().length > 0 && form.customPrompt.trim().length < 10 && (
+                  <p className="text-xs text-orange-500 mt-1">请至少输入10个字描述你的需求</p>
+                )}
+              </div>
+            )}
+
             {/* 主题选择 */}
             <div className="bg-white rounded-2xl shadow-md p-6">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -1462,9 +1497,9 @@ export default function AdminPage() {
             {/* 一键生成按钮 */}
             <button
               onClick={generateBook}
-              disabled={isGenerating || !form.childName.trim()}
+              disabled={isGenerating || !form.childName.trim() || (form.planId === "custom-advanced" && form.customPrompt.trim().length < 10)}
               className={`w-full py-4 rounded-2xl text-lg font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${
-                isGenerating || !form.childName.trim()
+                isGenerating || !form.childName.trim() || (form.planId === "custom-advanced" && form.customPrompt.trim().length < 10)
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-gradient-to-r from-orange-500 to-primary-dark text-white hover:shadow-xl"
               }`}
