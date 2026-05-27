@@ -49,6 +49,9 @@ export default function StoryPlayer({
   // 全屏容器引用
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
 
+  // 判断绘本是否有音频（只要有一页有audioUrl就算有声绘本）
+  const hasAudio = pages?.some(p => !!p.audioUrl) || !!voiceAudioUrl;
+
   // TTS音频URL缓存：pageIndex -> audioUrl
   const audioCacheRef = useRef<Record<number, string>>({});
   // 预创建的Audio元素缓存：pageIndex -> HTMLAudioElement（已加载好，随时可play）
@@ -666,24 +669,32 @@ export default function StoryPlayer({
         onClick={(e) => e.stopPropagation()}
         style={{ pointerEvents: shouldHideControls ? "none" : (showControls ? "auto" : "none") }}
       >
-        {/* 播放控制 */}
+        {/* 翻页控制 */}
         <div className="flex items-center justify-center gap-8 mb-4">
-          <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 0} className="p-2 rounded-full disabled:opacity-30 transition-all">
+          <button onClick={() => { cleanupAllAudio(); const newPage = Math.max(0, currentPage - 1); setCurrentPage(newPage); setShowStoryEnd(false); }} disabled={currentPage === 0} className="p-2 rounded-full disabled:opacity-30 transition-all">
             <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
           </button>
-          <button onClick={togglePlay} className="p-4 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 transition-all active:scale-95">
-            {isAudioLoading ? (
-              <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : isPlaying ? (
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
-            ) : (
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-            )}
-          </button>
-          <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages - 1} className="p-2 rounded-full disabled:opacity-30 transition-all">
+          {hasAudio ? (
+            /* 有声版：显示播放/暂停按钮 */
+            <button onClick={togglePlay} className="p-4 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 transition-all active:scale-95">
+              {isAudioLoading ? (
+                <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : isPlaying ? (
+                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+              ) : (
+                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+              )}
+            </button>
+          ) : (
+            /* 无声版：只显示页码，不显示播放按钮 */
+            <div className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+              <span className="text-white/80 text-sm font-medium">{currentPage + 1} / {totalPages}</span>
+            </div>
+          )}
+          <button onClick={() => { cleanupAllAudio(); const newPage = Math.min(totalPages - 1, currentPage + 1); setCurrentPage(newPage); setShowStoryEnd(false); }} disabled={currentPage === totalPages - 1} className="p-2 rounded-full disabled:opacity-30 transition-all">
             <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
           </button>
         </div>
@@ -695,13 +706,18 @@ export default function StoryPlayer({
             <span className="text-xs">返回</span>
           </button>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-white/60" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" /></svg>
-              <input type="range" min="0" max="1" step="0.05" value={volume} onChange={(e) => { setVolume(parseFloat(e.target.value)); if (currentAudioRef.current) currentAudioRef.current.volume = parseFloat(e.target.value); }} className="w-16 h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-white" />
-            </div>
-            <button onClick={() => bedtimeMode ? stopBedtimeMode() : setShowBedtimeSet(!showBedtimeSet)} className="text-xs text-white/60 hover:text-white/90 transition-colors">
-              {bedtimeMode ? `🌙 ${formatTime(remainingTime || 0)}` : "🌙 睡前"}
-            </button>
+            {/* 音量和睡前仅有声版显示 */}
+            {hasAudio && (
+              <>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-white/60" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" /></svg>
+                  <input type="range" min="0" max="1" step="0.05" value={volume} onChange={(e) => { setVolume(parseFloat(e.target.value)); if (currentAudioRef.current) currentAudioRef.current.volume = parseFloat(e.target.value); }} className="w-16 h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-white" />
+                </div>
+                <button onClick={() => bedtimeMode ? stopBedtimeMode() : setShowBedtimeSet(!showBedtimeSet)} className="text-xs text-white/60 hover:text-white/90 transition-colors">
+                  {bedtimeMode ? `🌙 ${formatTime(remainingTime || 0)}` : "🌙 睡前"}
+                </button>
+              </>
+            )}
             {/* 全屏按钮 */}
             <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="text-xs text-white/60 hover:text-white/90 transition-colors">
               {isFullscreen ? "⛶ 退出" : "⛶ 全屏"}
@@ -713,8 +729,8 @@ export default function StoryPlayer({
           </div>
         </div>
 
-        {/* 睡前模式时间选择 */}
-        {showBedtimeSet && (
+        {/* 睡前模式时间选择（仅有声版） */}
+        {hasAudio && showBedtimeSet && (
           <div className="flex gap-2 mt-3">
             {[5, 10, 15, 30].map((min) => (
               <button key={min} onClick={() => startBedtimeMode(min)} className="flex-1 py-2 rounded-full border border-white/30 text-white/80 text-xs hover:bg-white/10 transition-colors">{min}分钟</button>
@@ -730,7 +746,7 @@ export default function StoryPlayer({
             <span className="text-white/80 font-medium text-sm">{title}</span>
             <span className="text-white/50 text-xs">第 {currentPage + 1} / {totalPages} 页</span>
           </div>
-          <button onClick={onGenerateVideo} className="text-white/60 hover:text-white/90 text-xs transition-colors">📷 卡片</button>
+          {hasAudio && onGenerateVideo && <button onClick={onGenerateVideo} className="text-white/60 hover:text-white/90 text-xs transition-colors">📷 卡片</button>}
         </div>
       </div>
 

@@ -688,13 +688,23 @@ export default function AdminPage() {
     }
   };
 
-  // 查看生成的绘本
+  // 查看生成的绘本 - 根据套餐类型跳转不同页面
   const viewBook = () => {
     if (!completedStory) return;
     const playerData = { ...completedStory, voiceUrl: "" };
     sessionStorage.setItem("bedtime_story", JSON.stringify(playerData));
     localStorage.setItem("itsmebook_last_story", JSON.stringify(playerData));
-    router.push("/story/player");
+    
+    // 有声版/亲子朗读版用全屏播放器（有音频），其他套餐用分享页面（纯翻页，无播放控件）
+    const plan = ADMIN_PLANS.find(p => p.id === form.planId);
+    if (plan?.hasVoiceover) {
+      router.push("/story/player");
+    } else if (completedBookId) {
+      router.push(`/share/${completedBookId}`);
+    } else {
+      // 没有bookId时fallback到player（但story数据中不含audioUrl，播放器会自动隐藏播放按钮）
+      router.push("/story/player");
+    }
   };
   
   // 获取分享链接

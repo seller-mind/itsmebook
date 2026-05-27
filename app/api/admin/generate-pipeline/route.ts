@@ -209,7 +209,7 @@ ${customPrompt}
       .filter(({ page }: any) => page.image_prompt && !page.image_url);
 
     if (pagesNeedingImages.length > 0) {
-      const batchSize = 4;
+      const batchSize = 2; // 减少并发，降低API限流风险
       for (let batch = 0; batch < pagesNeedingImages.length; batch += batchSize) {
         const batchItems = pagesNeedingImages.slice(batch, batch + batchSize);
 
@@ -219,18 +219,18 @@ ${customPrompt}
           step: `正在生成配图 (${batch + 1}-${Math.min(batch + batchSize, pagesNeedingImages.length)}/${pagesNeedingImages.length})...`
         }).eq("session_id", sessionId);
 
-        // 并行生成当前批次（每张图最多重试2次，超时30秒）
+        // 并行生成当前批次（每张图最多重试3次，超时45秒）
         await Promise.all(batchItems.map(async ({ page, idx }: any) => {
           const fullPrompt = `${page.image_prompt}，${styleConfig.chinesePrompt}`;
           const contentParts: any[] = [{ text: fullPrompt }];
           if (refImageBase64) contentParts.push({ image: refImageBase64 });
 
           let imageUrl: string | null = null;
-          for (let attempt = 1; attempt <= 2; attempt++) {
+          for (let attempt = 1; attempt <= 3; attempt++) {
             try {
               if (attempt > 1) {
-                // 重试前等2秒
-                await new Promise(r => setTimeout(r, 2000));
+                // 重试前等3秒，避免API限流
+                await new Promise(r => setTimeout(r, 3000));
                 console.log(`[Pipeline] 第${idx + 1}页图片重试(${attempt})...`);
               }
               const imgResponse = await fetch(
@@ -243,7 +243,7 @@ ${customPrompt}
                     input: { messages: [{ role: "user", content: contentParts }] },
                     parameters: { size: "768*768", n: 1 },
                   }),
-                  signal: AbortSignal.timeout(30000),
+                  signal: AbortSignal.timeout(45000),
                 }
               );
 
@@ -252,13 +252,18 @@ ${customPrompt}
                 const url = imgResult.output?.choices?.[0]?.message?.content?.[0]?.image;
                 if (url) { imageUrl = url; break; }
               }
-              console.error(`[Pipeline] 第${idx + 1}页图片API返回非成功: status=${imgResponse.status}`);
+              console.error(`[Pipeline] 第${idx + 1}页图片API返回非成功: status=${imgResponse.status}, attempt=${attempt}`);
             } catch (imgErr) {
               console.error(`[Pipeline] 第${idx + 1}页图片生成失败(尝试${attempt}):`, imgErr);
             }
           }
           storyPages[idx] = { ...page, image_url: imageUrl || `https://placehold.co/768x768/FFB6C1/ffffff?text=Page+${idx + 1}` };
         }));
+
+        // 批次间等2秒，避免连续请求触发限流
+        if (batch + batchSize < pagesNeedingImages.length) {
+          await new Promise(r => setTimeout(r, 2000));
+        }
 
         // 更新Supabase中的图片进度
         storyResult = { ...storyResult, pages: storyPages };
