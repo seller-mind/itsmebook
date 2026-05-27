@@ -1123,90 +1123,22 @@ export default function AdminPage() {
     }
   };
 
-  // ====== 结果页视图（生成完成后显示，替代表单） ======
+  // ====== 结果页视图（生成完成后直接展示绘本阅读器） ======
   if (completedStory && !isGenerating) {
-    return (
-      <AdminAuthGuard>
-      <div className="min-h-screen bg-gradient-to-b from-orange-50 via-amber-50 to-purple-50">
-        <div className="bg-white shadow-sm sticky top-0 z-40">
-          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-            <h1 className="text-lg font-bold text-gray-900 truncate max-w-[60%]">📖 {completedStory.title}</h1>
-            <button
-              onClick={() => { setCompletedStory(null); setGenerationStep("idle"); setGenerationProgress(0); setCompletedBookId(null); setVideoBlobUrl(null); }}
-              className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 transition-colors"
-            >
-              ➕ 新建绘本
-            </button>
-          </div>
-        </div>
-
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          {/* 绘本图片网格 */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
-            {completedStory.pages.map((page, idx) => (
-              <div key={idx} className="rounded-xl overflow-hidden border-2 border-gray-100 hover:border-orange-300 transition-colors bg-white shadow-sm">
-                {page.imageUrl ? (
-                  <img 
-                    src={page.imageUrl.startsWith("http") ? `/api/admin/image-proxy?url=${encodeURIComponent(page.imageUrl)}` : page.imageUrl} 
-                    alt={`第${idx+1}页`} 
-                    className="w-full aspect-square object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full aspect-square bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
-                    <div className="text-center">
-                      <div className="text-2xl mb-1">🖼️</div>
-                      <div>第{idx+1}页</div>
-                      <div className="text-xs text-red-400">未生成</div>
-                    </div>
-                  </div>
-                )}
-                <div className="p-2">
-                  <p className="text-xs text-gray-600 line-clamp-2">{page.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* 有声视频播放器（仅有声版/亲子朗读版） */}
-          {hasVideo && videoBlobUrl && (
-            <div className="mb-6 bg-white rounded-2xl shadow-md p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">🎬 有声绘本视频</h3>
-              <video src={videoBlobUrl} controls className="w-full rounded-xl" style={{ maxHeight: "400px" }} />
-            </div>
-          )}
-
-          {/* 下载按钮区域 */}
-          <div className="bg-white rounded-2xl shadow-md p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">📦 下载交付物</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button onClick={downloadPDF} disabled={downloading.pdf}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 font-medium">
-                {downloading.pdf ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 生成PDF中...</> : <><span className="text-xl">📄</span> 下载PDF绘本</>}
-              </button>
-              <button onClick={downloadImages} disabled={downloading.images}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors disabled:opacity-50 font-medium">
-                {downloading.images ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 下载中...</> : <><span className="text-xl">🖼️</span> 下载全部图片</>}
-              </button>
-              {hasVideo && (
-                <button onClick={generateAndDownloadVideo} disabled={downloading.video}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors disabled:opacity-50 font-medium sm:col-span-2">
-                  {downloading.video ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 生成有声视频中...</> : <><span className="text-xl">🎬</span> 生成并下载有声视频</>}
-                </button>
-              )}
-            </div>
-            {completedBookId && (
-              <div className="mt-4 pt-4 border-t flex items-center gap-3">
-                <span className="text-sm text-gray-500">🔗</span>
-                <code className="flex-1 text-xs bg-gray-100 px-3 py-2 rounded-lg break-all">{getShareLink()}</code>
-                <button onClick={copyShareLink} className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300">复制</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      </AdminAuthGuard>
-    );
+    return <AdminBookReader 
+      story={completedStory} 
+      planId={form.planId}
+      bookId={completedBookId}
+      hasVideo={hasVideo}
+      videoBlobUrl={videoBlobUrl}
+      onNewBook={() => { setCompletedStory(null); setGenerationStep("idle"); setGenerationProgress(0); setCompletedBookId(null); setVideoBlobUrl(null); }}
+      onDownloadImages={downloadImages}
+      onDownloadPDF={downloadPDF}
+      onDownloadVideo={generateAndDownloadVideo}
+      onCopyShareLink={copyShareLink}
+      shareLink={getShareLink()}
+      downloading={downloading}
+    />;
   }
 
   // ====== 生成中/表单视图 ======
@@ -1758,6 +1690,231 @@ export default function AdminPage() {
       </div>
     )}
     
+    </AdminAuthGuard>
+  );
+}
+
+// ====== Admin绘本阅读器组件（生成完成后直接展示） ======
+// 不跳转视频播放器，直接在admin页面内大图翻页阅读
+// 基础版/精品版：纯图片翻页 + 图片下载 + PDF下载
+// 有声版/亲子朗读版：额外支持视频下载
+
+interface AdminBookReaderProps {
+  story: {
+    title: string;
+    childName: string;
+    pages: Array<{ pageNumber: number; text: string; imageUrl: string; audioUrl?: string }>;
+  };
+  planId: string;
+  bookId: string | null;
+  hasVideo: boolean;
+  videoBlobUrl: string | null;
+  onNewBook: () => void;
+  onDownloadImages: () => void;
+  onDownloadPDF: () => void;
+  onDownloadVideo: () => void;
+  onCopyShareLink: () => void;
+  shareLink: string;
+  downloading: { images: boolean; pdf: boolean; video: boolean };
+}
+
+function AdminBookReader({
+  story, planId, bookId, hasVideo, videoBlobUrl,
+  onNewBook, onDownloadImages, onDownloadPDF, onDownloadVideo,
+  onCopyShareLink, shareLink, downloading,
+}: AdminBookReaderProps) {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
+  const [showActions, setShowActions] = useState(false);
+  const pages = story.pages;
+  const totalPages = pages.length;
+
+  const prevPage = () => setCurrentPage(p => Math.max(0, p - 1));
+  const nextPage = () => setCurrentPage(p => Math.min(totalPages - 1, p + 1));
+
+  // 当前页数据
+  const page = pages[currentPage];
+  const isCover = currentPage === 0;
+  const isEnd = currentPage === totalPages - 1;
+
+  // 图片URL处理
+  const getImageSrc = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http")) return `/api/admin/image-proxy?url=${encodeURIComponent(url)}`;
+    return url;
+  };
+
+  return (
+    <AdminAuthGuard>
+      <div className="min-h-screen bg-gradient-to-b from-orange-50 via-amber-50 to-purple-50">
+        {/* 顶部栏 */}
+        <div className="bg-white shadow-sm sticky top-0 z-40">
+          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex-1 min-w-0 mr-3">
+              <h1 className="font-bold text-gray-900 truncate">📖 {story.title}</h1>
+              <p className="text-xs text-gray-500">{story.childName} · 第{currentPage + 1}/{totalPages}页</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowActions(!showActions)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+              </button>
+              <button onClick={onNewBook} className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 transition-colors whitespace-nowrap">
+                ➕ 新建
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 主阅读区 */}
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          {/* 大图展示 */}
+          <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-4">
+            <div className="relative aspect-square bg-gray-100" onClick={() => page.imageUrl && setFullscreenIdx(currentPage)}>
+              {page.imageUrl ? (
+                <img
+                  src={getImageSrc(page.imageUrl)}
+                  alt={`第${currentPage + 1}页`}
+                  className="w-full h-full object-cover cursor-zoom-in"
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    if (!img.dataset.fallbackUsed) {
+                      img.dataset.fallbackUsed = "true";
+                      img.src = `https://placehold.co/768x768/FFB6C1/ffffff?text=Page+${currentPage + 1}`;
+                    }
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-amber-100">
+                  <div className="text-center">
+                    <div className="text-5xl mb-2">🖼️</div>
+                    <p className="text-gray-400">第{currentPage + 1}页未生成</p>
+                  </div>
+                </div>
+              )}
+              {/* 点击放大提示 */}
+              {page.imageUrl && (
+                <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/40 text-white text-xs rounded-full">
+                  🔍 点击放大
+                </div>
+              )}
+              {/* 页码标签 */}
+              <div className="absolute top-3 left-3 px-2 py-1 bg-black/40 text-white text-xs rounded-full">
+                {isCover ? "封面" : isEnd ? "封底" : `${currentPage + 1}/${totalPages}`}
+              </div>
+            </div>
+
+            {/* 文字区 */}
+            <div className="p-5">
+              <p className={`text-gray-800 leading-relaxed ${isCover ? 'text-center text-lg font-medium' : ''}`}>
+                {page.text}
+              </p>
+            </div>
+          </div>
+
+          {/* 翻页控制 */}
+          <div className="flex items-center justify-center gap-6 mb-4">
+            <button onClick={prevPage} disabled={currentPage === 0}
+              className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all ${currentPage === 0 ? "bg-gray-200 text-gray-400" : "bg-white shadow-md text-gray-700 hover:bg-orange-50 active:scale-95"}`}>
+              ‹
+            </button>
+            {/* 页码指示点 */}
+            <div className="flex items-center gap-1.5 overflow-x-auto max-w-[200px]">
+              {pages.map((_, i) => (
+                <button key={i} onClick={() => setCurrentPage(i)}
+                  className={`w-2 h-2 rounded-full flex-shrink-0 transition-all ${i === currentPage ? "bg-orange-500 w-5" : "bg-gray-300"}`} />
+              ))}
+            </div>
+            <button onClick={nextPage} disabled={isEnd}
+              className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all ${isEnd ? "bg-gray-200 text-gray-400" : "bg-white shadow-md text-gray-700 hover:bg-orange-50 active:scale-95"}`}>
+              ›
+            </button>
+          </div>
+
+          {/* 缩略图条 - 可点击跳转/放大 */}
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+            {pages.map((p, i) => (
+              <button key={i} onClick={() => setCurrentPage(i)} onDoubleClick={() => p.imageUrl && setFullscreenIdx(i)}
+                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${i === currentPage ? "border-orange-400 shadow-md scale-105" : "border-gray-200 opacity-70"}`}>
+                {p.imageUrl ? (
+                  <img src={getImageSrc(p.imageUrl)} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-400">{i + 1}</div>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* 快捷下载栏 - 始终显示在底部 */}
+          <div className="flex gap-3 mb-4">
+            <button onClick={onDownloadPDF} disabled={downloading.pdf}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 font-medium">
+              {downloading.pdf ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 生成中...</> : "📄 下载PDF"}
+            </button>
+            <button onClick={onDownloadImages} disabled={downloading.images}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors disabled:opacity-50 font-medium">
+              {downloading.images ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 下载中...</> : "🖼️ 下载图片"}
+            </button>
+          </div>
+
+          {/* 操作面板（点击右上角展开） */}
+          {showActions && (
+            <div className="bg-white rounded-2xl shadow-lg p-4 mb-4 space-y-3">
+              {/* 视频下载（仅有声版） */}
+              {hasVideo && (
+                <button onClick={onDownloadVideo} disabled={downloading.video}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors disabled:opacity-50 font-medium">
+                  {downloading.video ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 生成视频中...</> : "🎬 下载有声视频"}
+                </button>
+              )}
+              {/* 分享链接 */}
+              {shareLink && (
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-gray-100 px-3 py-2 rounded-lg break-all">{shareLink}</code>
+                  <button onClick={onCopyShareLink} className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 whitespace-nowrap">复制链接</button>
+                </div>
+              )}
+              {/* 新建绘本 */}
+              <button onClick={onNewBook} className="w-full px-4 py-2 bg-orange-100 text-orange-700 rounded-xl text-sm hover:bg-orange-200 transition-colors">
+                ➕ 新建绘本
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 全屏大图查看 */}
+      {fullscreenIdx !== null && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" onClick={() => setFullscreenIdx(null)}>
+          <div className="relative w-full h-full flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
+            {/* 关闭按钮 */}
+            <button onClick={() => setFullscreenIdx(null)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white text-xl">
+              ✕
+            </button>
+            {/* 大图 */}
+            <img
+              src={getImageSrc(pages[fullscreenIdx].imageUrl)}
+              alt=""
+              className="max-w-full max-h-full object-contain rounded-lg"
+            />
+            {/* 翻页按钮 */}
+            <button onClick={() => setFullscreenIdx(Math.max(0, fullscreenIdx - 1))}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white text-xl"
+              disabled={fullscreenIdx === 0}>
+              ‹
+            </button>
+            <button onClick={() => setFullscreenIdx(Math.min(totalPages - 1, fullscreenIdx + 1))}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white text-xl"
+              disabled={fullscreenIdx === totalPages - 1}>
+              ›
+            </button>
+            {/* 页码 */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-full">
+              {fullscreenIdx + 1} / {totalPages}
+            </div>
+          </div>
+        </div>
+      )}
     </AdminAuthGuard>
   );
 }

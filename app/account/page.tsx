@@ -249,11 +249,19 @@ export default function AccountPage() {
     setUserProfile(newProfile);
   };
 
-  // 点击阅读绘本
+  // 点击阅读绘本 - 根据是否有音频选择不同页面
   const handleReadBook = (book: any) => {
     sessionStorage.setItem("bedtime_story", JSON.stringify(book));
     localStorage.setItem("itsmebook_last_story", JSON.stringify(book));
-    router.push("/story/player");
+    // 有音频的绘本用全屏播放器，没有的用分享页面（纯翻页模式）
+    const hasAudio = book.pages?.some((p: any) => !!p.audioUrl);
+    if (hasAudio) {
+      router.push("/story/player");
+    } else if (book.id) {
+      router.push(`/share/${book.id}`);
+    } else {
+      router.push("/story/player");
+    }
   };
 
   // 删除账户 - GDPR被遗忘权
