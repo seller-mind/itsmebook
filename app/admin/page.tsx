@@ -489,6 +489,19 @@ export default function AdminPage() {
   };
   
   // 生成绘本 - 使用后台Pipeline + 轮询（解决切换页面后生成中断的问题）
+  // 取消生成标志
+  const cancelRef = useRef(false);
+
+  // 取消生成
+  const cancelGeneration = () => {
+    cancelRef.current = true;
+    stopPolling();
+    setIsGenerating(false);
+    setGenerationStep("idle");
+    setGenerationProgress(0);
+    localStorage.removeItem("itsmebook_generating_session");
+  };
+
   const generateBook = async () => {
     if (form.planId === "custom-advanced") {
       if (form.customPrompt.trim().length < 10) {
@@ -516,12 +529,13 @@ export default function AdminPage() {
     setGenerationError(null);
     setCompletedStory(null);
     setVideoBlobUrl(null);
+    cancelRef.current = false;
     
     try {
       const sessionId = uuidv4();
       setCurrentSessionId(sessionId);
       
-      // 前置步骤：上传语音/照片（这些需要客户端处理）
+      // 前置步骤：上传语音/照片
       let clonedVoiceId = form.voiceId;
       let photoBase64: string | undefined;
       
@@ -540,51 +554,173 @@ export default function AdminPage() {
             setVoices(prev => [...prev, { id: clonedVoiceId, name: `克隆-${form.customerName || "家长"}`, emoji: "🎙️", description: "家长克隆声音", isCloned: true }]);
           }
         }
+        if (cancelRef.current) return;
         setGenerationProgress(5);
       }
       
       if (form.useChildPhoto && form.childPhotoFile) {
         setGenerationStep("uploading_photo");
         photoBase64 = await fileToBase64(form.childPhotoFile);
+        if (cancelRef.current) return;
         setGenerationProgress(8);
       }
       
-      // 保存sessionId到localStorage（页面刷新/切换后可恢复）
       localStorage.setItem("itsmebook_generating_session", sessionId);
-      
-      // ====== 调用后台Pipeline ======
+      const params = {
+        childName: form.childName || "自定义",
+        childAge: form.childAge,
+        childGender: form.childGender,
+        themeId: form.themeId,
+        styleId: form.styleId,
+        planId: form.planId,
+        pageCount: form.pageCount,
+        customPrompt: form.planId === "custom-advanced" ? form.customPrompt : undefined,
+        refImageBase64: photoBase64,
+        voiceId: clonedVoiceId,
+      };
+
+      // ====== 步骤1: Init ======
       setGenerationStep("generating_story");
+      setGenerationProgress(5);
+      const initRes = await fetchWithRetry("/api/admin/generate-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "init", sessionId, params }),
+      });
+      if (!initRes.ok) throw new Error("初始化失败");
+      if (cancelRef.current) return;
+
+      // ====== 步骤2: 生成故事 ======
       setGenerationProgress(10);
+      const storyRes = await fetchWithRetry("/api/admin/generate-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          step: "story", sessionId, 
+          ...params,
+        }),
+      });
+      if (!storyRes.ok) {
+        const errData = await storyRes.json().catch(() => ({}));
+        throw new Error(errData.message || "故事生成失败");
+      }
+      const storyData = await storyRes.json();
+      if (!storyData.success) throw new Error(storyData.message || "故事生成失败");
+      if (cancelRef.current) return;
+
+      const storyPages = storyData.story.pages;
+      const storyTitle = storyData.story.title;
+      setGenerationProgress(20);
+      setGenerationStep("generating_images");
+
+      // ====== 步骤3: 分批生成图片（每2张一批，避免超时） ======
+      const batchSize = 2;
+      for (let from = 0; from < storyPages.length; from += batchSize) {
+        if (cancelRef.current) return;
+        const to = Math.min(from + batchSize - 1, storyPages.length - 1);
+        const progressPct = 20 + Math.floor(((from + batchSize) / storyPages.length) * 60);
+        setGenerationProgress(progressPct);
+
+        // 从Supabase获取最新pages（可能之前批次已更新了image_url）
+        let currentPages = storyPages;
+        try {
+          const statusRes = await fetch(`/api/admin/generate-status?sessionId=${sessionId}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.result?.pages) currentPages = statusData.result.pages;
+          }
+        } catch {}
+
+        const imgRes = await fetchWithRetry("/api/admin/generate-step", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            step: "images", sessionId,
+            fromIndex: from, toIndex: to,
+            pages: currentPages,
+            styleId: params.styleId,
+            refImageBase64: photoBase64,
+          }),
+        });
+        if (!imgRes.ok) {
+          console.error(`图片批次${from}-${to}生成失败，继续下一步`);
+          continue; // 图片失败不中断，继续下一批
+        }
+        const imgData = await imgRes.json();
+        if (imgData.success && imgData.pages) {
+          storyPages = imgData.pages; // 更新pages
+        }
+      }
+      if (cancelRef.current) return;
+
+      // ====== 步骤4: 完成 ======
+      setGenerationProgress(90);
+      setGenerationStep("generating_images");
       
-      // 发起pipeline请求（服务端后台执行，不阻塞前端）
-      fetchWithRetry("/api/admin/generate-pipeline", {
+      // 获取最终pages（包含所有已生成的图片）
+      let finalPages = storyPages;
+      try {
+        const finalRes = await fetch(`/api/admin/generate-status?sessionId=${sessionId}`);
+        if (finalRes.ok) {
+          const finalData = await finalRes.json();
+          if (finalData.result?.pages) finalPages = finalData.result.pages;
+        }
+      } catch {}
+
+      const completeRes = await fetchWithRetry("/api/admin/generate-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sessionId,
-          params: {
-            childName: form.childName || "自定义",
-            childAge: form.childAge,
-            childGender: form.childGender,
-            themeId: form.themeId,
-            styleId: form.styleId,
-            planId: form.planId,
-            pageCount: form.pageCount,
-            customPrompt: form.planId === "custom-advanced" ? form.customPrompt : undefined,
-            refImageBase64: photoBase64,
-            voiceId: clonedVoiceId,
-          },
+          step: "complete", sessionId,
+          pages: finalPages,
+          title: storyTitle,
+          params,
         }),
-      }).catch(err => {
-        // pipeline请求失败不影响轮询（服务端可能已在运行）
-        console.error("Pipeline请求失败（不影响后台运行）:", err);
       });
-      
-      // ====== 开始轮询进度 ======
-      startPolling(sessionId);
-      
+      if (!completeRes.ok) throw new Error("保存失败");
+      const completeData = await completeRes.json();
+      if (cancelRef.current) return;
+
+      // ====== 完成！展示结果 ======
+      setGenerationProgress(100);
+      setGenerationStep("completed");
+      setIsGenerating(false);
+      localStorage.removeItem("itsmebook_generating_session");
+
+      if (completeData.success) {
+        const storyResult = {
+          title: completeData.title || storyTitle,
+          childName: form.childName,
+          pages: (completeData.pages || finalPages).map((p: any, i: number) => ({
+            pageNumber: p.page_number || i + 1,
+            text: p.text,
+            imageUrl: p.image_url,
+            audioUrl: p.audio_url || undefined,
+          })),
+        };
+        setCompletedStory(storyResult);
+        if (completeData.bookId) setCompletedBookId(completeData.bookId);
+
+        // 保存到localStorage
+        const playerData = { ...storyResult, voiceUrl: "" };
+        sessionStorage.setItem("bedtime_story", JSON.stringify(playerData));
+        localStorage.setItem("itsmebook_last_story", JSON.stringify(playerData));
+
+        try {
+          const booksStr = localStorage.getItem("itsmebook_books");
+          const books = booksStr ? JSON.parse(booksStr) : [];
+          books.unshift({
+            id: completeData.bookId || Date.now().toString(), title: storyResult.title,
+            childName: storyResult.childName, pages: storyResult.pages,
+            createdAt: new Date().toISOString(), isAdminGenerated: true,
+            planId: form.planId,
+          });
+          localStorage.setItem("itsmebook_books", JSON.stringify(books.slice(0, 50)));
+        } catch {}
+      }
     } catch (error: any) {
-      console.error("生成启动失败:", error);
+      if (cancelRef.current) return; // 用户取消，不报错
+      console.error("生成失败:", error);
       setGenerationStep("failed");
       setGenerationError(error.message || "未知错误");
       setIsGenerating(false);
@@ -1642,23 +1778,20 @@ export default function AdminPage() {
 
             {/* 一键生成按钮 */}
             <button
-              onClick={generateBook}
-              disabled={isGenerating || (form.planId === "custom-advanced" ? form.customPrompt.trim().length < 10 : !form.childName.trim())}
+              onClick={isGenerating ? cancelGeneration : generateBook}
+              disabled={!isGenerating && (form.planId === "custom-advanced" ? form.customPrompt.trim().length < 10 : !form.childName.trim())}
               className={`w-full py-4 rounded-2xl text-lg font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${
-                isGenerating || (form.planId === "custom-advanced" ? form.customPrompt.trim().length < 10 : !form.childName.trim())
+                isGenerating
+                  ? "bg-red-500 text-white hover:bg-red-600"
+                  : (form.planId === "custom-advanced" ? form.customPrompt.trim().length < 10 : !form.childName.trim())
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-gradient-to-r from-orange-500 to-primary-dark text-white hover:shadow-xl"
               }`}
             >
               {isGenerating ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  生成中...
-                </>
+                <>取消生成</>
               ) : (
-                <>
-                  ✨ 一键生成绘本
-                </>
+                <>✨ 一键生成绘本</>
               )}
             </button>
           </div>
@@ -1679,7 +1812,12 @@ export default function AdminPage() {
              generationStep === "uploading_photo" ? "📷 上传照片中..." :
              "⏳ 准备中..."}
           </span>
-          <span className="text-xl font-bold text-orange-600">{generationProgress}%</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xl font-bold text-orange-600">{generationProgress}%</span>
+            <button onClick={cancelGeneration} className="px-3 py-1 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-colors">
+              取消
+            </button>
+          </div>
         </div>
         <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
           <div 
