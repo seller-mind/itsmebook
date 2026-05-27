@@ -246,8 +246,8 @@ export default function HomePage() {
             <div className="w-8 h-8 mx-auto mb-3 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-bold">
               3
             </div>
-            <h3 className="font-bold text-gray-900 mb-1">听故事</h3>
-            <p className="text-sm text-gray-500 mb-3">AI朗读，翻页阅读</p>
+            <h3 className="font-bold text-gray-900 mb-1">读故事</h3>
+            <p className="text-sm text-gray-500 mb-3">专属绘本，即刻享用</p>
             <div className="text-xs text-gray-400">即刻享用</div>
           </div>
         </div>
