@@ -697,6 +697,7 @@ export default function AdminPage() {
     if (!completedStory || downloading.images) return;
     setDownloading(prev => ({ ...prev, images: true }));
     try {
+      let downloaded = 0;
       for (let i = 0; i < completedStory.pages.length; i++) {
         const page = completedStory.pages[i];
         if (!page.imageUrl) continue;
@@ -704,17 +705,27 @@ export default function AdminPage() {
           // 通过代理下载图片blob
           const proxyUrl = `/api/admin/image-proxy?url=${encodeURIComponent(page.imageUrl)}`;
           const res = await fetch(proxyUrl);
-          if (!res.ok) throw new Error("fetch failed");
+          if (!res.ok) throw new Error(`代理返回${res.status}`);
           const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
+          const blobUrl = URL.createObjectURL(blob);
           const a = document.createElement("a");
-          a.href = url;
+          a.href = blobUrl;
           a.download = `${completedStory.title}_${i + 1}.png`;
+          document.body.appendChild(a);
           a.click();
-          URL.revokeObjectURL(url);
-        } catch {}
-        if (i < completedStory.pages.length - 1) await new Promise(r => setTimeout(r, 500));
+          document.body.removeChild(a);
+          // 延迟释放blob URL，确保下载完成
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+          downloaded++;
+          if (i < completedStory.pages.length - 1) await new Promise(r => setTimeout(r, 800));
+        } catch (err) {
+          console.error(`第${i+1}页图片下载失败:`, err);
+        }
       }
+      if (downloaded === 0) alert("图片下载失败，请检查网络后重试");
+    } catch (e) {
+      console.error("图片下载失败:", e);
+      alert("图片下载失败，请重试");
     } finally {
       setDownloading(prev => ({ ...prev, images: false }));
     }
@@ -775,8 +786,15 @@ export default function AdminPage() {
             const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
             const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
             const x = (canvas.width - w) / 2, y = 25;
-            ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, w, h, 12); ctx.clip(); ctx.drawImage(img, x, y, w, h); ctx.restore();
-          } catch { ctx.fillStyle = "#f3f4f6"; ctx.fillRect(40, 25, canvas.width - 80, canvas.height * 0.6); }
+            ctx.save(); ctx.beginPath(); 
+            // roundRect兼容处理
+            if (ctx.roundRect) { ctx.roundRect(x, y, w, h, 12); } 
+            else { ctx.rect(x, y, w, h); }
+            ctx.clip(); ctx.drawImage(img, x, y, w, h); ctx.restore();
+          } catch (imgErr) { 
+            console.error(`PDF第${i+1}页图片加载失败:`, imgErr);
+            ctx.fillStyle = "#f3f4f6"; ctx.fillRect(40, 25, canvas.width - 80, canvas.height * 0.6); 
+          }
         }
         // 文字
         ctx.fillStyle = "#333333"; ctx.textAlign = "center"; ctx.textBaseline = "top";
@@ -796,12 +814,15 @@ export default function AdminPage() {
         const imgData = canvas.toDataURL("image/jpeg", 0.92);
         pdf.addImage(imgData, "JPEG", 0, 0, pageWidth, pageHeight);
       }
-      pdf.save(`${completedStory.title}.pdf`);
-    } catch (e) { console.error("PDF生成失败:", e); alert("PDF生成失败，请重试"); }
+      pdf.save(`${completedStory.title || "绘本"}.pdf`);
+    } catch (e) { 
+      console.error("PDF生成失败:", e); 
+      alert("PDF生成失败：" + (e instanceof Error ? e.message : "未知错误"));
+    }
     finally { setDownloading(prev => ({ ...prev, pdf: false })); }
   };
 
-  // 视频录制：图片代理 + TTS音频 + Canvas录制（确保有声音）
+  // 视频录制：图片代理 + TTS音频代理 + Canvas录制（确保有声音）
   const downloadVideo = async () => {
     if (!completedStory || downloading.video) return;
     setDownloading(prev => ({ ...prev, video: true }));
@@ -823,7 +844,10 @@ export default function AdminPage() {
             const scale = Math.min(1080 / img.naturalWidth, imgMaxH / img.naturalHeight);
             const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
             pctx.drawImage(img, (1080 - w) / 2, (imgMaxH - h) / 2, w, h);
-          } catch { pctx.fillStyle = "#f3f4f6"; pctx.fillRect(0, 0, 1080, 1080 * 0.78); }
+          } catch (imgErr) { 
+            console.error(`视频第${i+1}页图片加载失败:`, imgErr);
+            pctx.fillStyle = "#f3f4f6"; pctx.fillRect(0, 0, 1080, 1080 * 0.78); 
+          }
         }
         pctx.fillStyle = "rgba(255,255,255,0.95)";
         pctx.fillRect(0, 1080 * 0.78, 1080, 1080 * 0.22);
@@ -835,9 +859,14 @@ export default function AdminPage() {
         pageCanvases.push(pc);
       }
 
-      // 2. 预生成TTS音频并下载为AudioBuffer
+      // 2. 预生成TTS音频并通过代理下载为AudioBuffer
+      // 关键修复：TTS返回的音频URL来自aliyuncs.com，浏览器直接fetch会CORS失败
+      // 必须通过image-proxy中转（它支持所有aliyuncs.com域名）
       const audioBuffers: (AudioBuffer | null)[] = new Array(pages.length).fill(null);
       const tmpAudioCtx = new AudioContext();
+      await tmpAudioCtx.resume();
+      
+      let audioSuccessCount = 0;
       for (let i = 0; i < pages.length; i++) {
         try {
           const ttsRes = await fetchWithRetry("/api/voice/tts", {
@@ -848,19 +877,29 @@ export default function AdminPage() {
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json();
             if (ttsData.success && ttsData.audioUrl) {
-              // 下载音频文件并解码为AudioBuffer
-              const audioRes = await fetchWithRetry(ttsData.audioUrl, {});
+              // 通过代理下载音频文件（解决CORS问题）
+              const proxyAudioUrl = `/api/admin/image-proxy?url=${encodeURIComponent(ttsData.audioUrl)}`;
+              const audioRes = await fetchWithRetry(proxyAudioUrl, {});
               if (audioRes.ok) {
                 const arrayBuffer = await audioRes.arrayBuffer();
                 try {
                   audioBuffers[i] = await tmpAudioCtx.decodeAudioData(arrayBuffer);
-                } catch {}
+                  audioSuccessCount++;
+                } catch (decodeErr) {
+                  console.error(`第${i+1}页音频解码失败:`, decodeErr);
+                }
+              } else {
+                console.error(`第${i+1}页音频代理下载失败: status=${audioRes.status}`);
               }
             }
           }
-        } catch {}
+        } catch (ttsErr) {
+          console.error(`第${i+1}页TTS失败:`, ttsErr);
+        }
       }
       tmpAudioCtx.close();
+      
+      console.log(`[视频] 音频准备完成: ${audioSuccessCount}/${pages.length}页成功`);
 
       // 3. 设置录制
       const recordCanvas = document.createElement("canvas");
@@ -890,7 +929,8 @@ export default function AdminPage() {
       });
       recorder.start(1000);
 
-      // 4. 逐页播放（用AudioBufferSourceNode播放音频，这是最可靠的方式）
+      // 4. 逐页播放（用AudioBufferSourceNode播放音频到录制流）
+      // 同时连接audioCtx.destination让用户听到声音（录进视频流+外放）
       for (let i = 0; i < pages.length; i++) {
         recordCtx.drawImage(pageCanvases[i], 0, 0);
 
@@ -898,19 +938,23 @@ export default function AdminPage() {
           try {
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffers[i];
+            // 连接到录制流
             source.connect(audioDest);
-            // 不连接audioCtx.destination避免外放声音（只录制）
+            // 同时连接到扬声器（让用户听到）
+            source.connect(audioCtx.destination);
             const duration = audioBuffers[i]!.duration;
             await new Promise<void>((resolve) => {
               source.onended = () => resolve();
               source.start(0);
-              setTimeout(resolve, (duration + 1) * 1000); // 保底超时
+              setTimeout(resolve, (duration + 0.5) * 1000); // 保底超时
             });
-          } catch {
-            await new Promise(r => setTimeout(r, 5000));
+          } catch (playErr) {
+            console.error(`第${i+1}页音频播放失败:`, playErr);
+            await new Promise(r => setTimeout(r, 4000));
           }
         } else {
-          await new Promise(r => setTimeout(r, 5000));
+          // 没有音频的页面，停留4秒
+          await new Promise(r => setTimeout(r, 4000));
         }
       }
 
@@ -918,11 +962,21 @@ export default function AdminPage() {
       const videoBlob = await recordingDone;
       audioCtx.close();
 
+      if (videoBlob.size < 1000) {
+        throw new Error("视频文件太小，录制可能失败");
+      }
+
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement("a");
-      a.href = url; a.download = `${completedStory.title}.webm`;
-      a.click(); URL.revokeObjectURL(url);
-    } catch (e) { console.error("视频生成失败:", e); alert("视频生成失败，请重试"); }
+      a.href = url; a.download = `${completedStory.title || "绘本"}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) { 
+      console.error("视频生成失败:", e); 
+      alert("视频生成失败：" + (e instanceof Error ? e.message : "未知错误"));
+    }
     finally { setDownloading(prev => ({ ...prev, video: false })); }
   };
 
@@ -1068,7 +1122,7 @@ export default function AdminPage() {
                     disabled={downloading.pdf}
                     className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors disabled:opacity-50"
                   >
-                    {downloading.pdf ? "生成中..." : "下载PDF"}
+                    {downloading.pdf ? "下载中..." : "下载PDF"}
                   </button>
                 </div>
                 {/* 3. 带语音的视频 */}

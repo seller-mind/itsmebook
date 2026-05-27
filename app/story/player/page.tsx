@@ -337,6 +337,7 @@ export default function StoryPlayerPage() {
       setVideoExportProgress(22);
       const audioBuffers: (AudioBuffer | null)[] = new Array(pages.length).fill(null);
       const tmpAudioCtx = new AudioContext();
+      await tmpAudioCtx.resume();
       for (let i = 0; i < pages.length; i++) {
         try {
           const ttsRes = await fetch("/api/voice/tts", {
@@ -347,14 +348,16 @@ export default function StoryPlayerPage() {
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json();
             if (ttsData.success && ttsData.audioUrl) {
-              const audioRes = await fetch(ttsData.audioUrl);
+              // 关键：通过代理下载音频（TTS音频URL来自aliyuncs.com，浏览器直接fetch会CORS失败）
+              const proxyAudioUrl = `/api/admin/image-proxy?url=${encodeURIComponent(ttsData.audioUrl)}`;
+              const audioRes = await fetch(proxyAudioUrl);
               if (audioRes.ok) {
                 const arrayBuffer = await audioRes.arrayBuffer();
-                try { audioBuffers[i] = await tmpAudioCtx.decodeAudioData(arrayBuffer); } catch {}
+                try { audioBuffers[i] = await tmpAudioCtx.decodeAudioData(arrayBuffer); } catch (e) { console.error(`第${i+1}页音频解码失败:`, e); }
               }
             }
           }
-        } catch {}
+        } catch (e) { console.error(`第${i+1}页TTS失败:`, e); }
         setVideoExportProgress(22 + Math.round(((i + 1) / pages.length) * 18));
       }
       tmpAudioCtx.close();
@@ -402,17 +405,18 @@ export default function StoryPlayerPage() {
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffers[i];
             source.connect(audioDest);
+            source.connect(audioCtx.destination); // 同时连接扬声器
             const duration = audioBuffers[i]!.duration;
             await new Promise<void>((resolve) => {
               source.onended = () => resolve();
               source.start(0);
-              setTimeout(resolve, (duration + 1) * 1000);
+              setTimeout(resolve, (duration + 0.5) * 1000);
             });
           } catch {
-            await new Promise(r => setTimeout(r, 5000));
+            await new Promise(r => setTimeout(r, 4000));
           }
         } else {
-          await new Promise(r => setTimeout(r, 5000));
+          await new Promise(r => setTimeout(r, 4000));
         }
       }
 
