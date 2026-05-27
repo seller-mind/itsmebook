@@ -3,6 +3,19 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 
+// 通过代理加载图片 - 使用base64编码避免OSS签名参数被截断
+const proxyImageUrl = (url: string): string => {
+  if (!url) return "";
+  const needsProxy = url.includes("aliyuncs.com") || url.includes("dashscope");
+  if (!needsProxy) return url;
+  try {
+    const b64 = btoa(url);
+    return `/api/admin/image-proxy?b64=${encodeURIComponent(b64)}`;
+  } catch {
+    return `/api/admin/image-proxy?url=${encodeURIComponent(url)}`;
+  }
+};
+
 // 绘本页面类型
 interface BookPage {
   page_number: number;
@@ -151,7 +164,7 @@ export default function SharePage() {
             {currentPageData.image_url && !currentPageData.image_url.includes("placehold.co") ? (
               <img
                 src={currentPageData.image_url.includes("aliyuncs.com") || currentPageData.image_url.includes("dashscope") 
-                  ? `/api/admin/image-proxy?url=${encodeURIComponent(currentPageData.image_url)}`
+                  ? proxyImageUrl(currentPageData.image_url)
                   : currentPageData.image_url}
                 alt={`第${currentPage + 1}页`}
                 className="w-full h-full object-cover"
@@ -303,7 +316,7 @@ function AudioBookView({ book, currentPage, setCurrentPage }: {
             {currentPageData.image_url && !currentPageData.image_url.includes("placehold.co") ? (
               <img
                 src={currentPageData.image_url.includes("aliyuncs.com") || currentPageData.image_url.includes("dashscope")
-                  ? `/api/admin/image-proxy?url=${encodeURIComponent(currentPageData.image_url)}`
+                  ? proxyImageUrl(currentPageData.image_url)
                   : currentPageData.image_url}
                 alt={`第${currentPage + 1}页`}
                 className="w-full h-full object-cover"

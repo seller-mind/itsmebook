@@ -37,13 +37,26 @@ const fetchWithRetry = async (url: string, options: RequestInit, maxRetries: num
 };
 
 // 通过代理加载图片（解决dashscope OSS不支持CORS的问题）
+// 使用base64url编码传递完整URL，避免OSS签名参数（&Expires=...&Signature=...）被截断
+const proxyImageUrl = (url: string): string => {
+  if (!url) return "";
+  const needsProxy = url.includes("aliyuncs.com") || url.includes("dashscope");
+  if (!needsProxy) return url;
+  try {
+    const b64 = btoa(url);  // base64编码，不会丢失任何字符
+    return `/api/admin/image-proxy?b64=${encodeURIComponent(b64)}`;
+  } catch {
+    return `/api/admin/image-proxy?url=${encodeURIComponent(url)}`;
+  }
+};
+
 const loadImageViaProxy = (url: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     if (!url) { reject(new Error("No URL")); return; }
     const needsProxy = url.includes("aliyuncs.com") || url.includes("dashscope");
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = needsProxy ? `/api/admin/image-proxy?url=${encodeURIComponent(url)}` : url;
+    img.src = needsProxy ? proxyImageUrl(url) : url;
     const timeout = setTimeout(() => reject(new Error("Image load timeout")), 12000);
     img.onload = () => { clearTimeout(timeout); if (img.naturalWidth > 0) resolve(img); else reject(new Error("No dimensions")); };
     img.onerror = () => { clearTimeout(timeout); reject(new Error("Load failed")); };
@@ -720,8 +733,8 @@ export default function AdminPage() {
       setGenerationProgress(20);
       setGenerationStep("generating_images");
 
-      // ====== 步骤3: 分批生成图片（每2张一批，避免超时） ======
-      const batchSize = 2;
+      // ====== 步骤3: 逐页生成图片（每1张一批，服务端有重试逻辑，避免单次超时） ======
+      const batchSize = 1;
       for (let from = 0; from < storyPages.length; from += batchSize) {
         if (cancelRef.current) return;
         const to = Math.min(from + batchSize - 1, storyPages.length - 1);
@@ -748,7 +761,7 @@ export default function AdminPage() {
             styleId: params.styleId,
             refImageBase64: photoBase64,
           }),
-        });
+        }, 1); // 图片步骤只重试1次（服务端已有3次重试）
         if (!imgRes.ok) {
           console.error(`图片批次${from}-${to}生成失败，继续下一步`);
           continue; // 图片失败不中断，继续下一批
@@ -903,7 +916,7 @@ export default function AdminPage() {
         if (!page.imageUrl) continue;
         try {
           // 通过代理下载图片blob
-          const proxyUrl = `/api/admin/image-proxy?url=${encodeURIComponent(page.imageUrl)}`;
+          const proxyUrl = proxyImageUrl(page.imageUrl);
           const res = await fetch(proxyUrl);
           if (!res.ok) throw new Error(`代理返回${res.status}`);
           const blob = await res.blob();
@@ -1098,7 +1111,7 @@ export default function AdminPage() {
               }
             } else if (ttsData.success && ttsData.audioUrl) {
               // 降级：使用代理方式
-              const proxyAudioUrl = `/api/admin/image-proxy?url=${encodeURIComponent(ttsData.audioUrl)}`;
+              const proxyAudioUrl = proxyImageUrl(ttsData.audioUrl);
               const audioRes = await fetchWithRetry(proxyAudioUrl, {});
               if (audioRes.ok) {
                 const arrayBuffer = await audioRes.arrayBuffer();
@@ -1300,7 +1313,7 @@ export default function AdminPage() {
               } catch (e) { console.error(`第${i+1}页音频解码失败:`, e); }
             } else if (ttsData.success && ttsData.audioUrl) {
               // 降级：代理方式
-              const proxyAudioUrl = `/api/admin/image-proxy?url=${encodeURIComponent(ttsData.audioUrl)}`;
+              const proxyAudioUrl = proxyImageUrl(ttsData.audioUrl);
               const audioRes = await fetchWithRetry(proxyAudioUrl, {});
               if (audioRes.ok) {
                 const arrayBuffer = await audioRes.arrayBuffer();
@@ -2004,7 +2017,7 @@ function AdminBookReader({
   // 图片URL处理
   const getImageSrc = (url: string) => {
     if (!url) return "";
-    if (url.startsWith("http")) return `/api/admin/image-proxy?url=${encodeURIComponent(url)}`;
+    if (url.startsWith("http")) return proxyImageUrl(url);
     return url;
   };
 
