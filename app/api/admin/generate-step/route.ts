@@ -223,41 +223,37 @@ ${customPrompt}
 
         await Promise.all(batchIndices.map(async (i) => {
           const page = pages[i];
-          let imageUrl = "";
-          // 最多重试3次
-          for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-              const fullPrompt = `${page.image_prompt}，${styleConfig.chinesePrompt}`;
-              const contentParts: any[] = [{ text: fullPrompt }];
-              if (refImageBase64) contentParts.push({ image: refImageBase64 });
+          try {
+            const fullPrompt = `${page.image_prompt}，${styleConfig.chinesePrompt}`;
+            const contentParts: any[] = [{ text: fullPrompt }];
+            if (refImageBase64) contentParts.push({ image: refImageBase64 });
 
-              const imgResponse = await fetch(
-                "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-                  body: JSON.stringify({
-                    model,
-                    input: { messages: [{ role: "user", content: contentParts }] },
-                    parameters: { size: "768*768", n: 1 },
-                  }),
-                  signal: AbortSignal.timeout(45000),
-                }
-              );
-
-              if (imgResponse.ok) {
-                const imgResult = await imgResponse.json();
-                imageUrl = imgResult.output?.choices?.[0]?.message?.content?.[0]?.image;
-                if (imageUrl) break; // 成功，跳出重试
+            const imgResponse = await fetch(
+              "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                  model,
+                  input: { messages: [{ role: "user", content: contentParts }] },
+                  parameters: { size: "768*768", n: 1 },
+                }),
+                signal: AbortSignal.timeout(25000), // 25秒超时，保证总时间<30秒
               }
-              console.warn(`第${i + 1}页图片第${attempt}次生成失败(status)`);
-            } catch (imgErr) {
-              console.warn(`第${i + 1}页图片第${attempt}次生成失败:`, imgErr);
+            );
+
+            if (imgResponse.ok) {
+              const imgResult = await imgResponse.json();
+              const imageUrl = imgResult.output?.choices?.[0]?.message?.content?.[0]?.image;
+              updatedPages[i] = { ...page, image_url: imageUrl || "" };
+            } else {
+              console.warn(`第${i + 1}页图片生成失败: HTTP ${imgResponse.status}`);
+              updatedPages[i] = { ...page, image_url: "" }; // 空=失败，前端会重试
             }
-            // 重试间隔
-            if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+          } catch (imgErr) {
+            console.warn(`第${i + 1}页图片生成异常:`, imgErr);
+            updatedPages[i] = { ...page, image_url: "" }; // 空=失败，前端会重试
           }
-          updatedPages[i] = { ...page, image_url: imageUrl || `https://placehold.co/768x768/FFB6C1/ffffff?text=Page+${i + 1}` };
         }))
 
         // 更新Supabase中的结果

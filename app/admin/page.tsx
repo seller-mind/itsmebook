@@ -733,15 +733,14 @@ export default function AdminPage() {
       setGenerationProgress(20);
       setGenerationStep("generating_images");
 
-      // ====== 步骤3: 逐页生成图片（每1张一批，服务端有重试逻辑，避免单次超时） ======
+      // ====== 步骤3: 逐页生成图片（每1张一批，服务端不重试保证<30秒） ======
       const batchSize = 1;
-      for (let from = 0; from < storyPages.length; from += batchSize) {
-        if (cancelRef.current) return;
-        const to = Math.min(from + batchSize - 1, storyPages.length - 1);
-        const progressPct = 20 + Math.floor(((from + batchSize) / storyPages.length) * 60);
-        setGenerationProgress(progressPct);
-
-        // 从Supabase获取最新pages（可能之前批次已更新了image_url）
+      const MAX_RETRY_ROUNDS = 2; // 最多重试2轮
+      
+      for (let round = 0; round <= MAX_RETRY_ROUNDS; round++) {
+        if (cancelRef.current) break;
+        
+        // 找出需要生成/重试的页面（image_url为空的）
         let currentPages = storyPages;
         try {
           const statusRes = await fetch(`/api/admin/generate-status?sessionId=${sessionId}`);
@@ -751,24 +750,61 @@ export default function AdminPage() {
           }
         } catch {}
 
-        const imgRes = await fetchWithRetry("/api/admin/generate-step", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            step: "images", sessionId,
-            fromIndex: from, toIndex: to,
-            pages: currentPages,
-            styleId: params.styleId,
-            refImageBase64: photoBase64,
-          }),
-        }, 1); // 图片步骤只重试1次（服务端已有3次重试）
-        if (!imgRes.ok) {
-          console.error(`图片批次${from}-${to}生成失败，继续下一步`);
-          continue; // 图片失败不中断，继续下一批
+        const failedIndices: number[] = [];
+        for (let i = 0; i < currentPages.length; i++) {
+          const url = currentPages[i]?.image_url;
+          if (!url || url.includes("placehold.co")) {
+            failedIndices.push(i);
+          }
         }
-        const imgData = await imgRes.json();
-        if (imgData.success && imgData.pages) {
-          storyPages = imgData.pages; // 更新pages
+
+        if (failedIndices.length === 0) break; // 所有图片都成功了
+        if (round > 0) {
+          console.log(`第${round}轮重试，剩余失败页: ${failedIndices.map(i => i+1).join(',')}`);
+          // 重试前等2秒
+          await new Promise(r => setTimeout(r, 2000));
+        }
+
+        for (const idx of failedIndices) {
+          if (cancelRef.current) break;
+          const progressPct = 20 + Math.floor(((storyPages.length - failedIndices.length + (storyPages.length - failedIndices.length > 0 ? 1 : 0)) / storyPages.length) * 60);
+          setGenerationProgress(Math.min(progressPct, 85));
+
+          // 刷新当前pages
+          try {
+            const statusRes = await fetch(`/api/admin/generate-status?sessionId=${sessionId}`);
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              if (statusData.result?.pages) currentPages = statusData.result.pages;
+            }
+          } catch {}
+
+          // 如果这个页面已经有图了（可能前一批并发成功了），跳过
+          if (currentPages[idx]?.image_url && !currentPages[idx].image_url.includes("placehold.co")) continue;
+
+          try {
+            const imgRes = await fetchWithRetry("/api/admin/generate-step", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                step: "images", sessionId,
+                fromIndex: idx, toIndex: idx,
+                pages: currentPages,
+                styleId: params.styleId,
+                refImageBase64: photoBase64,
+              }),
+            }, 1);
+            if (imgRes.ok) {
+              const imgData = await imgRes.json();
+              if (imgData.success && imgData.pages) {
+                storyPages = imgData.pages;
+              }
+            } else {
+              console.warn(`第${idx+1}页图片生成请求失败`);
+            }
+          } catch (imgErr) {
+            console.warn(`第${idx+1}页图片生成异常:`, imgErr);
+          }
         }
       }
       if (cancelRef.current) return;
@@ -911,31 +947,48 @@ export default function AdminPage() {
     setDownloading(prev => ({ ...prev, images: true }));
     try {
       let downloaded = 0;
+      const failedPages: number[] = [];
       for (let i = 0; i < completedStory.pages.length; i++) {
         const page = completedStory.pages[i];
-        if (!page.imageUrl) continue;
+        if (!page.imageUrl || page.imageUrl.includes("placehold.co")) continue;
         try {
           // 通过代理下载图片blob
           const proxyUrl = proxyImageUrl(page.imageUrl);
           const res = await fetch(proxyUrl);
           if (!res.ok) throw new Error(`代理返回${res.status}`);
           const blob = await res.blob();
+          
+          // 尝试下载，移动端兼容
           const blobUrl = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = blobUrl;
           a.download = `${completedStory.title}_${i + 1}.png`;
+          a.style.display = "none";
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          // 延迟释放blob URL，确保下载完成
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
           downloaded++;
-          if (i < completedStory.pages.length - 1) await new Promise(r => setTimeout(r, 800));
+          // 间隔1秒避免浏览器拦截
+          if (i < completedStory.pages.length - 1) await new Promise(r => setTimeout(r, 1000));
         } catch (err) {
           console.error(`第${i+1}页图片下载失败:`, err);
+          failedPages.push(i + 1);
         }
       }
-      if (downloaded === 0) alert("图片下载失败，请检查网络后重试");
+      if (downloaded === 0) {
+        // 所有图片下载失败，提供替代方案：在新标签页打开
+        const firstPage = completedStory.pages.find(p => p.imageUrl && !p.imageUrl.includes("placehold.co"));
+        if (firstPage) {
+          if (confirm("直接下载失败，是否在新页面打开图片？（长按图片可保存）")) {
+            window.open(proxyImageUrl(firstPage.imageUrl), "_blank");
+          }
+        } else {
+          alert("没有可下载的图片，请先生成绘本");
+        }
+      } else if (failedPages.length > 0) {
+        alert(`已下载${downloaded}张图片，第${failedPages.join('、')}页下载失败`);
+      }
     } catch (e) {
       console.error("图片下载失败:", e);
       alert("图片下载失败，请重试");
@@ -1002,7 +1055,7 @@ export default function AdminPage() {
         ctx.fillStyle = (isCover || isBack) ? "#fff5eb" : "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         // 图片
-        if (page.imageUrl) {
+        if (page.imageUrl && !page.imageUrl.includes("placehold.co")) {
           try {
             const img = await loadImageViaProxy(page.imageUrl);
             const maxW = canvas.width - 80, maxH = canvas.height * 0.6;
