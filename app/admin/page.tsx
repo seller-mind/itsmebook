@@ -260,13 +260,31 @@ export default function AdminPage() {
 
   // ====== Pipeline轮询逻辑 ======
   
+  // 进度停滞检测
+  const lastProgressRef = useRef<number>(-1);
+  const stallCountRef = useRef<number>(0);
+  const STALL_LIMIT = 30; // 连续30次（约60秒）进度没变化则判定卡死
+
   // 停止轮询
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
+    stallCountRef.current = 0;
+    lastProgressRef.current = -1;
   }, []);
+
+  // 清除卡死状态，恢复可用
+  const clearStuckState = useCallback(() => {
+    stopPolling();
+    setIsGenerating(false);
+    setGenerationStep("idle");
+    setGenerationProgress(0);
+    setGenerationError(null);
+    setCurrentSessionId(null);
+    localStorage.removeItem("itsmebook_generating_session");
+  }, [stopPolling]);
 
   // 处理轮询到的状态数据
   const handlePollResult = useCallback((data: any, sid: string) => {
@@ -317,22 +335,48 @@ export default function AdminPage() {
       localStorage.removeItem("itsmebook_generating_session");
     } else {
       // 还在生成中，更新进度
-      setGenerationProgress(data.progress || 0);
-      // 根据进度推断步骤
       const p = data.progress || 0;
+      setGenerationProgress(p);
+      // 根据进度推断步骤
       if (p < 15) setGenerationStep("generating_story");
       else if (p < 90) setGenerationStep("generating_images");
       else setGenerationStep("completed");
+
+      // 停滞检测：进度长时间没变化
+      if (p === lastProgressRef.current) {
+        stallCountRef.current++;
+        if (stallCountRef.current >= STALL_LIMIT) {
+          console.warn("进度停滞超时，自动取消");
+          clearStuckState();
+          setGenerationError("生成超时，请重新生成");
+          setGenerationStep("failed");
+        }
+      } else {
+        stallCountRef.current = 0;
+        lastProgressRef.current = p;
+      }
     }
-  }, [form.childName, stopPolling]);
+  }, [form.childName, stopPolling, clearStuckState]);
 
   // 开始轮询
   const startPolling = useCallback((sid: string) => {
     stopPolling(); // 先停止旧的
+    stallCountRef.current = 0;
+    lastProgressRef.current = -1;
     const poll = async () => {
       try {
         const res = await fetch(`/api/admin/generate-status?sessionId=${sid}`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          // 404 = session不存在，说明是残留的旧session，直接清除
+          if (res.status === 404) {
+            console.warn("生成session不存在，自动清除卡死状态");
+            clearStuckState();
+            setGenerationError("上次的生成记录已过期，请重新生成");
+            setGenerationStep("failed");
+            return;
+          }
+          return;
+        }
         const data = await res.json();
         if (data.success) handlePollResult(data, sid);
       } catch (e) {
@@ -342,33 +386,91 @@ export default function AdminPage() {
     // 立即执行一次，然后每2秒执行
     poll();
     pollingIntervalRef.current = setInterval(poll, 2000);
-  }, [stopPolling, handlePollResult]);
+  }, [stopPolling, handlePollResult, clearStuckState]);
 
   // 页面加载时恢复进行中的生成任务
   useEffect(() => {
     const savedSid = localStorage.getItem("itsmebook_generating_session");
     if (savedSid) {
-      setIsGenerating(true);
-      setCurrentSessionId(savedSid);
-      startPolling(savedSid);
+      // 先检查session是否还存在于服务端
+      fetch(`/api/admin/generate-status?sessionId=${savedSid}`)
+        .then(res => {
+          if (!res.ok) {
+            // session不存在（404）或其他错误，清除卡死状态
+            console.warn("残留session不存在，自动清除");
+            clearStuckState();
+            return;
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (!data) return;
+          if (data.status === "completed") {
+            // 已完成，直接加载结果
+            handlePollResult(data, savedSid);
+          } else if (data.status === "failed") {
+            // 已失败，清除
+            clearStuckState();
+            setGenerationError("上次的生成已失败，请重新生成");
+            setGenerationStep("failed");
+          } else if (data.status === "generating") {
+            // 还在生成中，恢复轮询
+            setIsGenerating(true);
+            setCurrentSessionId(savedSid);
+            const p = data.progress || 0;
+            setGenerationProgress(p);
+            startPolling(savedSid);
+          } else {
+            // 未知状态，清除
+            clearStuckState();
+          }
+        })
+        .catch(() => {
+          // 网络错误，先恢复UI但加超时保护
+          setIsGenerating(true);
+          setCurrentSessionId(savedSid);
+          startPolling(savedSid);
+        });
     }
     return () => stopPolling();
-  }, [startPolling, stopPolling]);
+  }, [startPolling, stopPolling, clearStuckState, handlePollResult]);
 
   // 页面可见性变化时恢复轮询
   useEffect(() => {
     const handleVisibility = () => {
       const savedSid = localStorage.getItem("itsmebook_generating_session");
       if (document.visibilityState === "visible" && savedSid && !pollingIntervalRef.current) {
-        // 页面重新可见，恢复轮询
-        setIsGenerating(true);
-        setCurrentSessionId(savedSid);
-        startPolling(savedSid);
+        // 页面重新可见，先检查session是否还在
+        fetch(`/api/admin/generate-status?sessionId=${savedSid}`)
+          .then(res => {
+            if (!res.ok) {
+              clearStuckState();
+              setGenerationError("上次的生成记录已过期，请重新生成");
+              setGenerationStep("failed");
+              return;
+            }
+            return res.json();
+          })
+          .then(data => {
+            if (!data) return;
+            if (data.status === "completed") {
+              handlePollResult(data, savedSid);
+            } else if (data.status === "failed") {
+              clearStuckState();
+              setGenerationError("上次的生成已失败，请重新生成");
+              setGenerationStep("failed");
+            } else {
+              setIsGenerating(true);
+              setCurrentSessionId(savedSid);
+              startPolling(savedSid);
+            }
+          })
+          .catch(() => {});
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [startPolling]);
+  }, [startPolling, clearStuckState, handlePollResult]);
 
   // 监听套餐变化 - 自动滚动到上传区域
   useEffect(() => {
@@ -495,11 +597,7 @@ export default function AdminPage() {
   // 取消生成
   const cancelGeneration = () => {
     cancelRef.current = true;
-    stopPolling();
-    setIsGenerating(false);
-    setGenerationStep("idle");
-    setGenerationProgress(0);
-    localStorage.removeItem("itsmebook_generating_session");
+    clearStuckState();
   };
 
   const generateBook = async () => {
@@ -1799,11 +1897,11 @@ export default function AdminPage() {
       </div>
     </div>
     {/* 浮动进度条 - 生成时固定在底部 */}
-    {isGenerating && (
+    {(isGenerating || generationStep === "failed") && generationStep !== "idle" && generationStep !== "completed" && (
       <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.15)] z-50 px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-700">
-            {generationStep === "completed" ? "✅ 生成完成！" :
+            {generationStep === "failed" ? "❌ 生成失败" :
              generationStep === "generating_story" ? "✍️ 生成故事中..." :
              generationStep === "generating_images" ? "🎨 绘制插画中..." :
              generationStep === "generating_audio" ? "🔊 合成配音中..." :
@@ -1814,11 +1912,20 @@ export default function AdminPage() {
           </span>
           <div className="flex items-center gap-3">
             <span className="text-xl font-bold text-orange-600">{generationProgress}%</span>
-            <button onClick={cancelGeneration} className="px-3 py-1 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-colors">
-              取消
-            </button>
+            {isGenerating ? (
+              <button onClick={cancelGeneration} className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600 transition-colors shadow-md">
+                取消生成
+              </button>
+            ) : (
+              <button onClick={() => { setGenerationStep("idle"); setGenerationError(null); }} className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-bold hover:bg-orange-600 transition-colors shadow-md">
+                重新开始
+              </button>
+            )}
           </div>
         </div>
+        {generationError && (
+          <p className="text-xs text-red-500 mb-1">{generationError}</p>
+        )}
         <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
           <div 
             className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-500 rounded-full"
