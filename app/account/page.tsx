@@ -249,15 +249,22 @@ export default function AccountPage() {
     setUserProfile(newProfile);
   };
 
-  // 点击阅读绘本 - 根据是否有音频选择不同页面
+  // 点击阅读绘本 - 统一通过sessionStorage传递数据
   const handleReadBook = (book: any) => {
-    sessionStorage.setItem("bedtime_story", JSON.stringify(book));
-    localStorage.setItem("itsmebook_last_story", JSON.stringify(book));
-    // 有音频的绘本用全屏播放器，没有的用分享页面（纯翻页模式）
+    // 保存完整绘本数据到sessionStorage，确保阅读器能直接读取
+    const storyData = {
+      ...book,
+      voiceUrl: "",
+    };
+    sessionStorage.setItem("bedtime_story", JSON.stringify(storyData));
+    localStorage.setItem("itsmebook_last_story", JSON.stringify(storyData));
+    
+    // 有音频的绘本用全屏播放器
     const hasAudio = book.pages?.some((p: any) => !!p.audioUrl);
     if (hasAudio) {
       router.push("/story/player");
     } else if (book.id) {
+      // 尝试通过share页面查看（会先查sessionStorage再查Supabase）
       router.push(`/share/${book.id}`);
     } else {
       router.push("/story/player");

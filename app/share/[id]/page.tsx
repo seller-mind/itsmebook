@@ -41,6 +41,39 @@ export default function SharePage() {
     const fetchBook = async () => {
       try {
         setLoading(true);
+        
+        // 优先从sessionStorage读取（个人中心跳转时数据已存入）
+        const cachedStory = sessionStorage.getItem("bedtime_story");
+        if (cachedStory) {
+          try {
+            const parsed = JSON.parse(cachedStory);
+            // 验证ID匹配或数据完整
+            if (parsed && parsed.pages && parsed.pages.length > 0) {
+              setBook({
+                id: parsed.id || bookId,
+                title: parsed.title || "我的绘本",
+                character_name: parsed.childName || parsed.character_name || "",
+                character_age: parsed.childAge || parsed.character_age || 5,
+                theme: parsed.theme || "",
+                style: parsed.style || "",
+                pages: parsed.pages.map((p: any, i: number) => ({
+                  page_number: p.pageNumber || p.page_number || i + 1,
+                  text: p.text,
+                  image_prompt: p.image_prompt || "",
+                  image_url: p.imageUrl || p.image_url || "",
+                  audio_url: p.audioUrl || p.audio_url || undefined,
+                })),
+                created_at: parsed.createdAt || new Date().toISOString(),
+              });
+              setLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.error("sessionStorage数据解析失败:", e);
+          }
+        }
+        
+        // fallback: 从Supabase获取（分享链接场景）
         const response = await fetch(`/api/share/${bookId}`);
         if (!response.ok) throw new Error("绘本不存在或已过期");
         const data = await response.json();

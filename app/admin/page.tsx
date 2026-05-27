@@ -7,17 +7,26 @@ import { STORY_THEMES } from "@/lib/story";
 import { v4 as uuidv4 } from "uuid";
 import { convertWebmToMp4 } from "@/lib/video-converter";
 
-// 带重试的fetch（解决网络波动导致的"Failed to fetch"）
-const fetchWithRetry = async (url: string, options: RequestInit, maxRetries: number = 3): Promise<Response> => {
+// 带重试和超时的fetch（解决网络波动导致的"Failed to fetch"）
+const fetchWithRetry = async (url: string, options: RequestInit, maxRetries: number = 2): Promise<Response> => {
   let lastError: Error = new Error("Unknown error");
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(url, options);
+      // 每个请求最多55秒（Vercel Hobby上限60秒，留5秒余量）
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 55000);
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
       return response;
     } catch (err: any) {
       lastError = err;
+      if (err.name === 'AbortError') {
+        throw new Error('请求超时，请重试');
+      }
       if (err.message?.includes("Failed to fetch") && attempt < maxRetries) {
-        // 网络错误，等1-3秒后重试
         await new Promise(r => setTimeout(r, 1000 * attempt));
         continue;
       }
@@ -706,7 +715,7 @@ export default function AdminPage() {
       if (!storyData.success) throw new Error(storyData.message || "故事生成失败");
       if (cancelRef.current) return;
 
-      const storyPages = storyData.story.pages;
+      let storyPages = storyData.story.pages;
       const storyTitle = storyData.story.title;
       setGenerationProgress(20);
       setGenerationStep("generating_images");
@@ -1438,17 +1447,27 @@ export default function AdminPage() {
               ))}
             </div>
             
-            {generationStep === "failed" && generationError && (
+            {generationError && (
               <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-700">❌ {generationError}</p>
+                <button
+                  onClick={() => { clearStuckState(); }}
+                  className="mt-2 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
+                >
+                  重新开始
+                </button>
               </div>
             )}
             
-            {generationStep === "completed" && (
-              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-700 font-medium">✅ 绘本生成完成！绘本预览正在加载...</p>
-              </div>
-            )}
+            {/* 取消生成按钮 - 始终可见 */}
+            <div className="mt-4">
+              <button
+                onClick={cancelGeneration}
+                className="w-full py-3 bg-red-500 text-white rounded-xl font-bold text-base hover:bg-red-600 transition-colors shadow-md"
+              >
+                🛑 取消生成
+              </button>
+            </div>
           </div>
         )}
 
