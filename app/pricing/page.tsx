@@ -15,8 +15,8 @@ const PLANS = [
     features: [
       "全风格5种",
       "角色外观定制",
-      "AI朗读",
-      "PDF下载+分享图",
+      "高清PDF下载",
+      "分享图",
     ],
     included: [true, true, true, true],
     buttonText: "立即购买",

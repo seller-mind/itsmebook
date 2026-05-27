@@ -607,7 +607,7 @@ export default function StoryPlayer({
             <div className="text-4xl mb-3">🔒</div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">解锁完整绘本</h3>
             <p className="text-sm text-gray-500 mb-4">
-              前2页免费预览，解锁后可查看全部{pages.length}页精美插图+AI朗读
+              前2页免费预览，解锁后可查看全部{pages.length}页精美插图
             </p>
             <button
               onClick={() => { if (typeof window !== "undefined") window.location.href = "/pricing"; }}
@@ -615,7 +615,7 @@ export default function StoryPlayer({
             >
               立即解锁 ¥29.9
             </button>
-            <p className="text-xs text-gray-400 mt-2">单本绘本 · 全风格+外观定制+AI朗读</p>
+            <p className="text-xs text-gray-400 mt-2">单本绘本 · 全风格+外观定制</p>
           </div>
         </div>
       )}
