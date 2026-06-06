@@ -1,23 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// 中间件：拦截未登录用户访问/create
-// 通过cookie检查登录状态（登录时同步写入cookie）
+// Site-wide password protection (private use only)
+// Accessible from China - password-protected for owner's personal use only
+const SITE_PASSWORD = process.env.SITE_PASSWORD || 'itsmebook2026'
+
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (pathname === '/create' || pathname.startsWith('/create/')) {
-    const token = request.cookies.get('itsmebook_token')?.value
-    
-    if (!token) {
-      const signInUrl = new URL('/sign-in', request.url)
-      signInUrl.searchParams.set('redirect_url', pathname)
-      return NextResponse.redirect(signInUrl)
-    }
+  // Allow these paths without password
+  const publicPaths = ['/login', '/api/auth/site-login']
+  if (publicPaths.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+    return NextResponse.next()
   }
 
-  return NextResponse.next()
+  // Allow static assets
+  if (
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/favicon') ||
+    pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?)$/)
+  ) {
+    return NextResponse.next()
+  }
+
+  // Check password cookie
+  const authCookie = request.cookies.get('itsmebook_auth')?.value
+  
+  if (authCookie === SITE_PASSWORD) {
+    return NextResponse.next()
+  }
+
+  // Redirect to login
+  const loginUrl = new URL('/login', request.url)
+  return NextResponse.redirect(loginUrl)
 }
 
 export const config = {
-  matcher: ['/create/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }
